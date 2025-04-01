@@ -113,7 +113,7 @@ export default function LandingPage() {
               between our AI-powered builder or pre-designed templates.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link href="/ai-builder">
+              <Link href="/create/ai">
                 <Button className="bg-gradient-to-r from-purple-500 to-purple-700 text-white hover:from-purple-600 hover:to-purple-800 px-8 py-6 text-lg">
                   AI Website Builder
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -367,7 +367,7 @@ export default function LandingPage() {
               Get started today and create a stunning website in minutes
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/ai-builder">
+              <Link href="/create/ai">
                 <Button className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-6 text-lg">
                   Start with AI Builder
                   <ArrowRight className="ml-2 h-5 w-5" />
