@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Search, Filter, ArrowRight } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Search, Filter, ArrowRight } from "lucide-react";
 
 export default function TemplatesPage() {
-  const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState("")
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Mock template data
   const templates = [
@@ -77,7 +77,7 @@ export default function TemplatesPage() {
       image: "/placeholder.svg?height=600&width=450&text=Landing%20Page",
       isPremium: false,
     },
-  ]
+  ];
 
   const categories = [
     "All",
@@ -89,25 +89,26 @@ export default function TemplatesPage() {
     "Fitness",
     "Agency",
     "Marketing",
-  ]
-  const [activeCategory, setActiveCategory] = useState("All")
+  ];
+  const [activeCategory, setActiveCategory] = useState("All");
 
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch =
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.category.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = activeCategory === "All" || template.category === activeCategory
+      template.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      activeCategory === "All" || template.category === activeCategory;
 
-    return matchesSearch && matchesCategory
-  })
+    return matchesSearch && matchesCategory;
+  });
 
   const handleSelectTemplate = (templateId: number) => {
     // In a real implementation, you would store the selected template ID
-    localStorage.setItem("selected_template_id", templateId.toString())
+    localStorage.setItem("selected_template_id", templateId.toString());
 
     // Redirect to the editor
-    router.push("/editor")
-  }
+    router.push("/website/editor");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -126,7 +127,9 @@ export default function TemplatesPage() {
       <main className="flex-grow container mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Website Templates</h1>
-          <p className="text-xl text-gray-600">Choose from our collection of professionally designed templates</p>
+          <p className="text-xl text-gray-600">
+            Choose from our collection of professionally designed templates
+          </p>
         </div>
 
         <div className="flex flex-col md:flex-row gap-6 mb-8">
@@ -167,7 +170,12 @@ export default function TemplatesPage() {
           {filteredTemplates.map((template) => (
             <Card key={template.id} className="overflow-hidden group">
               <div className="aspect-[3/4] relative">
-                <Image src={template.image || "/placeholder.svg"} alt={template.name} fill className="object-cover" />
+                <Image
+                  src={template.image || "/placeholder.svg"}
+                  alt={template.name}
+                  fill
+                  className="object-cover"
+                />
                 {template.isPremium && (
                   <div className="absolute top-4 right-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full">
                     Premium
@@ -204,12 +212,14 @@ export default function TemplatesPage() {
 
         {filteredTemplates.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No templates found matching your search criteria.</p>
+            <p className="text-gray-500 mb-4">
+              No templates found matching your search criteria.
+            </p>
             <Button
               variant="outline"
               onClick={() => {
-                setSearchQuery("")
-                setActiveCategory("All")
+                setSearchQuery("");
+                setActiveCategory("All");
               }}
             >
               Clear Filters
@@ -224,6 +234,5 @@ export default function TemplatesPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
-

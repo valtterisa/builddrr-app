@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, Check } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft, Check } from "lucide-react";
 
 const templates = [
   {
@@ -50,23 +50,23 @@ const templates = [
     image: "/placeholder.svg?height=400&width=600",
     tags: ["E-commerce", "Products", "Store"],
   },
-]
+];
 
 export default function TemplatesPage() {
-  const router = useRouter()
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const router = useRouter();
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const handleSelectTemplate = (templateId: string) => {
-    setSelectedTemplate(templateId)
-  }
+    setSelectedTemplate(templateId);
+  };
 
   const handleContinue = () => {
     if (selectedTemplate) {
       // Store the selected template in localStorage
-      localStorage.setItem("selectedTemplate", selectedTemplate)
-      router.push("/editor")
+      localStorage.setItem("selectedTemplate", selectedTemplate);
+      router.push("/website/editor");
     }
-  }
+  };
 
   return (
     <div className="container py-10 px-4 md:px-6">
@@ -87,7 +87,9 @@ export default function TemplatesPage() {
           <Card
             key={template.id}
             className={`overflow-hidden cursor-pointer transition-all ${
-              selectedTemplate === template.id ? "ring-2 ring-primary" : "hover:shadow-md"
+              selectedTemplate === template.id
+                ? "ring-2 ring-primary"
+                : "hover:shadow-md"
             }`}
             onClick={() => handleSelectTemplate(template.id)}
           >
@@ -107,10 +109,15 @@ export default function TemplatesPage() {
             </div>
             <CardContent className="p-4">
               <h3 className="font-semibold text-lg">{template.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{template.description}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {template.description}
+              </p>
               <div className="flex flex-wrap gap-2 mt-3">
                 {template.tags.map((tag) => (
-                  <span key={tag} className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
+                  <span
+                    key={tag}
+                    className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full"
+                  >
                     {tag}
                   </span>
                 ))}
@@ -121,11 +128,14 @@ export default function TemplatesPage() {
       </div>
 
       <div className="mt-8 flex justify-end">
-        <Button onClick={handleContinue} disabled={!selectedTemplate} className="px-6">
+        <Button
+          onClick={handleContinue}
+          disabled={!selectedTemplate}
+          className="px-6"
+        >
           Continue to Editor
         </Button>
       </div>
     </div>
-  )
+  );
 }
-

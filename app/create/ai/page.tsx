@@ -572,7 +572,7 @@ export default function AICreatePage() {
       localStorage.setItem("websiteData", JSON.stringify(websiteData));
 
       // Navigate to editor
-      router.push("/editor");
+      router.push("/website/editor");
     } catch (error: any) {
       toast({
         title: "Error",

@@ -15,7 +15,7 @@ export async function middleware(req: NextRequest) {
     // // Check if the request is for a protected route
     // const isProtectedRoute =
     //   req.nextUrl.pathname.startsWith("/dashboard") ||
-    //   req.nextUrl.pathname.startsWith("/editor") ||
+    //   req.nextUrl.pathname.startsWith("/website/editor") ||
     //   req.nextUrl.pathname.startsWith("/preview")
 
     // // Check if the request is for an auth route
@@ -48,7 +48,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/editor/:path*",
+    "/website/editor/:path*",
     "/preview/:path*",
     "/login",
     "/signup",
