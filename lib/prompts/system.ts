@@ -35,7 +35,7 @@ import { FieldLabel } from "@measured/puck";
 export function Hero({ title, subtitle, backgroundImage }) {
   return (
     <div
-      className="bg-cover bg-center text-black text-center py-20 px-4"
+      className="bg-cover bg-center text-black text-center py-8 px-4"
       style={{ backgroundImage: \`url(\${backgroundImage})\` }}
     >
       <h1 className="text-4xl font-bold mb-4">{title}</h1>

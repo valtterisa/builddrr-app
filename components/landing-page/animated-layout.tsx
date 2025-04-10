@@ -125,11 +125,10 @@ export function AnimatedLayout() {
       {/* Main Content */}
       <main className="pt-16">
         <HeroSection />
+        <DemoVideo />
         <ValueProposition />
         <StepsSection />
         <TemplatesCTA />
-        <AIBuilderCTA />
-        <DemoVideo />
         <PricingSection />
         <FinalCTA />
       </main>

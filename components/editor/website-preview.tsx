@@ -639,7 +639,7 @@ export function WebsitePreview({
             </header>
 
             <main>
-              <section class="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-20">
+              <section class="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-8">
                 <div class="container mx-auto px-4 text-center">
                   <h1 class="text-4xl md:text-6xl font-bold mb-6" ${
                     !isPreviewMode ? "contenteditable" : ""

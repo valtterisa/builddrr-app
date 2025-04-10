@@ -641,7 +641,7 @@ export default function AICreatePage() {
             <span className="font-bold text-xl">SiteForge</span>
           </div>
         </header>
-        <main className="container mx-auto px-4 py-20 flex flex-col items-center">
+        <main className="container mx-auto px-4 py-8 flex flex-col items-center">
           <h1 className="text-3xl font-bold mb-6">Choose Your Funnel</h1>
           <p className="text-gray-600 mb-10 text-center">
             Would you like to use our quick one-prompt funnel or customize your
@@ -680,7 +680,7 @@ export default function AICreatePage() {
             <span className="font-bold text-xl">SiteForge</span>
           </div>
         </header>
-        <main className="container mx-auto px-4 py-20">
+        <main className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-4">Quick Website Creation</h1>
           <p className="text-gray-600 mb-6">
             Describe your business and what you need in one prompt.

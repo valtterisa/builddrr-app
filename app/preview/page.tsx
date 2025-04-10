@@ -54,7 +54,7 @@ export default function PreviewPage() {
 
       <main>
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-20">
+        <section className="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-8">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Welcome to Our Website

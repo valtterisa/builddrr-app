@@ -38,7 +38,7 @@ const benefits = [
 
 export function ValueProposition() {
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-purple-50">
+    <section className="py-8 bg-gradient-to-b from-white to-purple-50">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -73,33 +73,6 @@ export function ValueProposition() {
             </motion.div>
           ))}
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-16 text-center"
-        >
-          <div className="inline-flex items-center gap-4 bg-white/50 backdrop-blur-sm px-8 py-4 rounded-full shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">
-                Trusted by 10,000+ businesses
-              </span>
-            </div>
-            <div className="h-4 w-px bg-gray-200" />
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm font-medium">4.9/5 average rating</span>
-            </div>
-            <div className="h-4 w-px bg-gray-200" />
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-sm font-medium">99.9% uptime</span>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </section>
   );

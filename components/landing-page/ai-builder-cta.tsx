@@ -34,7 +34,7 @@ export function AIBuilderCTA() {
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-purple-50">
+    <section className="py-8 bg-gradient-to-b from-white to-purple-50">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
           <motion.div

@@ -66,7 +66,7 @@ export function PricingSection() {
   );
 
   return (
-    <section className="py-20 bg-gradient-to-b from-purple-50 to-white">
+    <section className="py-8 bg-gradient-to-b from-purple-50 to-white">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -82,10 +82,10 @@ export function PricingSection() {
             Choose the perfect plan for your needs. All plans include a 14-day
             free trial.
           </p>
-          <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm">
+          <div className="inline-flex items-center bg-white rounded-full shadow-sm">
             <button
               onClick={() => setBillingCycle("monthly")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`w-1/2 h-16 px-6 py-2 rounded-full text-sm font-medium transition-colors ${
                 billingCycle === "monthly"
                   ? "bg-purple-600 text-white"
                   : "text-gray-600 hover:text-purple-600"
@@ -95,7 +95,7 @@ export function PricingSection() {
             </button>
             <button
               onClick={() => setBillingCycle("yearly")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={` w-1/2 h-16 px-6 py-2 rounded-full text-sm font-medium transition-colors ${
                 billingCycle === "yearly"
                   ? "bg-purple-600 text-white"
                   : "text-gray-600 hover:text-purple-600"

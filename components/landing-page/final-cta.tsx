@@ -9,7 +9,7 @@ export function FinalCTA() {
   const router = useRouter();
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-purple-50">
+    <section className="py-8 bg-gradient-to-b from-white to-purple-50">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -27,10 +27,10 @@ export function FinalCTA() {
             Or talk to our founder directly if you have any questions.
           </p>
 
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 w-full md:w-auto">
             <Button
               size="lg"
-              className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 px-6 md:px-8 py-6 text-lg"
+              className="w-full h-14 flex items-center justify-center bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 px-6 md:px-8 text-lg"
               onClick={() => router.push("/create")}
             >
               Start Building Now
@@ -40,7 +40,7 @@ export function FinalCTA() {
             <Button
               variant="outline"
               size="lg"
-              className="w-full md:w-auto border-purple-600 text-purple-600 hover:bg-purple-50 px-6 md:px-8 py-6 text-lg"
+              className="w-full h-14 flex items-center justify-center border-purple-600 text-purple-600 hover:bg-purple-50 px-6 md:px-8 text-lg"
               onClick={() => router.push("/contact")}
             >
               <MessageCircle className="mr-2 h-5 w-5" />

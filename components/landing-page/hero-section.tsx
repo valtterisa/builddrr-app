@@ -19,7 +19,7 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative py-20 md:py-32 overflow-hidden">
+    <section className="relative py-8 md:py-32 overflow-hidden">
       <div className="container w-full mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
           <motion.h1
@@ -68,25 +68,21 @@ export function HeroSection() {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           viewport={{ once: true }}
-          className="mt-8 w-full justify-center items-center"
+          className="mt-12 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 bg-white/50 backdrop-blur-sm px-4 md:px-8 py-4 rounded-2xl md:rounded-full shadow-sm w-fit mx-auto"
         >
-          <div className="flex flex-col md:flex-row items-center gap-4 bg-white/50 backdrop-blur-sm rounded-full shadow-lg px-8 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">
-                No credit card required
-              </span>
-            </div>
-            <div className="h-4 w-px bg-gray-200" />
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm font-medium">14-day free trial</span>
-            </div>
-            <div className="h-4 w-px bg-gray-200" />
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-sm font-medium">Cancel anytime</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500" />
+            <span className="text-sm font-medium">No credit card required</span>
+          </div>
+          <div className="hidden md:block h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-blue-500" />
+            <span className="text-sm font-medium">14-day free trial</span>
+          </div>
+          <div className="hidden md:block h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-purple-500" />
+            <span className="text-sm font-medium">Cancel anytime</span>
           </div>
         </motion.div>
       </div>
