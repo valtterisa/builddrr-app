@@ -1,271 +1,246 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, ComputerIcon as Desktop, Smartphone, Tablet, Save, Menu } from "lucide-react"
-import { AuthModal } from "@/components/auth-modal"
-import { WebsitePreview } from "@/components/website-preview"
-import { SectionReorder, type Section } from "@/components/section-reorder"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { useEffect, useState } from "react";
+import { VirtualFileSystem } from "@/lib/virtual-fs";
 
 export default function PreviewPage() {
-  const router = useRouter()
-  const [websiteData, setWebsiteData] = useState<any>(null)
-  const [viewMode, setViewMode] = useState("desktop")
-  const [showAuthModal, setShowAuthModal] = useState(false)
-  const [showPublishDialog, setShowPublishDialog] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sections, setSections] = useState<Section[]>([])
+  const [content, setContent] = useState<string>("");
+  const vfs = VirtualFileSystem.getInstance();
 
   useEffect(() => {
-    // Get website data from localStorage
-    const data = localStorage.getItem("websiteData")
-    if (data) {
-      const parsedData = JSON.parse(data)
-      // Ensure plan is set (default to starter if not present)
-      if (!parsedData.plan) {
-        parsedData.plan = "starter"
-      }
-      setWebsiteData(parsedData)
-
-      // Initialize sections if not already in the data
-      if (!parsedData.sections) {
-        const defaultSections: Section[] = [
-          { id: "hero", name: "Hero Section", visible: true, type: "hero" },
-          { id: "about", name: "About Us", visible: true, type: "about" },
-          { id: "services", name: "Services/Products", visible: true, type: "services" },
-          { id: "gallery", name: "Gallery", visible: true, type: "gallery" },
-          { id: "testimonials", name: "Testimonials", visible: true, type: "testimonials" },
-          { id: "contact", name: "Contact Form", visible: true, type: "contact" },
-        ]
-        setSections(defaultSections)
-      } else {
-        setSections(parsedData.sections)
-      }
-    } else {
-      // If no data, redirect to home
-      router.push("/")
+    vfs.loadFromLocalStorage();
+    const file = vfs.getFile("/app/page.tsx");
+    if (file) {
+      setContent(file.content);
     }
-
-    // Check if user is authenticated (in a real app, this would check with your auth provider)
-    const checkAuth = localStorage.getItem("isAuthenticated") === "true"
-    setIsAuthenticated(checkAuth)
-  }, [router])
-
-  const handleSectionReorder = (updatedSections: Section[]) => {
-    setSections(updatedSections)
-
-    // Update websiteData with the new sections
-    if (websiteData) {
-      const updatedData = {
-        ...websiteData,
-        sections: updatedSections,
-      }
-      setWebsiteData(updatedData)
-
-      // Save to localStorage
-      localStorage.setItem("websiteData", JSON.stringify(updatedData))
-    }
-  }
-
-  const handlePublish = () => {
-    if (isAuthenticated) {
-      setShowPublishDialog(true)
-    } else {
-      setShowAuthModal(true)
-    }
-  }
-
-  const handleAuthSuccess = () => {
-    // In a real app, this would be handled by your auth provider
-    localStorage.setItem("isAuthenticated", "true")
-    setIsAuthenticated(true)
-    setShowAuthModal(false)
-    setShowPublishDialog(true)
-  }
-
-  const handleConfirmPublish = () => {
-    // In a real app, this would send the website data to your backend for publishing
-    setTimeout(() => {
-      setShowPublishDialog(false)
-      router.push("/dashboard")
-    }, 1000)
-  }
-
-  const handleUpgradeClick = () => {
-    router.push("/upgrade")
-  }
-
-  if (!websiteData) {
-    return <div className="container py-10 px-4 md:px-6">Loading...</div>
-  }
+  }, []);
 
   return (
-    <div className="flex flex-col h-screen">
-      <header className="border-b">
-        <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-            <div>
-              <h1 className="font-semibold">Preview</h1>
-              {websiteData && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  {websiteData.plan === "starter" ? "Starter" : websiteData.plan === "pro" ? "Pro" : "Enterprise"}
-                </span>
-              )}
-            </div>
+    <div className="min-h-screen bg-white">
+      <header className="bg-white shadow-sm">
+        <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="text-2xl font-bold text-blue-600">Logo</div>
+          <div className="hidden md:flex space-x-8">
+            <a href="#" className="text-gray-600 hover:text-blue-600">
+              Home
+            </a>
+            <a href="#" className="text-gray-600 hover:text-blue-600">
+              About
+            </a>
+            <a href="#" className="text-gray-600 hover:text-blue-600">
+              Services
+            </a>
+            <a href="#" className="text-gray-600 hover:text-blue-600">
+              Contact
+            </a>
           </div>
-
-          {/* Desktop Controls */}
-          <div className="hidden md:flex items-center gap-4">
-            <Tabs value={viewMode} onValueChange={setViewMode}>
-              <TabsList>
-                <TabsTrigger value="mobile">
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Mobile
-                </TabsTrigger>
-                <TabsTrigger value="tablet">
-                  <Tablet className="h-4 w-4 mr-2" />
-                  Tablet
-                </TabsTrigger>
-                <TabsTrigger value="desktop">
-                  <Desktop className="h-4 w-4 mr-2" />
-                  Desktop
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <SectionReorder
-              onReorder={handleSectionReorder}
-              currentPlan={websiteData.plan}
-              onUpgradeClick={handleUpgradeClick}
-            />
-            <div className="flex items-center gap-2">
-              {websiteData && websiteData.plan === "starter" && (
-                <Button variant="outline" onClick={handleUpgradeClick}>
-                  Upgrade Plan
-                </Button>
-              )}
-              <Button onClick={handlePublish}>
-                <Save className="mr-2 h-4 w-4" />
-                Publish Website
-              </Button>
-            </div>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[80%] sm:w-[385px]">
-                <div className="flex flex-col gap-4 py-4">
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">View Mode</h3>
-                    <Tabs value={viewMode} onValueChange={setViewMode} className="w-full">
-                      <TabsList className="grid grid-cols-3 w-full">
-                        <TabsTrigger value="mobile">
-                          <Smartphone className="h-4 w-4 mr-2" />
-                          Mobile
-                        </TabsTrigger>
-                        <TabsTrigger value="tablet">
-                          <Tablet className="h-4 w-4 mr-2" />
-                          Tablet
-                        </TabsTrigger>
-                        <TabsTrigger value="desktop">
-                          <Desktop className="h-4 w-4 mr-2" />
-                          Desktop
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Arrange Sections</h3>
-                    <SectionReorder
-                      onReorder={handleSectionReorder}
-                      currentPlan={websiteData.plan}
-                      onUpgradeClick={handleUpgradeClick}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Actions</h3>
-                    <div className="flex flex-col gap-2">
-                      {websiteData && websiteData.plan === "starter" && (
-                        <Button variant="outline" onClick={handleUpgradeClick} className="w-full">
-                          Upgrade Plan
-                        </Button>
-                      )}
-                      <Button onClick={handlePublish} className="w-full">
-                        <Save className="mr-2 h-4 w-4" />
-                        Publish Website
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
+          <button className="md:hidden text-gray-600">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              ></path>
+            </svg>
+          </button>
+        </nav>
       </header>
 
-      <main className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
-        <div
-          className={`mx-auto my-6 transition-all duration-300 bg-white dark:bg-gray-800 shadow-md ${
-            viewMode === "mobile" ? "max-w-[375px]" : viewMode === "tablet" ? "max-w-[768px]" : "max-w-[1200px]"
-          }`}
-        >
-          <WebsitePreview data={{ ...websiteData, sections }} />
-        </div>
+      <main>
+        {/* Hero Section */}
+        <section className="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-20">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              Welcome to Our Website
+            </h1>
+            <p className="text-xl mb-8 max-w-2xl mx-auto">
+              We create beautiful and functional websites that help businesses
+              grow online.
+            </p>
+            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+              Get Started
+            </button>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              Our Services
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    ></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Web Design</h3>
+                <p className="text-gray-600">
+                  Create stunning websites that convert visitors into customers.
+                </p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    ></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">
+                  Digital Marketing
+                </h3>
+                <p className="text-gray-600">
+                  Reach your target audience and grow your business online.
+                </p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                    ></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">SEO Optimization</h3>
+                <p className="text-gray-600">
+                  Improve your search rankings and get more organic traffic.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-16 bg-blue-600 text-white">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl font-bold mb-6">Ready to Get Started?</h2>
+            <p className="text-xl mb-8 max-w-2xl mx-auto">
+              Let's work together to create something amazing for your business.
+            </p>
+            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+              Contact Us
+            </button>
+          </div>
+        </section>
       </main>
 
-      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
-
-      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Publish Your Website</DialogTitle>
-            <DialogDescription>
-              Your website is ready to be published. Once published, it will be live and accessible to everyone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm">
-              Website Name: <span className="font-medium">{websiteData.businessName}</span>
-            </p>
-            <p className="text-sm mt-2">
-              Your website will be available at:
-              <span className="font-medium block mt-1 text-primary break-all">
-                https://siteforge.app/{websiteData.businessName.toLowerCase().replace(/\s+/g, "-")}
-              </span>
-            </p>
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <h3 className="text-xl font-bold mb-4">About Us</h3>
+              <p className="text-gray-400">
+                We are a team of passionate developers and designers creating
+                beautiful websites.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white">
+                    Home
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white">
+                    About
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white">
+                    Services
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white">
+                    Contact
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-4">Contact</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li>123 Business Street</li>
+                <li>City, State 12345</li>
+                <li>info@example.com</li>
+                <li>(123) 456-7890</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-4">Follow Us</h3>
+              <div className="flex space-x-4">
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmPublish}>Publish Now</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="mt-8 pt-8 border-t border-gray-800 text-center text-gray-400">
+            <p>&copy; 2024 Your Company. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
-  )
+  );
 }
-

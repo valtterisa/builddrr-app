@@ -63,6 +63,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { WebsitePreview } from "./website-preview";
+import { FileTracker } from "@/lib/file-tracker";
+import { VirtualFileSystem } from "@/lib/virtual-fs";
 
 type ViewportSize = "desktop" | "tablet" | "mobile";
 type EditModeType = "text" | "color" | "image" | "hover-color" | null;
@@ -94,11 +97,43 @@ interface ProjectData {
 // Add to the EditableField interface
 interface EditableField {
   element: HTMLElement;
-  type: "text" | "color" | "image" | "button"; // Add "button" type
+  type: "text" | "color" | "image" | "button";
   id: string;
   label: string;
   value: string;
-  hoverState?: ButtonHoverState; // Add optional hover state
+  hoverState?: ButtonHoverState;
+}
+
+const predefinedColors = [
+  { name: "Primary", value: "#3b82f6" },
+  { name: "Secondary", value: "#6b7280" },
+  { name: "Success", value: "#10b981" },
+  { name: "Danger", value: "#ef4444" },
+  { name: "Warning", value: "#f59e0b" },
+  { name: "Info", value: "#3b82f6" },
+  { name: "Dark", value: "#1f2937" },
+  { name: "Light", value: "#f3f4f6" },
+];
+
+interface EditOptions {
+  textColor?: string;
+  backgroundColor?: string;
+  fontSize?: string;
+  fontFamily?: string;
+  fontWeight?: string;
+  textAlign?: string;
+  padding?: string;
+  margin?: string;
+  borderRadius?: string;
+  borderColor?: string;
+  hoverColor?: string;
+  url?: string;
+  src?: string;
+  alt?: string;
+  customClasses?: string;
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderlined?: boolean;
 }
 
 // Create a simplified version first to ensure exports work correctly
@@ -119,13 +154,16 @@ export function WebsiteEditor() {
   const [componentEdits, setComponentEdits] = useState<ComponentEdit[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [elementText, setElementText] = useState("");
+  const [currentFile, setCurrentFile] = useState<string>("/index.html");
+  const vfs = VirtualFileSystem.getInstance();
+  const fileTracker = FileTracker.getInstance();
 
   // Update the editableFields state to include buttons
   const [editableFields, setEditableFields] = useState<{
     text: EditableField[];
     color: EditableField[];
     image: EditableField[];
-    button: EditableField[]; // Add button array
+    button: EditableField[];
   }>({
     text: [],
     color: [],
@@ -135,6 +173,13 @@ export function WebsiteEditor() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const isMobile = useMobile();
   const observerRef = useRef<MutationObserver | null>(null);
+  const [editOptions, setEditOptions] = useState<EditOptions>({});
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+  // Initialize virtual file system
+  useEffect(() => {
+    vfs.loadFromLocalStorage();
+  }, []);
 
   // Add this function to the component to force a refresh of editable elements
   const refreshEditableElements = () => {
@@ -686,26 +731,80 @@ export function WebsiteEditor() {
   };
 
   // Save project data
-  const saveProject = () => {
-    const projectData: ProjectData = {
-      components,
-      edits: componentEdits,
-      lastSaved: Date.now(),
+  const saveProject = async () => {
+    try {
+      // Get all changes from the file tracker
+      const changes = fileTracker.getChanges();
+
+      // Save to backend
+      const response = await fetch("/api/save-changes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          changes,
+          currentFile,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save changes");
+      }
+
+      // Clear changes after successful save
+      fileTracker.clearChanges();
+      vfs.saveToLocalStorage();
+
+      // Also save as downloadable file
+      const projectData = {
+        files: vfs.listDirectory("/").files,
+        lastSaved: Date.now(),
+      };
+
+      const projectJson = JSON.stringify(projectData);
+      const blob = new Blob([projectJson], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "website-project.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error saving project:", error);
+    }
+  };
+
+  // Load project data
+  const loadProject = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const projectData = JSON.parse(e.target?.result as string);
+        // Clear existing files
+        vfs.listDirectory("/").files.forEach((f) => vfs.deleteFile(f.path));
+        // Add new files
+        projectData.files.forEach((f: any) => {
+          vfs.createFile(f.path, f.content, f.type);
+        });
+        vfs.saveToLocalStorage();
+        refreshEditableElements();
+      } catch (error) {
+        console.error("Error loading project:", error);
+      }
     };
+    reader.readAsText(file);
+  };
 
-    // Convert to JSON
-    const projectJson = JSON.stringify(projectData);
-
-    // Create a blob and download link
-    const blob = new Blob([projectJson], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "website-project.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // Handle content changes from the preview
+  const handleContentChange = (content: string) => {
+    vfs.updateFile(currentFile, content);
+    vfs.saveToLocalStorage();
   };
 
   // Initialize history when components change
@@ -933,7 +1032,7 @@ export function WebsiteEditor() {
         </div>
 
         {/* Project Save/Load */}
-        {/* <div className="mt-4 pt-4 border-t">
+        <div className="mt-4 pt-4 border-t">
           <div className="flex space-x-2">
             <Button variant="outline" className="flex-1" onClick={saveProject}>
               <Download className="h-4 w-4 mr-2" />
@@ -946,13 +1045,13 @@ export function WebsiteEditor() {
                 onChange={loadProject}
                 className="hidden"
               />
-              <Button variant="outline" className="w-full" as="span">
+              <Button variant="outline" className="w-full">
                 <Upload className="h-4 w-4 mr-2" />
                 Load
               </Button>
             </label>
           </div>
-        </div> */}
+        </div>
       </div>
     );
 
@@ -1221,223 +1320,302 @@ export function WebsiteEditor() {
 
   // Render the edit panel sidebar
   const renderEditPanelSidebar = () => {
-    const content = (
-      <Tabs defaultValue="edit">
-        <TabsList className="w-full">
-          <TabsTrigger value="edit" className="flex-1">
-            <Layers className="h-4 w-4 mr-2" />
-            Edit
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex-1">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+    if (!selectedElement) return null;
 
-        <TabsContent value="edit" className="mt-4">
-          {selectedComponentIndex !== null ? (
-            <div>
-              <h3 className="text-lg font-medium mb-4">
-                Edit {components[selectedComponentIndex].name}
-              </h3>
+    return (
+      <div className="w-80 bg-white border-l border-gray-200 shadow-lg">
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Edit Element</h2>
+        </div>
 
-              {selectedElement && editMode === "color" ? (
-                <ColorPicker
-                  element={selectedElement}
-                  onUpdate={() => {
-                    // Clone components to trigger re-render
-                    setComponents([...components]);
-                    addToHistory([...components]);
-                    scanComponentForEditableFields();
-                    // Reset edit mode to close the color picker
-                    setEditMode(null);
-                  }}
-                  isHoverState={false}
-                />
-              ) : selectedElement && editMode === "hover-color" ? (
-                <ColorPicker
-                  element={selectedElement}
-                  onUpdate={() => {
-                    // Clone components to trigger re-render
-                    setComponents([...components]);
-                    addToHistory([...components]);
-                    scanComponentForEditableFields();
-                    // Reset edit mode to close the color picker
-                    setEditMode(null);
-                  }}
-                  isHoverState={true}
-                />
-              ) : selectedElement && editMode === "image" ? (
-                <ImageEditor
-                  element={selectedElement as HTMLImageElement}
-                  onUpdate={() => {
-                    // Clone components to trigger re-render
-                    setComponents([...components]);
-                    addToHistory([...components]);
-                    scanComponentForEditableFields();
-                    // Reset edit mode to close the image editor
-                    setEditMode(null);
-                  }}
-                />
-              ) : (
-                <ScrollArea className="h-[calc(100vh-250px)]">
-                  <div className="space-y-4">
-                    <Accordion
-                      type="multiple"
-                      defaultValue={["text", "image", "color", "button"]}
-                    >
-                      {editableFields.text.length > 0 && (
-                        <AccordionItem value="text">
-                          <AccordionTrigger className="py-2">
-                            <div className="flex items-center">
-                              <Type className="h-4 w-4 mr-2" />
-                              <span>
-                                Text Elements ({editableFields.text.length})
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            {editableFields.text.map((field) =>
-                              renderTextFieldEditor(field)
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      )}
-
-                      {editableFields.image.length > 0 && (
-                        <AccordionItem value="image">
-                          <AccordionTrigger className="py-2">
-                            <div className="flex items-center">
-                              <Image className="h-4 w-4 mr-2" />
-                              <span>
-                                Images ({editableFields.image.length})
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            {editableFields.image.map((field) =>
-                              renderImageFieldEditor(field)
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      )}
-
-                      {editableFields.color.length > 0 && (
-                        <AccordionItem value="color">
-                          <AccordionTrigger className="py-2">
-                            <div className="flex items-center">
-                              <PaintBucket className="h-4 w-4 mr-2" />
-                              <span>
-                                Colors ({editableFields.color.length})
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            {editableFields.color.map((field) =>
-                              renderColorFieldEditor(field)
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      )}
-
-                      {editableFields.button.length > 0 && (
-                        <AccordionItem value="button">
-                          <AccordionTrigger className="py-2">
-                            <div className="flex items-center">
-                              <ButtonIcon className="h-4 w-4 mr-2" />
-                              <span>
-                                Buttons ({editableFields.button.length})
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            {editableFields.button.map((field) =>
-                              renderButtonFieldEditor(field)
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      )}
-                    </Accordion>
-
-                    {editableFields.text.length === 0 &&
-                      editableFields.image.length === 0 &&
-                      editableFields.color.length === 0 &&
-                      editableFields.button.length === 0 && (
-                        <div className="p-4 bg-muted/30 rounded-md text-center mb-4">
-                          <p className="text-sm font-medium mb-2">
-                            Double-click on text to edit directly on the page
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Or use the editors below to make changes
-                          </p>
-                        </div>
-                      )}
-                  </div>
-                </ScrollArea>
-              )}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">Select a component to edit.</p>
-          )}
-        </TabsContent>
-
-        <TabsContent value="settings" className="mt-4">
-          <h3 className="text-lg font-medium mb-4">Page Settings</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Page Title
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded-md"
-                placeholder="My Website"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Meta Description
-              </label>
-              <textarea
-                className="w-full p-2 border rounded-md"
-                rows={3}
-                placeholder="Enter a description for search engines"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Favicon</label>
-              <div className="flex items-center space-x-2">
-                <div className="h-10 w-10 border rounded-md flex items-center justify-center bg-muted">
-                  <img
-                    src="/placeholder.svg?height=40&width=40"
-                    alt="Favicon"
-                  />
-                </div>
-                <Button variant="outline" size="sm">
-                  Upload
-                </Button>
-              </div>
+        <div className="p-4 space-y-4">
+          {/* Text Formatting */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Text Formatting
+            </label>
+            <div className="flex space-x-2">
+              <button
+                onClick={() =>
+                  handleOptionChange("isBold", !editOptions.isBold)
+                }
+                className={`p-2 rounded-md hover:bg-gray-100 ${
+                  editOptions.isBold
+                    ? "bg-gray-100 text-blue-600"
+                    : "text-gray-600"
+                }`}
+                title="Bold"
+              >
+                <Bold className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() =>
+                  handleOptionChange("isItalic", !editOptions.isItalic)
+                }
+                className={`p-2 rounded-md hover:bg-gray-100 ${
+                  editOptions.isItalic
+                    ? "bg-gray-100 text-blue-600"
+                    : "text-gray-600"
+                }`}
+                title="Italic"
+              >
+                <Italic className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() =>
+                  handleOptionChange("isUnderlined", !editOptions.isUnderlined)
+                }
+                className={`p-2 rounded-md hover:bg-gray-100 ${
+                  editOptions.isUnderlined
+                    ? "bg-gray-100 text-blue-600"
+                    : "text-gray-600"
+                }`}
+                title="Underline"
+              >
+                <Underline className="w-5 h-5" />
+              </button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
-    );
 
-    return isMobile ? (
-      <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
-        <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-          {content}
-        </SheetContent>
-      </Sheet>
-    ) : (
-      <div
-        className={`border-l bg-muted/20 p-4 ${
-          rightSidebarOpen ? "w-80" : "w-0 overflow-hidden"
-        }`}
-      >
-        {content}
+          {/* Text Color */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Text Color
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {predefinedColors.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => handleOptionChange("textColor", color.value)}
+                  className={`w-6 h-6 rounded-full border-2 ${
+                    editOptions.textColor === color.value
+                      ? "border-blue-500 ring-2 ring-blue-200"
+                      : "border-gray-200"
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                  title={color.name}
+                />
+              ))}
+              <input
+                type="color"
+                value={editOptions.textColor || "#000000"}
+                onChange={(e) =>
+                  handleOptionChange("textColor", e.target.value)
+                }
+                className="w-6 h-6 rounded cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Background Color */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Background Color
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {predefinedColors.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() =>
+                    handleOptionChange("backgroundColor", color.value)
+                  }
+                  className={`w-6 h-6 rounded-full border-2 ${
+                    editOptions.backgroundColor === color.value
+                      ? "border-blue-500 ring-2 ring-blue-200"
+                      : "border-gray-200"
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                  title={color.name}
+                />
+              ))}
+              <input
+                type="color"
+                value={editOptions.backgroundColor || "#ffffff"}
+                onChange={(e) =>
+                  handleOptionChange("backgroundColor", e.target.value)
+                }
+                className="w-6 h-6 rounded cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Font Size */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Font Size
+            </label>
+            <select
+              value={editOptions.fontSize || ""}
+              onChange={(e) => handleOptionChange("fontSize", e.target.value)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">Default</option>
+              <option value="12px">Small</option>
+              <option value="16px">Medium</option>
+              <option value="20px">Large</option>
+              <option value="24px">Extra Large</option>
+            </select>
+          </div>
+
+          {/* Text Align */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Text Align
+            </label>
+            <select
+              value={editOptions.textAlign || ""}
+              onChange={(e) => handleOptionChange("textAlign", e.target.value)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">Default</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+
+          {/* Special Options for Links */}
+          {selectedElement.tagName === "A" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">URL</label>
+              <input
+                type="text"
+                value={editOptions.url || ""}
+                onChange={(e) => handleOptionChange("url", e.target.value)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="https://example.com"
+              />
+            </div>
+          )}
+
+          {/* Special Options for Images */}
+          {selectedElement.tagName === "IMG" && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Image URL
+                </label>
+                <input
+                  type="text"
+                  value={editOptions.src || ""}
+                  onChange={(e) => handleOptionChange("src", e.target.value)}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Alt Text
+                </label>
+                <input
+                  type="text"
+                  value={editOptions.alt || ""}
+                  onChange={(e) => handleOptionChange("alt", e.target.value)}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Image description"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex space-x-2 pt-4">
+            <button
+              onClick={() => setSelectedElement(null)}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            >
+              Close
+            </button>
+            <button
+              onClick={applyChanges}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              Apply
+            </button>
+            <button
+              onClick={saveChanges}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+              disabled={!unsavedChanges}
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </div>
     );
+  };
+
+  const handleOptionChange = (
+    option: keyof EditOptions,
+    value: string | boolean
+  ) => {
+    if (
+      typeof value === "boolean" &&
+      (option === "isBold" ||
+        option === "isItalic" ||
+        option === "isUnderlined")
+    ) {
+      setEditOptions((prev) => ({ ...prev, [option]: value }));
+    } else if (typeof value === "string") {
+      setEditOptions((prev) => ({ ...prev, [option]: value }));
+    }
+    setUnsavedChanges(true);
+  };
+
+  const applyChanges = () => {
+    if (selectedElement) {
+      // Apply basic styles
+      selectedElement.style.color = editOptions.textColor || "";
+      selectedElement.style.backgroundColor = editOptions.backgroundColor || "";
+      selectedElement.style.fontSize = editOptions.fontSize || "";
+      selectedElement.style.fontFamily = editOptions.fontFamily || "";
+      selectedElement.style.fontWeight = editOptions.isBold ? "bold" : "";
+      selectedElement.style.fontStyle = editOptions.isItalic ? "italic" : "";
+      selectedElement.style.textDecoration = editOptions.isUnderlined
+        ? "underline"
+        : "";
+      selectedElement.style.textAlign = editOptions.textAlign || "";
+      selectedElement.style.padding = editOptions.padding || "";
+      selectedElement.style.margin = editOptions.margin || "";
+      selectedElement.style.borderRadius = editOptions.borderRadius || "";
+      selectedElement.style.borderColor = editOptions.borderColor || "";
+
+      // Apply special attributes
+      if (selectedElement.tagName === "A") {
+        selectedElement.setAttribute("href", editOptions.url || "#");
+      }
+      if (selectedElement.tagName === "IMG") {
+        selectedElement.setAttribute("src", editOptions.src || "");
+        selectedElement.setAttribute("alt", editOptions.alt || "");
+      }
+
+      // Apply hover color
+      selectedElement.setAttribute(
+        "data-hover-color",
+        editOptions.hoverColor || ""
+      );
+
+      // Apply custom Tailwind classes
+      if (editOptions.customClasses) {
+        selectedElement.className = editOptions.customClasses;
+      }
+
+      setUnsavedChanges(false);
+    }
+  };
+
+  const saveChanges = async () => {
+    if (selectedElement) {
+      const changes = {
+        elementId: selectedElement.id || selectedElement.className,
+        changes: editOptions,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Save changes to the virtual file system
+      await vfs.saveChanges(changes);
+      setUnsavedChanges(false);
+    }
   };
 
   return (
@@ -1534,76 +1712,12 @@ export function WebsiteEditor() {
         {/* Canvas */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
           <div className={`transition-all duration-300 ${getViewportWidth()}`}>
-            <div
-              ref={canvasRef}
-              className="min-h-full bg-white shadow-lg mx-auto"
-              onClick={handleCanvasClick}
-            >
-              {components.length === 0 ? (
-                <div className="justify-center w-fit mx-auto py-20 text-center">
-                  <h2 className="text-2xl font-bold mb-4">
-                    Your canvas is empty
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Click "Add Component" to start building your website
-                  </p>
-                  <Button>Add Your First Component</Button>
-                </div>
-              ) : (
-                components.map((component, index) => (
-                  <div
-                    key={`${component.id}-${index}`}
-                    className={`relative component-container ${
-                      selectedComponentIndex === index
-                        ? "outline outline-2 outline-primary"
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedComponentIndex(index);
-                    }}
-                  >
-                    {selectedComponentIndex === index && (
-                      <div className="absolute top-2 right-2 z-10 bg-background shadow-md rounded-md flex">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            // Fetch new component here
-                          }}
-                        >
-                          <WandSparkles className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            duplicateComponent(index);
-                          }}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeComponent(index);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                    {component.component}
-                  </div>
-                ))
-              )}
-            </div>
+            <WebsitePreview
+              onContentChange={handleContentChange}
+              initialContent={
+                components.length > 0 ? components[0].component : undefined
+              }
+            />
           </div>
         </div>
 
