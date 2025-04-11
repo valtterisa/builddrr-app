@@ -35,6 +35,8 @@ import {
   Rocket,
   Settings,
   WandSparkles,
+  Home,
+  ChevronLeft,
 } from "lucide-react";
 
 import type { ComponentType } from "@/components/component-library";
@@ -46,6 +48,7 @@ import { Label } from "@/components/ui/label";
 import WebsitePreview from "./website-preview";
 import { FileTracker } from "@/lib/file-tracker";
 import { VirtualFileSystem } from "@/lib/virtual-fs";
+import Link from "next/link";
 
 type ViewportSize = "desktop" | "mobile";
 type EditModeType = "text" | "color" | "image" | "hover-color" | null;
@@ -1547,7 +1550,13 @@ export function WebsiteEditor() {
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Toolbar */}
       <div className="h-14 border-b flex items-center px-4">
-        {/* Viewport size controls */}
+        <Link href="/create">
+          <Button variant="outline" size="sm">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to setup
+          </Button>
+        </Link>
+
         <div className="flex items-center space-x-2 ml-auto">
           <Button
             variant="outline"
