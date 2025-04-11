@@ -153,7 +153,6 @@ export function WebsiteEditor() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [viewportSize, setViewportSize] = useState<ViewportSize>("desktop");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [componentEdits, setComponentEdits] = useState<ComponentEdit[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [elementText, setElementText] = useState("");
@@ -666,51 +665,6 @@ export function WebsiteEditor() {
     return `${tagName}${id}${classes}:nth-of-type(${index + 1})`;
   };
 
-  // Handle click on canvas elements to select them for editing
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    // Don't select if we're in a dialog or currently editing
-    if ((e.target as HTMLElement).closest('[role="dialog"]') || isEditing)
-      return;
-
-    // Find the closest editable element
-    const target = e.target as HTMLElement;
-    const editableElement = target.closest(
-      '[data-editable="true"]'
-    ) as HTMLElement;
-
-    if (editableElement) {
-      e.stopPropagation();
-      setSelectedElement(editableElement);
-
-      // Determine the edit mode based on the element type
-      const editableType = editableElement.dataset.editableType as EditModeType;
-      setEditMode(editableType);
-
-      // For text elements, update the text state
-      if (editableType === "text") {
-        setElementText(editableElement.innerHTML);
-      }
-
-      // Add a selection indicator
-      document.querySelectorAll(".editing-active").forEach((el) => {
-        el.classList.remove("editing-active");
-      });
-      editableElement.classList.add("editing-active");
-
-      // Log for debugging
-      console.log("Selected element:", editableElement);
-      console.log("Edit mode:", editableType);
-    } else {
-      setSelectedElement(null);
-      setEditMode(null);
-
-      // Remove any active selection indicators
-      document.querySelectorAll(".editing-active").forEach((el) => {
-        el.classList.remove("editing-active");
-      });
-    }
-  };
-
   // Add current state to history
   const addToHistory = (newComponents: ComponentType[]) => {
     // If we're not at the end of the history, truncate it
@@ -915,17 +869,6 @@ export function WebsiteEditor() {
     };
   }, [canvasRef.current]);
 
-  // Toggle sidebars based on screen size
-  useEffect(() => {
-    if (isMobile) {
-      setLeftSidebarOpen(false);
-      setRightSidebarOpen(false);
-    } else {
-      setLeftSidebarOpen(true);
-      setRightSidebarOpen(true);
-    }
-  }, [isMobile]);
-
   // Set viewport width based on selected size
   const getViewportWidth = () => {
     switch (viewportSize) {
@@ -935,7 +878,7 @@ export function WebsiteEditor() {
         return "w-[768px]";
       case "desktop":
       default:
-        return "w-full max-w-5xl";
+        return "w-full";
     }
   };
 
@@ -1735,13 +1678,9 @@ export function WebsiteEditor() {
               initialContent={
                 components.length > 0 ? components[0].component : undefined
               }
-              onPreviewSizeChange={handlePreviewSizeChange}
             />
           </div>
         </div>
-
-        {/* Right sidebar - Edit Panel */}
-        {renderEditPanelSidebar()}
       </div>
 
       {/* Mobile bottom toolbar */}
