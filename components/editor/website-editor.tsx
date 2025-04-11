@@ -868,7 +868,7 @@ export function WebsiteEditor() {
   // Render the component library sidebar
   const renderComponentLibrarySidebar = () => {
     const content = (
-      <div className="h-full w-fit flex flex-col">
+      <div className="rounded h-full w-fit flex flex-col">
         <Dialog>
           <DialogTrigger asChild>
             <Button className="w-fit mb-4">
@@ -984,18 +984,14 @@ export function WebsiteEditor() {
 
     return isMobile ? (
       <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
-        <SheetContent
-          side="left"
-          className="w-[300px] sm:w-[400px]"
-          title="Website Editor"
-        >
+        <SheetContent side="bottom" className="w-full" title="Website Editor">
           {content}
         </SheetContent>
       </Sheet>
     ) : (
       <div
-        className={`border-r bg-muted/20 p-4 flex flex-col ${
-          leftSidebarOpen ? "w-fit" : "w-0 overflow-hidden"
+        className={`border-r bg-muted/20 p-4 flex flex-col md:rounded-none rounded-t-lg ${
+          leftSidebarOpen ? "" : "w-0 overflow-hidden"
         }`}
       >
         {content}
@@ -1316,7 +1312,7 @@ export function WebsiteEditor() {
             <div className="flex flex-wrap gap-2">
               {predefinedColors.map((color) => (
                 <button
-                  key={color.value}
+                  key={`${color.value}-${color.value}`}
                   onClick={() => handleOptionChange("textColor", color.value)}
                   className={`w-6 h-6 rounded-full border-2 ${
                     editOptions.textColor === color.value
@@ -1346,7 +1342,7 @@ export function WebsiteEditor() {
             <div className="flex flex-wrap gap-2">
               {predefinedColors.map((color) => (
                 <button
-                  key={color.value}
+                  key={`${color.value}-${color.value}`}
                   onClick={() =>
                     handleOptionChange("backgroundColor", color.value)
                   }
@@ -1569,15 +1565,6 @@ export function WebsiteEditor() {
       {/* Toolbar */}
       <div className="h-14 border-b flex items-center justify-between px-4">
         <div className="flex items-center space-x-2">
-          {isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLeftSidebarOpen(true)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          )}
           <div className="hidden sm:flex space-x-2">
             <Button
               variant="outline"
@@ -1656,15 +1643,18 @@ export function WebsiteEditor() {
       {/* Mobile bottom toolbar */}
       {isMobile && (
         <div className="h-14 border-t flex items-center justify-around px-4 bg-background">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLeftSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={handleUndo}>
             <Undo className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" onClick={handleRedo}>
             <Redo className="h-5 w-5" />
-          </Button>
-
-          <Button variant="ghost" size="icon">
-            <Code className="h-5 w-5" />
           </Button>
         </div>
       )}

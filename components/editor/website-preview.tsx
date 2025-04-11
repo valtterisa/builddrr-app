@@ -46,6 +46,8 @@ export default function WebsitePreview({
       return;
     }
 
+    setIsEditorReady(true);
+
     try {
       // First, remove any existing editor styles to avoid duplication
       const existingStyle =
@@ -143,8 +145,6 @@ export default function WebsitePreview({
           setShowToolbar(false);
         }
       });
-
-      setIsEditorReady(true);
     } catch (error) {
       console.error("Error initializing editor:", error);
       setDebugInfo(
@@ -346,13 +346,10 @@ export default function WebsitePreview({
     setShowToolbar(false);
   };
 
+  console.log("Debug: ", debugInfo);
+
   return (
     <div className="flex flex-col h-full w-full gap-4">
-      {/* Debug Info */}
-      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-        Debug: {debugInfo}
-      </div>
-
       {/* Floating Toolbar */}
       <FloatingToolbar
         show={showToolbar}
@@ -386,7 +383,7 @@ export default function WebsitePreview({
           src={url}
           className="w-full h-full"
           onLoad={handleIframeLoad}
-          sandbox="allow-same-origin allow-scripts allow-forms"
+          sandbox="allow-same-origin allow-forms"
         />
       </div>
     </div>
