@@ -214,7 +214,8 @@ export default function CreatePage() {
       console.log("Mock website created:", mockResponse);
 
       // Redirect to editor with mock ID
-      router.push(`/editor/${mockResponse.id}`);
+      // router.push(`/editor/${mockResponse.id}`);
+      router.push(`/website/editor`);
     } catch (error) {
       toast.error("Failed to generate website. Please try again.");
       setIsGenerating(false);
@@ -263,9 +264,8 @@ export default function CreatePage() {
                 value={formData.businessName}
                 onChange={handleInputChange}
                 placeholder="Enter your business name"
-                className={`w-full ${
-                  errors.businessName ? "border-red-500" : ""
-                }`}
+                className={`w-full ${errors.businessName ? "border-red-500" : ""
+                  }`}
               />
               {errors.businessName && (
                 <p className="mt-1 text-sm text-red-500">
@@ -286,9 +286,8 @@ export default function CreatePage() {
                 value={formData.description}
                 onChange={handleInputChange}
                 placeholder="Describe your business, products, or services"
-                className={`min-h-[150px] ${
-                  errors.description ? "border-red-500" : ""
-                }`}
+                className={`min-h-[150px] ${errors.description ? "border-red-500" : ""
+                  }`}
               />
               {errors.description && (
                 <p className="mt-1 text-sm text-red-500">
@@ -312,12 +311,11 @@ export default function CreatePage() {
                     }));
                     setShowCustomColors(false);
                   }}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    !showCustomColors &&
+                  className={`p-4 rounded-lg border-2 transition-all ${!showCustomColors &&
                     formData.selectedColors.name === option.name
-                      ? "border-purple-500 ring-2 ring-purple-200"
-                      : "border-gray-200 hover:border-purple-300"
-                  }`}
+                    ? "border-purple-500 ring-2 ring-purple-200"
+                    : "border-gray-200 hover:border-purple-300"
+                    }`}
                 >
                   <div className="space-y-2">
                     <div
@@ -340,11 +338,10 @@ export default function CreatePage() {
               ))}
               <button
                 onClick={() => setShowCustomColors(true)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  showCustomColors
-                    ? "border-purple-500 ring-2 ring-purple-200"
-                    : "border-gray-200 hover:border-purple-300"
-                }`}
+                className={`p-4 rounded-lg border-2 transition-all ${showCustomColors
+                  ? "border-purple-500 ring-2 ring-purple-200"
+                  : "border-gray-200 hover:border-purple-300"
+                  }`}
               >
                 <div className="h-24 rounded-md mb-2 bg-gray-100 flex items-center justify-center">
                   <Plus className="h-8 w-8 text-gray-400" />
@@ -535,24 +532,21 @@ export default function CreatePage() {
               {steps.map((step, index) => (
                 <div
                   key={step.id}
-                  className={`flex items-center ${
-                    index < steps.length - 1 ? "flex-1" : ""
-                  }`}
+                  className={`flex items-center ${index < steps.length - 1 ? "flex-1" : ""
+                    }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      index <= currentStep
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-200 text-gray-600"
-                    }`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${index <= currentStep
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-200 text-gray-600"
+                      }`}
                   >
                     {index + 1}
                   </div>
                   {index < steps.length - 1 && (
                     <div
-                      className={`flex-1 h-1 mx-2 ${
-                        index < currentStep ? "bg-purple-600" : "bg-gray-200"
-                      }`}
+                      className={`flex-1 h-1 mx-2 ${index < currentStep ? "bg-purple-600" : "bg-gray-200"
+                        }`}
                     />
                   )}
                 </div>
