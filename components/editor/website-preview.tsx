@@ -16,7 +16,7 @@ interface IframeEditorProps {
 }
 
 export default function WebsitePreview({
-  initialUrl = "/preview",
+  initialUrl = "/preview", // @TODO: Make this dynamic
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState(initialUrl);
@@ -66,13 +66,13 @@ export default function WebsitePreview({
           position: relative !important;
         }
         
-        [data-editable="true"]:hover {
+        [data-editable="true"].hover-active {
           outline: 2px dashed #7c3aed !important;
           outline-offset: 2px !important;
           background-color: rgba(124, 58, 237, 0.05) !important;
         }
         
-        [data-editable="true"]:focus {
+        [data-editable="true"].focus-active {
           outline: 2px solid #7c3aed !important;
           outline-offset: 2px !important;
           box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1) !important;
@@ -80,6 +80,7 @@ export default function WebsitePreview({
         
         [data-editable="true"]::before {
           content: 'Click to edit' !important;
+          font-weight: 400 !important;
           position: absolute !important;
           top: -20px !important;
           left: 0 !important;
@@ -94,7 +95,7 @@ export default function WebsitePreview({
           z-index: 1000 !important;
         }
         
-        [data-editable="true"]:hover::before {
+        [data-editable="true"].hover-active::before {
           opacity: 1 !important;
         }
       `;
@@ -152,7 +153,7 @@ export default function WebsitePreview({
       );
       toast({
         title: "Editor Initialization Error",
-        description: "Could not initialize editor. Check console for details.",
+        description: "Could not initialize editor. Try reloading the page.",
         variant: "destructive",
       });
     }
@@ -291,7 +292,10 @@ export default function WebsitePreview({
   // Handle iframe load
   const handleIframeLoad = () => {
     setDebugInfo("Iframe loaded, initializing editor...");
-    setTimeout(initializeEditor, 500); // Give the iframe a moment to fully render
+    setTimeout(() => {
+      initializeEditor(); // Initialize editor styles
+      makeElementsEditable(); // Mark elements as editable
+    }, 500); // Give the iframe a moment to fully render
   };
 
   // Apply background color
@@ -344,6 +348,66 @@ export default function WebsitePreview({
   // Close toolbar
   const closeToolbar = () => {
     setShowToolbar(false);
+  };
+
+  // Make elements in the canvas editable
+  const makeElementsEditable = () => {
+    const iframe = iframeRef.current; // Ensure iframeRef is defined
+    if (!iframe || !iframe.contentDocument) return;
+
+    const doc = iframe.contentDocument;
+
+    // Select all relevant elements inside the iframe
+    const editableElements = doc.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, span, li, div, button, a, img"
+    );
+
+    let currentHoveredElement: HTMLElement | null = null; // Track the currently hovered element
+
+    editableElements.forEach((el) => {
+      // Skip elements that shouldn't be editable
+      if (el.closest("script, style, noscript, svg")) return;
+
+      // Make element editable
+      el.setAttribute("data-editable", "true");
+      el.setAttribute("data-editable-type", "text");
+
+      // Add hover and focus event listeners
+      el.addEventListener("mouseenter", () => {
+        // Remove hover styles from the previously hovered element
+        if (currentHoveredElement && currentHoveredElement !== el) {
+          currentHoveredElement.classList.remove("hover-active");
+        }
+
+        // Add hover style to the current element
+        el.classList.add("hover-active");
+        currentHoveredElement = el as HTMLElement; // Update the currently hovered element
+      });
+
+      el.addEventListener("mouseleave", () => {
+        // Remove hover style from the current element
+        el.classList.remove("hover-active");
+        if (currentHoveredElement === el) {
+          currentHoveredElement = null; // Reset the currently hovered element
+        }
+      });
+
+      el.addEventListener("focus", () => {
+        // Remove focus styles from all other elements
+        editableElements.forEach((otherEl) => {
+          if (otherEl !== el) {
+            otherEl.classList.remove("focus-active");
+          }
+        });
+        el.classList.add("focus-active");
+      });
+
+      el.addEventListener("blur", () => {
+        el.classList.remove("focus-active");
+      });
+    });
+
+    console.log(`Made ${editableElements.length} elements editable`);
   };
 
   console.log("Debug: ", debugInfo);
