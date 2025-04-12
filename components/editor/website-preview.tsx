@@ -3,8 +3,6 @@
 import type React from "react";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import FloatingToolbar, {
   ActiveFormats,
@@ -79,7 +77,7 @@ export default function WebsitePreview({
         }
         
         [data-editable="true"]::before {
-          content: 'Click to edit' !important;
+          content: attr(data-editable-tag) !important;
           font-weight: 400 !important;
           position: absolute !important;
           top: -20px !important;
@@ -101,29 +99,6 @@ export default function WebsitePreview({
       `;
       iframe.contentDocument.head.appendChild(style);
 
-      // Make all text elements editable
-      const textElements = iframe.contentDocument.querySelectorAll(
-        "p, h1, h2, h3, h4, h5, h6, span, div, li, td, th, a, button, img"
-      );
-
-      let count = 0;
-      textElements.forEach((element) => {
-        // Skip elements that shouldn't be editable
-        if (element.closest("script, style, noscript, svg")) return;
-
-        // Skip elements with no text content (except images)
-        if (element.tagName !== "IMG" && !element.textContent?.trim()) return;
-
-        // Make element editable (except for images)
-        if (element.tagName !== "IMG") {
-          element.setAttribute("contenteditable", "true");
-        }
-        element.setAttribute("data-editable", "true");
-
-        // Remove existing event listeners to avoid duplicates
-        element.replaceWith(element.cloneNode(true));
-        count++;
-      });
 
       // Re-query elements after cloning
       const editableElements = iframe.contentDocument.querySelectorAll(
@@ -136,8 +111,6 @@ export default function WebsitePreview({
           handleElementSelection(element as HTMLElement);
         });
       });
-
-      setDebugInfo(`Made ${count} elements editable`);
 
       // Add click handler to the document to close toolbar when clicking outside
       iframe.contentDocument.addEventListener("click", (e) => {
@@ -359,7 +332,7 @@ export default function WebsitePreview({
 
     // Select all relevant elements inside the iframe
     const editableElements = doc.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, span, li, div, button, a, img"
+      "h1, h2, h3, h4, h5, h6, p, span, section, header, nav, footer, li, div, button, a, img"
     );
 
     let currentHoveredElement: HTMLElement | null = null; // Track the currently hovered element
@@ -370,7 +343,9 @@ export default function WebsitePreview({
 
       // Make element editable
       el.setAttribute("data-editable", "true");
+      // Here we can add more types of editable elements
       el.setAttribute("data-editable-type", "text");
+      el.setAttribute("data-editable-tag", el.tagName.toLowerCase());
 
       // Add hover and focus event listeners
       el.addEventListener("mouseenter", () => {
