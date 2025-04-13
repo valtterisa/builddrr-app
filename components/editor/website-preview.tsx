@@ -37,7 +37,7 @@ export default function WebsitePreview({
   const [elementType, setElementType] = useState<string>("");
 
   // Initialize the editor when iframe loads
-  const initializeEditor = useCallback(() => {
+  const initializeEditor = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
       setDebugInfo("Iframe or contentDocument not available");
@@ -99,13 +99,13 @@ export default function WebsitePreview({
       `;
       iframe.contentDocument.head.appendChild(style);
 
-
       // Re-query elements after cloning
       const editableElements = iframe.contentDocument.querySelectorAll(
         '[data-editable="true"]'
       );
       editableElements.forEach((element) => {
         element.addEventListener("click", (e) => {
+          console.log("element clicked", element);
           e.preventDefault();
           e.stopPropagation();
           handleElementSelection(element as HTMLElement);
@@ -130,10 +130,10 @@ export default function WebsitePreview({
         variant: "destructive",
       });
     }
-  }, []);
+  };
 
   // Handle element selection
-  const handleElementSelection = useCallback((element: HTMLElement) => {
+  const handleElementSelection = (element: HTMLElement) => {
     if (!element) return;
 
     setSelectedElement(element);
@@ -175,7 +175,7 @@ export default function WebsitePreview({
         }
       }
     }
-  }, []);
+  };
 
   // Check which formats are currently active for the selected element
   const checkActiveFormats = useCallback((element: HTMLElement) => {
@@ -263,13 +263,13 @@ export default function WebsitePreview({
   }, [inputUrl]);
 
   // Handle iframe load
-  const handleIframeLoad = () => {
+  useEffect(() => {
     setDebugInfo("Iframe loaded, initializing editor...");
     setTimeout(() => {
       initializeEditor(); // Initialize editor styles
       makeElementsEditable(); // Mark elements as editable
     }, 500); // Give the iframe a moment to fully render
-  };
+  }, [iframeRef.current]);
 
   // Apply background color
   const setBackgroundColor = (color: string) => {
@@ -385,7 +385,12 @@ export default function WebsitePreview({
     console.log(`Made ${editableElements.length} elements editable`);
   };
 
-  console.log("Debug: ", debugInfo);
+  // Debugging Iframe Ref
+  // useEffect(() => {
+  //   if (iframeRef.current) {
+  //     console.log("Iframe ref is assigned", iframeRef.current);
+  //   }
+  // }, [iframeRef.current]);
 
   return (
     <div className="flex flex-col h-full w-full gap-4">
@@ -421,7 +426,6 @@ export default function WebsitePreview({
           ref={iframeRef}
           src={url}
           className="w-full h-full"
-          onLoad={handleIframeLoad}
           sandbox="allow-same-origin allow-forms"
         />
       </div>
