@@ -223,8 +223,7 @@ export function LandingPage() {
    - Completeness: Ensure that every generated component includes both the component and its configuration.
    - Deployment-Ready: The code must be production-ready and deployable directly in a Next.js project without modification.
    - You create full websites with these components.
-   
-   
+
   ---
 
 `;
