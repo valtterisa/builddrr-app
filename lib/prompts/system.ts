@@ -231,3 +231,5 @@ export function LandingPage() {
 
 // TODO
 // 1. Check v0 prompt. We still need example outputs for example inputs. Now we only have inputs
+// 2. Add the api route call to funnel. Create the funnel.
+// 3. Add the file save to cloudflare worker using Gitlab and redeploy so user can see the site in editor.
