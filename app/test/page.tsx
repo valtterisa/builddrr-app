@@ -1,168 +1,212 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Code, Briefcase, Smartphone } from "lucide-react";
+import { Menu, X, Twitter, Instagram, Github } from "lucide-react";
 
 export default function Component() {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const navLinks = [
+        { name: "Home", href: "#hero" },
+        { name: "About", href: "#about" },
+        { name: "Services", href: "#services" },
+        { name: "Contact", href: "#contact" },
+    ];
+
+    // Animation settings
+    const animationProps = {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.6, ease: "easeOut" },
+    };
+
     return (
-        <motion.main
-            data-file-location="/app/index/page.tsx"
-            className="flex flex-col min-h-screen"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+        <motion.div
+            data-file-location="/app/moro/page.tsx"
+            className="min-h-screen flex flex-col bg-white"
+            {...animationProps}
         >
             {/* Header */}
-            <header className="bg-white shadow-md">
-                <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-                    <Link href="/" aria-label="Bittive Oy Home" data-editable="true" className="text-2xl font-bold text-[#EC4899]">
-                        Bittive Oy
-                    </Link>
-                    <div className="flex space-x-6">
-                        <Link href="#home" aria-label="Home" data-editable="true" className="text-gray-700 hover:text-[#F43F5E]">
-                            Home
-                        </Link>
-                        <Link href="#about" aria-label="About" data-editable="true" className="text-gray-700 hover:text-[#F43F5E]">
-                            About
-                        </Link>
-                        <Link href="#services" aria-label="Services" data-editable="true" className="text-gray-700 hover:text-[#F43F5E]">
-                            Services
-                        </Link>
-                        <Link href="#contact" aria-label="Contact" data-editable="true" className="text-gray-700 hover:text-[#F43F5E]">
-                            Contact
-                        </Link>
-                    </div>
-                </nav>
+            <header
+                data-file-location="/app/moro/page.tsx"
+                className="bg-[#6B7280] text-white px-6 py-4 shadow-md fixed w-full z-50"
+            >
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    <h1
+                        className="text-2xl font-bold cursor-pointer"
+                        aria-label="Moro Brand Logo"
+                        data-editable="true"
+                    >
+                        Moro
+                    </h1>
+                    {/* Desktop Navigation */}
+                    <nav className="hidden md:flex space-x-8">
+                        {navLinks.map((link) => (
+                            <a
+                                key={link.name}
+                                href={link.href}
+                                className="hover:text-[#9CA3AF] transition-colors font-medium"
+                                aria-label={link.name}
+                                data-editable="true"
+                            >
+                                {link.name}
+                            </a>
+                        ))}
+                    </nav>
+                    {/* Mobile Menu Button */}
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        className="md:hidden p-2 rounded hover:bg-[#4B5563] transition-colors"
+                        aria-label="Toggle navigation menu"
+                    >
+                        {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
+                {/* Mobile Navigation */}
+                {mobileMenuOpen && (
+                    <nav className="md:hidden mt-4">
+                        <ul className="flex flex-col space-y-2">
+                            {navLinks.map((link) => (
+                                <li key={link.name}>
+                                    <a
+                                        href={link.href}
+                                        className="block px-4 py-2 hover:bg-[#4B5563] transition-colors rounded"
+                                        aria-label={link.name}
+                                        data-editable="true"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                    >
+                                        {link.name}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                )}
             </header>
 
-            {/* Hero Section */}
-            <motion.section
-                data-file-location="/app/index/page.tsx"
-                id="home"
-                className="relative bg-[#EC4899] text-white text-center py-20 px-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-            >
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold mb-4" aria-label="Welcome to Bittive Oy" data-editable="true">
-                        Empowering Your Business with Cutting-Edge Software Solutions
-                    </h1>
-                    <p className="text-lg sm:text-xl mb-8" aria-label="Business tagline" data-editable="true">
-                        Bittive Oy specializes in innovative software development that drives growth and enhances efficiency.
-                    </p>
-                    <Link
-                        href="#contact"
-                        aria-label="Get in touch with us"
+            {/* Main Content */}
+            <main className="flex-grow pt-20">
+                {/* Hero Section */}
+                <motion.section
+                    id="hero"
+                    data-file-location="/app/moro/page.tsx"
+                    {...animationProps}
+                    className="flex flex-col items-center justify-center text-center px-6 py-20 bg-white"
+                >
+                    <h2
+                        className="text-4xl md:text-6xl font-extrabold text-[#4B5563] mb-6"
+                        aria-label="Welcome Heading"
                         data-editable="true"
-                        className="inline-block bg-[#F59E0B] hover:bg-[#F43F5E] text-white font-semibold py-3 px-6 rounded-md transition-colors duration-300"
                     >
-                        Get Started
-                    </Link>
-                </div>
-                <div className="mt-10">
-                    <Image
-                        src="https://placehold.co/1200x600"
-                        alt="Abstract representation of software development"
-                        width={1200}
-                        height={600}
-                        className="rounded-md shadow-lg"
-                    />
-                </div>
-            </motion.section>
-
-            {/* About Section */}
-            <motion.section
-                data-file-location="/app/index/page.tsx"
-                id="about"
-                className="py-16 px-4 bg-white"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
-            >
-                <div className="max-w-4xl mx-auto text-center">
-                    <h2 className="text-3xl font-bold mb-6" aria-label="About Bittive Oy" data-editable="true">
-                        About Us
+                        Welcome to Moro
                     </h2>
-                    <p className="text-lg text-gray-700 mb-4" aria-label="Bittive Oy description" data-editable="true">
-                        At Bittive Oy, our passion is to build robust software that not only meets your business requirements but also paves the way for
-                        future innovations. Our team of experts is dedicated to delivering quality solutions tailored to elevate your operations.
+                    <p
+                        className="max-w-2xl text-lg text-[#6B7280] mb-8"
+                        aria-label="Business Description"
+                        data-editable="true"
+                    >
+                        ASDASDASDASD
                     </p>
-                    <p className="text-lg text-gray-700" aria-label="Our mission" data-editable="true">
-                        We believe in the power of technology to transform ideas into reality. Join us on this journey to achieve excellence in software development.
-                    </p>
-                </div>
-            </motion.section>
+                    <a
+                        href="#contact"
+                        className="bg-[#9CA3AF] text-white font-semibold py-3 px-6 rounded-full shadow hover:bg-[#4B5563] transition-colors"
+                        aria-label="Get In Touch"
+                        data-editable="true"
+                    >
+                        Get In Touch
+                    </a>
+                </motion.section>
 
-            {/* Services Section */}
-            <motion.section
-                data-file-location="/app/index/page.tsx"
-                id="services"
-                className="py-16 px-4 bg-gray-50"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
-            >
-                <div className="max-w-6xl mx-auto">
-                    <h2 className="text-3xl font-bold text-center mb-12" aria-label="Our Services" data-editable="true">
+                {/* About Section */}
+                <motion.section
+                    id="about"
+                    data-file-location="/app/moro/page.tsx"
+                    {...animationProps}
+                    className="px-6 py-16 bg-gray-50"
+                >
+                    <h3
+                        className="text-3xl font-bold text-center text-[#4B5563] mb-4"
+                        aria-label="About Moro"
+                        data-editable="true"
+                    >
+                        About Moro
+                    </h3>
+                    <p
+                        className="max-w-3xl mx-auto text-center text-[#6B7280] text-lg"
+                        aria-label="About description"
+                        data-editable="true"
+                    >
+                        At Moro, we believe in clean, modern design that merges innovation with functionality.
+                        Our approach is centered on seamless user experiences and responsive designs that look
+                        stunning on any device.
+                    </p>
+                </motion.section>
+
+                {/* Services Section */}
+                <motion.section
+                    id="services"
+                    data-file-location="/app/moro/page.tsx"
+                    {...animationProps}
+                    className="px-6 py-16 bg-white"
+                >
+                    <h3
+                        className="text-3xl font-bold text-center text-[#4B5563] mb-8"
+                        aria-label="Our Services"
+                        data-editable="true"
+                    >
                         Our Services
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-                            <div className="mb-4 flex justify-center">
-                                <Code size={48} className="text-[#EC4899]" aria-hidden="true" />
-                            </div>
-                            <h3 className="text-xl font-semibold mb-2 text-center" aria-label="Custom Software Development" data-editable="true">
-                                Custom Software Development
-                            </h3>
-                            <p className="text-gray-600 text-center" aria-label="Service description" data-editable="true">
-                                Tailored software solutions that fit your business needs, improving productivity and streamlining operations.
-                            </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-                            <div className="mb-4 flex justify-center">
-                                <Smartphone size={48} className="text-[#EC4899]" aria-hidden="true" />
-                            </div>
-                            <h3 className="text-xl font-semibold mb-2 text-center" aria-label="Mobile App Development" data-editable="true">
-                                Mobile App Development
-                            </h3>
-                            <p className="text-gray-600 text-center" aria-label="Service description" data-editable="true">
-                                Innovative mobile applications designed to engage your customers and drive business growth.
-                            </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-                            <div className="mb-4 flex justify-center">
-                                <Briefcase size={48} className="text-[#EC4899]" aria-hidden="true" />
-                            </div>
-                            <h3 className="text-xl font-semibold mb-2 text-center" aria-label="Cloud & Enterprise Solutions" data-editable="true">
-                                Cloud & Enterprise Solutions
-                            </h3>
-                            <p className="text-gray-600 text-center" aria-label="Service description" data-editable="true">
-                                Scalable cloud services and enterprise-grade solutions to optimize your business infrastructure.
-                            </p>
-                        </div>
+                    </h3>
+                    <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* Service Card */}
+                        {[1, 2, 3].map((service) => (
+                            <motion.div
+                                key={service}
+                                data-file-location="/app/moro/page.tsx"
+                                {...animationProps}
+                                className="border rounded-lg p-6 shadow hover:shadow-lg transition-shadow"
+                            >
+                                <h4
+                                    className="text-xl font-semibold text-[#4B5563] mb-2"
+                                    aria-label={`Service ${service}`}
+                                    data-editable="true"
+                                >
+                                    Service {service}
+                                </h4>
+                                <p
+                                    className="text-[#6B7280] text-base"
+                                    aria-label={`Service ${service} description`}
+                                    data-editable="true"
+                                >
+                                    We provide exceptional quality and attention to detail in every project we
+                                    undertake.
+                                </p>
+                            </motion.div>
+                        ))}
                     </div>
-                </div>
-            </motion.section>
+                </motion.section>
 
-            {/* Contact Section */}
-            <motion.section
-                data-file-location="/app/index/page.tsx"
-                id="contact"
-                className="py-16 px-4 bg-white"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.8 }}
-            >
-                <div className="max-w-xl mx-auto">
-                    <h2 className="text-3xl font-bold text-center mb-8" aria-label="Get in Touch" data-editable="true">
+                {/* Contact Section */}
+                <motion.section
+                    id="contact"
+                    data-file-location="/app/moro/page.tsx"
+                    {...animationProps}
+                    className="px-6 py-16 bg-gray-50"
+                >
+                    <h3
+                        className="text-3xl font-bold text-center text-[#4B5563] mb-8"
+                        aria-label="Contact Us"
+                        data-editable="true"
+                    >
                         Contact Us
-                    </h2>
-                    <form className="space-y-6">
+                    </h3>
+                    <form
+                        action="#"
+                        className="max-w-xl mx-auto space-y-6"
+                        noValidate
+                    >
                         <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="name" className="block text-sm font-medium text-[#4B5563]">
                                 Name
                             </label>
                             <input
@@ -170,13 +214,12 @@ export default function Component() {
                                 name="name"
                                 type="text"
                                 required
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#EC4899] focus:ring-[#EC4899]"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-[#9CA3AF]"
                                 aria-label="Your Name"
-                                data-editable="true"
                             />
                         </div>
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="email" className="block text-sm font-medium text-[#4B5563]">
                                 Email
                             </label>
                             <input
@@ -184,44 +227,72 @@ export default function Component() {
                                 name="email"
                                 type="email"
                                 required
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#EC4899] focus:ring-[#EC4899]"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-[#9CA3AF]"
                                 aria-label="Your Email"
-                                data-editable="true"
                             />
                         </div>
                         <div>
-                            <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="message" className="block text-sm font-medium text-[#4B5563]">
                                 Message
                             </label>
                             <textarea
                                 id="message"
                                 name="message"
-                                rows={5}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#EC4899] focus:ring-[#EC4899]"
+                                rows={4}
+                                required
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-[#9CA3AF]"
                                 aria-label="Your Message"
-                                data-editable="true"
                             />
                         </div>
                         <button
                             type="submit"
-                            className="w-full py-3 px-4 bg-[#F59E0B] hover:bg-[#F43F5E] text-white font-semibold rounded-md transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EC4899]"
+                            className="w-full py-3 px-4 rounded-md bg-[#9CA3AF] text-white font-semibold hover:bg-[#4B5563] transition-colors"
                             aria-label="Submit Contact Form"
-                            data-editable="true"
                         >
-                            Send Message
+                            Submit
                         </button>
                     </form>
-                </div>
-            </motion.section>
+                </motion.section>
+            </main>
 
             {/* Footer */}
-            <footer className="bg-gray-900 text-gray-300 py-6 mt-auto">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                    <p className="text-sm" aria-label="Footer text" data-editable="true">
-                        © {new Date().getFullYear()} Bittive Oy. All rights reserved.
+            <footer
+                data-file-location="/app/moro/page.tsx"
+                className="bg-[#6B7280] text-white py-8 px-6"
+            >
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
+                    <p
+                        className="text-center text-sm mb-4 md:mb-0"
+                        aria-label="Copyright"
+                        data-editable="true"
+                    >
+                        © {new Date().getFullYear()} Moro. All rights reserved.
                     </p>
+                    <div className="flex space-x-4">
+                        <a
+                            href="#"
+                            aria-label="Twitter"
+                            className="hover:text-[#9CA3AF] transition-colors"
+                        >
+                            <Twitter size={20} />
+                        </a>
+                        <a
+                            href="#"
+                            aria-label="Instagram"
+                            className="hover:text-[#9CA3AF] transition-colors"
+                        >
+                            <Instagram size={20} />
+                        </a>
+                        <a
+                            href="#"
+                            aria-label="GitHub"
+                            className="hover:text-[#9CA3AF] transition-colors"
+                        >
+                            <Github size={20} />
+                        </a>
+                    </div>
                 </div>
             </footer>
-        </motion.main>
+        </motion.div>
     );
 }

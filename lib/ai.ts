@@ -1,4 +1,3 @@
-import generateWebsiteCode from "@/lib/services/code-generator";
 import generateValidSectionCode from "./services/code-quality";
 
 interface GenerateWebsiteParams {
