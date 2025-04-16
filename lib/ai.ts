@@ -1,4 +1,5 @@
 import generateWebsiteCode from "@/lib/services/code-generator";
+import generateValidSectionCode from "./services/code-quality";
 
 interface GenerateWebsiteParams {
   businessName: string;
@@ -66,11 +67,13 @@ Technical Requirements:
 - Use proper error handling and loading states
 - Implement proper responsive design patterns
 
-The output must be production-ready, visually stunning, and follow modern web design best practices.`;
+The output must be production-ready, visually stunning websites that can win design awards.`;
 
   console.log("Enhanced AI Prompt:", prompt);
 
-  const generatedContent = await generateWebsiteCode(prompt);
+  const generatedContent = await generateValidSectionCode(prompt);
+
+  console.log("Generated Content:", generatedContent);
 
   // Save to local storage
   const websiteState: WebsiteState = {
@@ -98,3 +101,16 @@ export function getStoredWebsiteState(): WebsiteState | null {
 export function clearStoredWebsiteState(): void {
   localStorage.removeItem('websiteState');
 }
+
+// const enhancedPrompt = `${systemPrompt}
+
+// Implementation Requirements:
+// 1. Each component MUST be implemented exactly as specified
+// 2. Generated code MUST be production-ready with NO TODOs or placeholders
+// 3. All provided colors MUST be used exactly as specified
+// 4. Error handling MUST be implemented for all user interactions
+// 5. Loading states MUST be visually polished with proper animations
+
+// ${prompt}
+
+// Remember: The output must be production-ready, visually stunning, and be able to win design awards.`;
