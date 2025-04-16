@@ -9,12 +9,9 @@ export default async function generateWebsite(prompt: string) {
 
     const { text } = await generateText({
         system: systemPrompt,
-
         prompt: prompt,
 
-        // maxTokens: 3000,
-
-        model: openai("o3-mini"),
+        model: openai("gpt-4o"),
     });
 
     const generatedContent = text;
