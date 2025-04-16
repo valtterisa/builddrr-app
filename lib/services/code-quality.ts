@@ -115,26 +115,29 @@ export default async function generateValidSectionCode(
     // Generate code using the AI-based generator.
     const code = await generateWebsite(prompt);
 
+    return code;
+
     // Extract individual pages
-    const pages = extractPagesFromMdx(code);
+    // const pages = extractPagesFromMdx(code);
 
-    // Validate each page separately
-    let allPagesValid = true;
-    for (const page of pages) {
-      console.info(`Validating page: ${page.path}`);
-      const isValid = await validatePage(page.content);
 
-      if (!isValid) {
-        console.warn(`Validation failed for page: ${page.path}`);
-        allPagesValid = false;
-        break;
-      }
-    }
+    // // Validate each page separately
+    // let allPagesValid = true;
+    // for (const page of pages) {
+    //   console.info(`Validating page: ${page.path}`);
+    //   const isValid = await validatePage(page.content);
 
-    if (allPagesValid) {
-      console.info(`Code generation successful on iteration ${i + 1}`);
-      return code; // Return the original MDX with all pages
-    }
+    //   if (!isValid) {
+    //     console.warn(`Validation failed for page: ${page.path}`);
+    //     allPagesValid = false;
+    //     break;
+    //   }
+    // }
+
+    // if (allPagesValid) {
+    //   console.info(`Code generation successful on iteration ${i + 1}`);
+    //   return code; // Return the original MDX with all pages
+    // }
 
     console.warn(`Validation failed on iteration ${i + 1}. Regenerating...`);
   }
