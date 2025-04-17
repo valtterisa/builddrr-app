@@ -74,21 +74,6 @@ The output must be production-ready, visually stunning websites that can win des
 
   console.log("Generated Content:", generatedContent);
 
-  // Save to local storage
-  const websiteState: WebsiteState = {
-    lastGenerated: new Date().toISOString(),
-    components: components,
-    businessInfo: {
-      name: businessName,
-      description: description
-    },
-    design: {
-      colors: colors
-    }
-  };
-
-  localStorage.setItem('websiteState', JSON.stringify(websiteState));
-
   return generatedContent;
 }
 

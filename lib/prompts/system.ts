@@ -223,9 +223,8 @@ export default function Component() {
                     </div>
                     {/* Nav links: flex-col on mobile, row on desktop */}
                     <nav
-                        className={`flex flex-col md: flex - row md: items - center gap - 4 font - semibold transition - all duration - 300 ${
-  menuOpen ? "" : "hidden md:flex"
-} `}
+                        className={flex flex-col md: flex - row md: items - center gap - 4 font - semibold transition - all duration - 300 {menuOpen ? "" : "hidden md:flex"
+    }}
                     >
                         <Link href="#features" className="btn btn-ghost" onClick={handleLinkClick}>
                             Features
