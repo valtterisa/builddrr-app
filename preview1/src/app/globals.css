@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #2563EB;
+  --secondary-color: #3B82F6;
+  --accent-color: #10B981;
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+
+.text-secondary {
+  color: var(--secondary-color);
+}
+
+.hover\:text-accent:hover {
+  color: var(--accent-color);
+}
