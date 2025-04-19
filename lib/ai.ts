@@ -1,5 +1,6 @@
-import generateValidSectionCode from "./services/code-quality";
 import { generateServerFiles } from "./server"; // Import server generation logic
+import queryAI from "./services/code-generator";
+
 
 interface GenerateWebsiteParams {
   businessName: string;
@@ -34,24 +35,31 @@ export async function generateWebsite({
   colors,
   components,
 }: GenerateWebsiteParams) {
-  const prompt = `Create a modern, visually stunning website for "${businessName}". Follow these strict requirements:
+  const prompt = `<user-prompt> Create a modern, visually stunning website for "${businessName}". Follow these strict requirements:
 
-Business Description: ${description}
+<business-description> 
+${description}
+</business-description> 
 
-Color Scheme (use these EXACT colors):
+<color-scheme> 
+(use these EXACT colors):
 - Primary: ${colors.primary}
 - Secondary: ${colors.secondary}
 - Accent: ${colors.accent}
+</color-scheme>
 
-Required Components:
+<required-components>
+
 - Header (with responsive navigation)
 - Footer (with proper site structure)
 - Hero
 ${components.map((component: any) => `- ${component.name}: ${component.description}`).join("\n")}
-`;
+Additional note: ALWAYS implement ALL the components listed here.
+</required-components>
+<user-prompt>`;
 
-
-  const generatedContent = await generateValidSectionCode(prompt);
+  // const generatedContent = await generateValidSectionCode(prompt);
+  const generatedContent = await queryAI(prompt)
 
   generateServerFiles(generatedContent)
 

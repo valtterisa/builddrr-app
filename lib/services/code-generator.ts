@@ -4,7 +4,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 
 import { systemPrompt } from "@/lib/prompts/system";
 
-export default async function generateWebsite(prompt: string) {
+export default async function queryAI(prompt: string) {
 
     const { text } = await generateText({
         system: systemPrompt,
