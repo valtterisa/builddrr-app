@@ -26,20 +26,18 @@ export async function generateAIResponse(prompt: string) {
       }
     });
 
-    console.log("result: ", result)
+    const reader = result.textStream.getReader();
 
-    const fullText = await result.text
-    return {
-      id: generateId(),
-      fullText,
-      // For compatibility with client components that might expect a stream
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(fullText))
-          controller.close()
-        },
-      }),
+    // gather value to one or return it and stream to generateFiles.
+    // Streaming works now.
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break
+      }
+      console.log(value)
     }
+
   } catch (error) {
     console.error("Error generating response:", error)
     const errorMessage = "An error occurred while generating the response."
