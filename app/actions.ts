@@ -2,8 +2,7 @@
 
 import { systemPrompt } from "@/lib/prompts/system"
 import { anthropic } from "@ai-sdk/anthropic"
-import { streamText } from "ai"
-import { generateId } from "ai"
+import { streamText, generateId } from "ai"
 
 export async function generateAIResponse(prompt: string) {
 
@@ -46,14 +45,7 @@ export async function generateAIResponse(prompt: string) {
     const errorMessage = "An error occurred while generating the response."
 
     return {
-      id: generateId(),
-      fullText: errorMessage,
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(errorMessage))
-          controller.close()
-        },
-      }),
+      error: errorMessage
     }
   }
 }
