@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import FloatingToolbar, {
@@ -9,12 +8,23 @@ import FloatingToolbar, {
   ToolbarPosition,
 } from "./floating-toolbar";
 
+interface EditorChange {
+  targetId: string;
+  type: "style" | "attribute" | "content";
+  payload: {
+    name: string;
+    value: string;
+  };
+}
+
 interface IframeEditorProps {
   initialUrl?: string;
+  isEditMode: boolean;
 }
 
 export default function WebsitePreview({
   initialUrl = "http://localhost:3000/test", // @TODO: Make this dynamic
+  isEditMode,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState(initialUrl);
@@ -35,8 +45,63 @@ export default function WebsitePreview({
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
   const [elementType, setElementType] = useState<string>("");
+  const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]);
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
 
-  // Initialize the editor when iframe loads
+  const closeToolbar = useCallback(() => {
+    setShowToolbar(false);
+  }, []);
+
+  const getStorageKey = useCallback(() => `editorChanges-${url}`, [url]);
+
+  const applyStoredChanges = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument || isApplyingChanges) return;
+
+    setIsApplyingChanges(true);
+    const storageKey = getStorageKey();
+    const storedChangesJson = localStorage.getItem(storageKey);
+
+    if (storedChangesJson) {
+      try {
+        const changes: EditorChange[] = JSON.parse(storedChangesJson);
+        changes.forEach((change) => {
+          const element = iframe.contentDocument?.querySelector(
+            `[data-editor-id="${change.targetId}"]`
+          ) as HTMLElement | null;
+          if (element) {
+            try {
+              if (change.type === "style") {
+                element.style.setProperty(
+                  change.payload.name,
+                  change.payload.value
+                );
+              } else if (change.type === "attribute") {
+                element.setAttribute(change.payload.name, change.payload.value);
+              } else if (change.type === "content") {
+                element.innerHTML = change.payload.value;
+              }
+            } catch (applyError) {
+              console.error(
+                `Error applying change to ${change.targetId}:`,
+                applyError,
+                change
+              );
+            }
+          } else {
+            console.warn(
+              `Element with ID ${change.targetId} not found for applying change.`
+            );
+          }
+        });
+      } catch (e) {
+        console.error("Error parsing or applying stored changes:", e);
+        localStorage.removeItem(storageKey);
+      }
+    }
+    setIsApplyingChanges(false);
+  }, [getStorageKey, isApplyingChanges]);
+
   const initializeEditor = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
@@ -47,78 +112,76 @@ export default function WebsitePreview({
     setIsEditorReady(true);
 
     try {
-      // First, remove any existing editor styles to avoid duplication
       const existingStyle =
         iframe.contentDocument.getElementById("editor-styles");
       if (existingStyle) {
         existingStyle.remove();
       }
 
-      // Add styles to highlight editable elements
       const style = iframe.contentDocument.createElement("style");
       style.id = "editor-styles";
       style.textContent = `
-        [data-editable="true"] {
+        .editor-active [data-editable="true"] {
           cursor: pointer !important;
-          transition: all 0.2s ease !important;
           position: relative !important;
         }
         
-        [data-editable="true"].hover-active {
+        .editor-active [data-editable="true"].hover-active {
           outline: 2px dashed #7c3aed !important;
           outline-offset: 2px !important;
-          background-color: rgba(124, 58, 237, 0.05) !important;
         }
         
-        [data-editable="true"].focus-active {
+        .editor-active [data-editable="true"].focus-active {
           outline: 2px solid #7c3aed !important;
           outline-offset: 2px !important;
           box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1) !important;
         }
         
-        [data-editable="true"]::before {
-          content: attr(data-editable-tag) !important;
-          font-weight: 400 !important;
-          position: absolute !important;
-          top: -20px !important;
-          left: 0 !important;
-          background: rgba(124, 58, 237, 0.9) !important;
-          color: white !important;
-          padding: 2px 6px !important;
-          border-radius: 4px !important;
-          font-size: 10px !important;
-          opacity: 0 !important;
-          transition: opacity 0.2s ease !important;
-          pointer-events: none !important;
-          z-index: 1000 !important;
+        .editor-active [data-editable="true"].hover-active::before {
+           content: attr(data-editable-tag) !important;
+           font-weight: 400 !important;
+           position: absolute !important;
+           top: -20px !important;
+           left: 0 !important;
+           background: rgba(124, 58, 237, 0.9) !important;
+           color: white !important;
+           padding: 2px 6px !important;
+           border-radius: 4px !important;
+           font-size: 10px !important;
+           opacity: 1 !important; 
+           transition: opacity 0.2s ease !important;
+           pointer-events: none !important;
+           z-index: 1000 !important;
         }
-        
-        [data-editable="true"].hover-active::before {
-          opacity: 1 !important;
+
+        .editor-active [data-editable="true"]::before {
+           opacity: 0 !important;
+           pointer-events: none !important;
+           content: attr(data-editable-tag) !important;
+           font-weight: 400 !important;
+           position: absolute !important;
+           top: -20px !important;
+           left: 0 !important;
+           background: rgba(124, 58, 237, 0.9) !important;
+           color: white !important;
+           padding: 2px 6px !important;
+           border-radius: 4px !important;
+           font-size: 10px !important;
+           transition: opacity 0.2s ease !important;
+           z-index: 1000 !important;
         }
       `;
       iframe.contentDocument.head.appendChild(style);
 
-      // Re-query elements after cloning
-      const editableElements = iframe.contentDocument.querySelectorAll(
-        '[data-editable="true"]'
-      );
-      editableElements.forEach((element) => {
-        element.addEventListener("click", (e) => {
-          console.log("element clicked", element);
-          e.preventDefault();
-          e.stopPropagation();
-          handleElementSelection(element as HTMLElement);
-        });
-      });
+      applyStoredChanges();
+      makeElementsEditable();
 
-      // Add click handler to the document to close toolbar when clicking outside
-      iframe.contentDocument.addEventListener("click", (e) => {
-        const target = e.target as HTMLElement;
-        if (!target.hasAttribute("data-editable")) {
-          setShowToolbar(false);
-        }
-      });
+      if (isEditMode) {
+        iframe.contentDocument.body.classList.add("editor-active");
+        addEditModeListeners();
+      } else {
+        iframe.contentDocument.body.classList.remove("editor-active");
+      }
     } catch (error) {
       console.error("Error initializing editor:", error);
       setDebugInfo(
@@ -132,11 +195,121 @@ export default function WebsitePreview({
     }
   };
 
-  // Handle element selection
-  const handleElementSelection = (element: HTMLElement) => {
-    if (!element) return;
+  const addEditModeListeners = () => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+    const editableElements = iframe.contentDocument.querySelectorAll(
+      '[data-editable="true"]'
+    );
+    editableElements.forEach((element) => {
+      const htmlElement = element as HTMLElement;
+      if (!(htmlElement as any).__clickListenerAttached) {
+        htmlElement.addEventListener("click", handleElementClick);
+        (htmlElement as any).__clickListenerAttached = true;
+      }
+      if (htmlElement.hasAttribute("data-editable-text")) {
+        htmlElement.addEventListener("input", handleElementInput);
+      }
+      htmlElement.addEventListener("mouseenter", handleMouseEnter);
+      htmlElement.addEventListener("mouseleave", handleMouseLeave);
+    });
 
-    // Reset previous element's contentEditable if necessary
+    iframe.contentDocument.addEventListener("click", handleDocumentClick);
+  };
+
+  const removeEditModeListeners = () => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+    const editableElements = iframe.contentDocument.querySelectorAll(
+      '[data-editable="true"]'
+    );
+    editableElements.forEach((element) => {
+      const htmlElement = element as HTMLElement;
+      htmlElement.removeEventListener("click", handleElementClick);
+      (htmlElement as any).__clickListenerAttached = false;
+      if (htmlElement.hasAttribute("data-editable-text")) {
+        htmlElement.contentEditable = "false";
+        htmlElement.removeEventListener("input", handleElementInput);
+      }
+      htmlElement.removeEventListener("mouseenter", handleMouseEnter);
+      htmlElement.removeEventListener("mouseleave", handleMouseLeave);
+
+      htmlElement.classList.remove("hover-active", "focus-active");
+    });
+    iframe.contentDocument.removeEventListener("click", handleDocumentClick);
+    setShowToolbar(false);
+  };
+
+  const handleElementClick = (e: Event) => {
+    if (!isEditMode) return;
+    const element = e.currentTarget as HTMLElement;
+    e.preventDefault();
+    e.stopPropagation();
+    handleElementSelection(element);
+  };
+
+  const handleDocumentClick = (e: Event) => {
+    if (!isEditMode) return;
+    const target = e.target as HTMLElement;
+    if (
+      !target.hasAttribute("data-editable") &&
+      !target.closest('[data-toolbar="true"]')
+    ) {
+      setShowToolbar(false);
+      if (
+        selectedElement &&
+        selectedElement.hasAttribute("data-editable-text")
+      ) {
+        selectedElement.contentEditable = "false";
+      }
+      setSelectedElement(null);
+    }
+  };
+
+  const recordChange = useCallback(
+    (
+      targetId: string,
+      type: EditorChange["type"],
+      name: string,
+      value: string
+    ) => {
+      if (isApplyingChanges) return;
+      setPendingChanges((prev) => {
+        const lastChange = prev[prev.length - 1];
+        if (
+          lastChange &&
+          lastChange.targetId === targetId &&
+          lastChange.payload.name === name &&
+          lastChange.payload.value === value
+        ) {
+          return prev;
+        }
+        const newChange: EditorChange = {
+          targetId,
+          type,
+          payload: { name, value },
+        };
+        return [...prev, newChange];
+      });
+    },
+    [isApplyingChanges]
+  );
+
+  const handleElementInput = useCallback(
+    (e: Event) => {
+      if (!isEditMode || isApplyingChanges) return;
+      const element = e.target as HTMLElement;
+      const editorId = element.getAttribute("data-editor-id");
+      if (editorId) {
+        recordChange(editorId, "content", "innerHTML", element.innerHTML);
+      }
+    },
+    [isEditMode, isApplyingChanges, recordChange]
+  );
+
+  const handleElementSelection = (element: HTMLElement) => {
+    if (!isEditMode || !element) return;
+
     if (selectedElement && selectedElement !== element) {
       if (selectedElement.hasAttribute("data-editable-text")) {
         selectedElement.contentEditable = "false";
@@ -147,40 +320,34 @@ export default function WebsitePreview({
     const elementTypeLower = element.tagName.toLowerCase();
     setElementType(elementTypeLower);
 
-    // Get element position
     const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow) return; // Added contentWindow check
+    if (!iframe || !iframe.contentWindow) return;
 
     const iframeRect = iframe.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
 
-    // Position toolbar directly above the element
-    const toolbarHeight = 40; // Approximate height
+    const toolbarHeight = 40;
 
     setToolbarPosition({
       top: elementRect.top + iframeRect.top - toolbarHeight - 10,
-      left: elementRect.left + elementRect.width / 2 + iframeRect.left - 150, // Approximate width / 2
+      left: elementRect.left + elementRect.width / 2 + iframeRect.left - 150,
     });
 
     setShowToolbar(true);
     setDebugInfo(`Selected element: ${elementTypeLower}`);
 
-    // Only check text formatting and enable contentEditable for non-image elements
     if (element.tagName !== "IMG") {
-      // Set contentEditable for text elements
       if (element.hasAttribute("data-editable-text")) {
         element.contentEditable = "true";
       } else {
-        element.contentEditable = "false"; // Ensure non-text elements aren't editable
+        element.contentEditable = "false";
       }
 
-      // Focus the element within the iframe's context
-      iframe.contentWindow.focus(); // Focus iframe window first
-      element.focus(); // Then focus the element
+      iframe.contentWindow.focus();
+      element.focus();
 
       checkActiveFormats(element);
 
-      // Create a selection range if there isn't one (might be redundant after focus)
       const selection = iframe.contentWindow.getSelection();
       if (selection && selection.rangeCount === 0) {
         const range = iframe.contentDocument!.createRange();
@@ -189,11 +356,10 @@ export default function WebsitePreview({
         selection.addRange(range);
       }
     } else {
-      element.contentEditable = "false"; // Ensure images are not contentEditable
+      element.contentEditable = "false";
     }
   };
 
-  // Check which formats are currently active for the selected element
   const checkActiveFormats = useCallback(
     (element: HTMLElement) => {
       if (!element || element.tagName === "IMG") return;
@@ -211,7 +377,6 @@ export default function WebsitePreview({
           const range = selection.getRangeAt(0);
           let node: Node | null = range.commonAncestorContainer;
 
-          // Traverse up from the common ancestor to the editable element
           while (node && node !== element.parentElement) {
             if (node.nodeType === Node.ELEMENT_NODE) {
               const style = iframe.contentWindow.getComputedStyle(
@@ -230,13 +395,11 @@ export default function WebsitePreview({
                 isUnderline = true;
               }
             }
-            // Stop if we found all formats or reached the top
             if (isBold && isItalic && isUnderline) break;
-            if (node === element) break; // Stop at the selected element itself
+            if (node === element) break;
             node = node.parentNode;
           }
 
-          // If traversal didn't find styles, check the element itself
           if (!isBold || !isItalic || !isUnderline) {
             const elementStyle = iframe.contentWindow.getComputedStyle(element);
             if (
@@ -257,7 +420,6 @@ export default function WebsitePreview({
             }
           }
         } else {
-          // Fallback for no selection: check the element's style directly
           const style = iframe.contentWindow.getComputedStyle(element);
           isBold =
             style.fontWeight === "bold" ||
@@ -277,29 +439,26 @@ export default function WebsitePreview({
       }
     },
     [selectedElement]
-  ); // Depend on selectedElement
+  );
 
-  // Format text
   const formatText = (command: string, value = "") => {
-    const iframe = iframeRef.current; // Get iframe ref
+    if (!isEditMode) return;
+    const iframe = iframeRef.current;
     if (
       !selectedElement ||
-      !iframe || // Check iframe ref
+      !iframe ||
       !iframe.contentDocument ||
       selectedElement.tagName === "IMG"
     )
       return;
 
-    // Ensure the element is contentEditable if it's supposed to be
     if (!selectedElement.hasAttribute("data-editable-text")) return;
-    selectedElement.contentEditable = "true"; // Ensure it's editable for the command
+    selectedElement.contentEditable = "true";
 
     try {
-      // Focus the iframe window and the element to ensure correct context for execCommand
       iframe.contentWindow?.focus();
       selectedElement.focus();
 
-      // Create a selection if there isn't one or if it's collapsed
       const selection = iframe.contentWindow?.getSelection();
       if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
         if (iframe.contentDocument) {
@@ -310,12 +469,7 @@ export default function WebsitePreview({
         }
       }
 
-      // Execute command in the iframe's document
       if (iframe.contentDocument) {
-        // Log before command
-        console.log(
-          `Executing command: ${command} with value: ${value || "none"}`
-        );
         setDebugInfo(`Executing command: ${command}`);
 
         const result = iframe.contentDocument.execCommand(
@@ -324,8 +478,6 @@ export default function WebsitePreview({
           value
         );
 
-        // Log after command
-        console.log(`Command ${command} result: ${result}`);
         if (!result) {
           console.warn(`Command ${command} failed`);
           setDebugInfo(`Command ${command} failed`);
@@ -338,15 +490,16 @@ export default function WebsitePreview({
           setDebugInfo(
             `Applied ${command} ${value ? `with value ${value}` : ""}`
           );
-          // Trigger manual update if needed, e.g., save state
         }
       }
 
-      // Re-check active formats after applying changes
       checkActiveFormats(selectedElement);
 
-      // Optional: Refocus element after potential focus loss from execCommand
-      // selectedElement.focus();
+      setTimeout(() => {
+        selectedElement.dispatchEvent(
+          new Event("input", { bubbles: true, cancelable: true })
+        );
+      }, 0);
     } catch (error) {
       console.error(`Error applying format ${command}:`, error);
       setDebugInfo(
@@ -360,59 +513,51 @@ export default function WebsitePreview({
     }
   };
 
-  // Handle URL change
-  useEffect(() => {
-    setUrl(inputUrl);
-    setShowToolbar(false);
-    setDebugInfo("");
-  }, [inputUrl]);
-
-  // Handle iframe load
-  useEffect(() => {
-    setDebugInfo("Iframe loaded, initializing editor...");
-    setTimeout(() => {
-      initializeEditor(); // Initialize editor styles
-      makeElementsEditable(); // Mark elements as editable
-    }, 500); // Give the iframe a moment to fully render
-  }, [iframeRef.current]);
-
-  // Apply background color
   const setBackgroundColor = (color: string) => {
-    if (selectedElement) {
+    if (!isEditMode || !selectedElement) return;
+    const editorId = selectedElement.getAttribute("data-editor-id");
+    if (editorId) {
       try {
         selectedElement.style.backgroundColor = color;
         setDebugInfo(`Applied background color: ${color}`);
+        recordChange(editorId, "style", "backgroundColor", color);
       } catch (error) {
         setDebugInfo(`Error applying background color: ${error}`);
       }
     }
   };
 
-  // Set background image
-  const setBackgroundImage = (url: string) => {
-    if (selectedElement) {
+  const setBackgroundImage = (urlValue: string) => {
+    if (!isEditMode || !selectedElement) return;
+    const editorId = selectedElement.getAttribute("data-editor-id");
+    if (editorId) {
       try {
-        selectedElement.style.backgroundImage = `url(${url})`;
+        const bgImageValue = `url(${urlValue})`;
+        selectedElement.style.backgroundImage = bgImageValue;
         selectedElement.style.backgroundSize = "cover";
         selectedElement.style.backgroundPosition = "center";
-        setDebugInfo(`Applied background image: ${url}`);
+        setDebugInfo(`Applied background image: ${urlValue}`);
+        recordChange(editorId, "style", "backgroundImage", bgImageValue);
       } catch (error) {
         setDebugInfo(`Error applying background image: ${error}`);
       }
     }
   };
 
-  // Set link
-  const setLink = (url: string) => {
-    formatText("createLink", url);
+  const setLink = (urlValue: string) => {
+    if (!isEditMode) return;
+    formatText("createLink", urlValue);
   };
 
-  // Set alt tag for image
   const setAltTag = (alt: string) => {
-    if (selectedElement && selectedElement.tagName === "IMG") {
+    if (!isEditMode || !selectedElement || selectedElement.tagName !== "IMG")
+      return;
+    const editorId = selectedElement.getAttribute("data-editor-id");
+    if (editorId) {
       try {
         (selectedElement as HTMLImageElement).alt = alt;
         setDebugInfo(`Set alt text: ${alt}`);
+        recordChange(editorId, "attribute", "alt", alt);
         toast({
           title: "Alt Text Updated",
           description: "The image alt text has been updated successfully.",
@@ -423,19 +568,119 @@ export default function WebsitePreview({
     }
   };
 
-  // Close toolbar
-  const closeToolbar = () => {
-    setShowToolbar(false);
-  };
+  const saveChanges = useCallback(() => {
+    if (pendingChanges.length === 0) {
+      return;
+    }
 
-  // Make elements in the canvas editable
+    const storageKey = getStorageKey();
+    const storedChangesJson = localStorage.getItem(storageKey);
+    let existingChanges: EditorChange[] = [];
+    if (storedChangesJson) {
+      try {
+        existingChanges = JSON.parse(storedChangesJson);
+      } catch (e) {
+        console.error("Error parsing existing changes from localStorage:", e);
+      }
+    }
+
+    const changesMap = new Map<string, EditorChange>();
+    existingChanges.forEach((change) => {
+      const key = `${change.targetId}-${change.payload.name}`;
+      changesMap.set(key, change);
+    });
+    pendingChanges.forEach((change) => {
+      const key = `${change.targetId}-${change.payload.name}`;
+      changesMap.set(key, change);
+    });
+
+    const mergedChanges = Array.from(changesMap.values());
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(mergedChanges));
+      toast({
+        title: "Changes Saved",
+        description: "Your edits have been saved locally.",
+      });
+      setPendingChanges([]);
+    } catch (e) {
+      console.error("Error saving changes to localStorage:", e);
+      toast({
+        title: "Save Error",
+        description: "Could not save changes.",
+        variant: "destructive",
+      });
+    }
+  }, [pendingChanges, getStorageKey]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (
+      isEditorReady &&
+      iframe &&
+      iframe.contentDocument &&
+      iframe.contentDocument.body
+    ) {
+      const iframeBody = iframe.contentDocument.body;
+      if (isEditMode) {
+        iframeBody.classList.add("editor-active");
+        addEditModeListeners();
+      } else {
+        saveChanges();
+        iframeBody.classList.remove("editor-active");
+        removeEditModeListeners();
+      }
+    } else {
+      // Log if conditions aren't met
+    }
+    return () => {
+      if (
+        isEditorReady &&
+        iframe &&
+        iframe.contentDocument &&
+        iframe.contentDocument.body
+      ) {
+        iframe.contentDocument.body.classList.remove("editor-active");
+        removeEditModeListeners();
+      }
+    };
+  }, [isEditMode, isEditorReady, saveChanges]);
+
+  useEffect(() => {
+    setUrl(inputUrl);
+    setShowToolbar(false);
+    setDebugInfo("");
+  }, [inputUrl]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    const handleLoad = () => {
+      setDebugInfo("Iframe loaded, initializing editor...");
+      setTimeout(() => {
+        initializeEditor();
+      }, 500);
+    };
+
+    if (iframe) {
+      iframe.addEventListener("load", handleLoad);
+      if (
+        iframe.contentDocument &&
+        iframe.contentDocument.readyState === "complete"
+      ) {
+        handleLoad();
+      }
+    }
+
+    return () => {
+      iframe?.removeEventListener("load", handleLoad);
+    };
+  }, [url]);
+
   const makeElementsEditable = () => {
-    const iframe = iframeRef.current; // Ensure iframeRef is defined
+    const iframe = iframeRef.current;
     if (!iframe || !iframe.contentDocument) return;
 
     const doc = iframe.contentDocument;
-
-    // Elements suitable for direct text editing
     const textEditableTags = new Set([
       "h1",
       "h2",
@@ -449,111 +694,82 @@ export default function WebsitePreview({
       "button",
       "a",
     ]);
-    // All elements we want to be selectable/styleable
     const selectableElementsSelector =
       "h1, h2, h3, h4, h5, h6, p, span, section, header, nav, footer, li, div, button, a, img";
-
-    // Select all relevant elements inside the iframe
     const selectableElements = doc.querySelectorAll(selectableElementsSelector);
-
-    let currentHoveredElement: HTMLElement | null = null; // Track the currently hovered element
+    let elementCounter = 0;
 
     selectableElements.forEach((el) => {
-      // Skip elements that shouldn't be editable at all
       if (el.closest("script, style, noscript, svg")) return;
 
-      const htmlEl = el as HTMLElement; // Cast to HTMLElement
+      const htmlEl = el as HTMLElement;
       const tagNameLower = htmlEl.tagName.toLowerCase();
 
-      // Mark element as selectable
+      const editorId = `editor-${Date.now()}-${elementCounter++}`;
+      htmlEl.setAttribute("data-editor-id", editorId);
+
       htmlEl.setAttribute("data-editable", "true");
       htmlEl.setAttribute("data-editable-tag", tagNameLower);
 
-      // Check if element type is suitable for text editing
       if (textEditableTags.has(tagNameLower)) {
         htmlEl.setAttribute("data-editable-type", "text");
-        // Set contentEditable initially false, enable on selection
         htmlEl.contentEditable = "false";
-        htmlEl.setAttribute("data-editable-text", "true"); // Mark as text editable
-        // Prevent browsers default drag behavior for contentEditable elements
+        htmlEl.setAttribute("data-editable-text", "true");
         htmlEl.draggable = false;
       } else {
-        htmlEl.setAttribute("data-editable-type", "block"); // Or 'image' etc.
-        htmlEl.contentEditable = "false"; // Ensure non-text elements are not editable
+        htmlEl.setAttribute(
+          "data-editable-type",
+          tagNameLower === "img" ? "image" : "block"
+        );
+        htmlEl.contentEditable = "false";
       }
 
-      // Add hover and focus event listeners (keep existing logic)
-      htmlEl.addEventListener("mouseenter", () => {
-        // Remove hover styles from the previously hovered element
-        if (currentHoveredElement && currentHoveredElement !== htmlEl) {
-          currentHoveredElement.classList.remove("hover-active");
-        }
+      htmlEl.addEventListener("blur", handleElementBlur);
 
-        // Add hover style to the current element
-        htmlEl.classList.add("hover-active");
-        currentHoveredElement = htmlEl; // Update the currently hovered element
-      });
-
-      htmlEl.addEventListener("mouseleave", () => {
-        // Remove hover style from the current element
-        htmlEl.classList.remove("hover-active");
-        if (currentHoveredElement === htmlEl) {
-          currentHoveredElement = null; // Reset the currently hovered element
-        }
-      });
-
-      // We handle focus via handleElementSelection now, but keep blur styling
-      htmlEl.addEventListener("blur", () => {
-        htmlEl.classList.remove("focus-active");
-        // Important: Turn off contentEditable when focus is lost to prevent accidental edits
-        // if (htmlEl.hasAttribute("data-editable-text")) {
-        //    htmlEl.contentEditable = "false";
-        // }
-      });
-
-      // Add click listener (already exists, ensure it calls handleElementSelection)
-      // Check if listener already exists to prevent duplicates if makeElementsEditable runs multiple times
-      if (!(htmlEl as any).__clickListenerAttached) {
-        htmlEl.addEventListener("click", (e) => {
-          console.log("element clicked", htmlEl);
-          e.preventDefault();
-          e.stopPropagation();
-          handleElementSelection(htmlEl);
-        });
-        (htmlEl as any).__clickListenerAttached = true;
-      }
+      (htmlEl as any).__clickListenerAttached = false;
     });
-
-    console.log(`Made ${selectableElements.length} elements selectable`);
   };
 
-  // Debugging Iframe Ref
-  // useEffect(() => {
-  //   if (iframeRef.current) {
-  //     console.log("Iframe ref is assigned", iframeRef.current);
-  //   }
-  // }, [iframeRef.current]);
+  let currentHoveredElement: HTMLElement | null = null;
+  const handleMouseEnter = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    if (currentHoveredElement && currentHoveredElement !== htmlEl) {
+      currentHoveredElement.classList.remove("hover-active");
+    }
+    htmlEl.classList.add("hover-active");
+    currentHoveredElement = htmlEl;
+  };
+  const handleMouseLeave = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    htmlEl.classList.remove("hover-active");
+    if (currentHoveredElement === htmlEl) {
+      currentHoveredElement = null;
+    }
+  };
+  const handleElementBlur = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    htmlEl.classList.remove("focus-active");
+  };
 
   return (
     <div className="flex flex-col h-full w-full gap-4">
-      {/* Floating Toolbar */}
-      <FloatingToolbar
-        show={showToolbar}
-        position={toolbarPosition}
-        activeFormats={activeFormats}
-        elementType={elementType}
-        selectedElement={selectedElement}
-        onFormatText={formatText}
-        onSetBackgroundColor={setBackgroundColor}
-        onSetBackgroundImage={setBackgroundImage}
-        onSetLink={setLink}
-        onSetAltTag={setAltTag}
-        onClose={closeToolbar}
-      />
+      {isEditMode && (
+        <FloatingToolbar
+          show={showToolbar}
+          position={toolbarPosition}
+          activeFormats={activeFormats}
+          elementType={elementType}
+          selectedElement={selectedElement}
+          onFormatText={formatText}
+          onSetBackgroundColor={setBackgroundColor}
+          onSetBackgroundImage={setBackgroundImage}
+          onSetLink={setLink}
+          onSetAltTag={setAltTag}
+          onClose={closeToolbar}
+        />
+      )}
 
-      {/* Iframe Container */}
       <div className="relative w-full h-full border rounded-lg overflow-hidden">
-        {/* Sometimes "loads" infinitely for no reason @TODO: Fix */}
         {!isEditorReady && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="text-center">
@@ -566,9 +782,10 @@ export default function WebsitePreview({
         )}
         <iframe
           ref={iframeRef}
+          key={url}
           src={url}
           className="w-full h-full"
-          sandbox="allow-same-origin allow-forms"
+          sandbox="allow-same-origin allow-forms allow-scripts"
         />
       </div>
     </div>

@@ -27,6 +27,8 @@ import {
   Settings,
   WandSparkles,
   ChevronLeft,
+  Edit,
+  Eye,
 } from "lucide-react";
 
 import type { ComponentType } from "@/components/component-library";
@@ -46,23 +48,21 @@ export function WebsiteEditor() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [viewportSize, setViewportSize] = useState<ViewportSize>("desktop");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
   const vfs = VirtualFileSystem.getInstance();
 
   const isMobile = useMobile();
 
-  // Initialize virtual file system
   useEffect(() => {
     vfs.loadFromLocalStorage();
   }, []);
 
-  // Add component to the canvas
   const addComponent = (component: ComponentType) => {
     const newComponents = [...components, component];
     setComponents(newComponents);
     addToHistory(newComponents);
   };
 
-  // Move component up in the order
   const moveComponentUp = (index: number) => {
     if (index === 0) return;
     const newComponents = [...components];
@@ -74,7 +74,6 @@ export function WebsiteEditor() {
     addToHistory(newComponents);
   };
 
-  // Move component down in the order
   const moveComponentDown = (index: number) => {
     if (index === components.length - 1) return;
     const newComponents = [...components];
@@ -86,16 +85,13 @@ export function WebsiteEditor() {
     addToHistory(newComponents);
   };
 
-  // Add current state to history
   const addToHistory = (newComponents: ComponentType[]) => {
-    // If we're not at the end of the history, truncate it
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push([...newComponents]);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   };
 
-  // Undo last action
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
@@ -103,7 +99,6 @@ export function WebsiteEditor() {
     }
   };
 
-  // Redo last undone action
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
@@ -111,7 +106,6 @@ export function WebsiteEditor() {
     }
   };
 
-  // Initialize history when components change
   useEffect(() => {
     if (history.length === 0 && components.length > 0) {
       setHistory([[...components]]);
@@ -119,7 +113,6 @@ export function WebsiteEditor() {
     }
   }, [components, history]);
 
-  // Set viewport width based on selected size
   const getViewportWidth = () => {
     switch (viewportSize) {
       case "mobile":
@@ -130,7 +123,6 @@ export function WebsiteEditor() {
     }
   };
 
-  // Add state to track the index being dragged
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleDragStart = (
@@ -159,7 +151,6 @@ export function WebsiteEditor() {
     setDraggedIndex(null);
   };
 
-  // Render the component library sidebar
   const renderComponentLibrarySidebar = () => {
     const content = (
       <div className="rounded h-full w-fit flex flex-col">
@@ -279,14 +270,27 @@ export function WebsiteEditor() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Toolbar */}
-      <div className="h-14 border-b flex items-center px-4">
+      <div className="h-14 border-b flex items-center px-4 gap-2">
         <Link href="/create">
           <Button variant="outline" size="sm">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to setup
           </Button>
         </Link>
+
+        <Button
+          variant={isEditMode ? "default" : "outline"}
+          size="sm"
+          onClick={() => setIsEditMode(!isEditMode)}
+          title={isEditMode ? "Exit Edit Mode" : "Enter Edit Mode"}
+        >
+          {isEditMode ? (
+            <Eye className="h-4 w-4 mr-1" />
+          ) : (
+            <Edit className="h-4 w-4 mr-1" />
+          )}
+          {isEditMode ? "Preview" : "Edit"}
+        </Button>
 
         <div className="flex items-center space-x-2 ml-auto">
           <Button variant="outline" size="sm" onClick={handleUndo}>
@@ -315,10 +319,18 @@ export function WebsiteEditor() {
             <Smartphone className="h-4 w-4" />
           </Button>
 
-          <Button size="sm" variant="outline">
-            <Save className="h-4 w-4 sm:mr-1" />
-            <span className="hidden sm:inline">Save</span>
-          </Button>
+          {isEditMode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setIsEditMode(false);
+              }}
+            >
+              <Save className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Save Changes</span>
+            </Button>
+          )}
           <Button size="sm">
             <Rocket className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Go Live</span>
@@ -326,20 +338,16 @@ export function WebsiteEditor() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar - Component Library */}
         {renderComponentLibrarySidebar()}
 
-        {/* Canvas */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
           <div className={`transition-all duration-300 ${getViewportWidth()}`}>
-            <WebsitePreview />
+            <WebsitePreview isEditMode={isEditMode} />
           </div>
         </div>
       </div>
 
-      {/* Mobile bottom toolbar */}
       {isMobile && (
         <div className="h-14 border-t flex items-center justify-around px-4 bg-background">
           <Button

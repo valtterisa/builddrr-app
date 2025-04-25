@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ImageIcon,
   FileImage,
+  X, // Import the X icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,7 @@ export default function FloatingToolbar({
   onSetBackgroundImage,
   onSetLink,
   onSetAltTag,
-  onClose,
+  onClose, // Existing onClose prop
 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [isToolbarPositioned, setIsToolbarPositioned] = useState(false);
@@ -229,6 +230,7 @@ export default function FloatingToolbar({
   return (
     <div
       ref={toolbarRef}
+      data-toolbar="true" // Add this attribute
       className={cn(
         "fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 transition-all duration-200 flex items-center gap-1 flex-wrap",
         show
@@ -570,6 +572,18 @@ export default function FloatingToolbar({
           )}
         </div>
       )}
+
+      {/* Add Separator and Close Button */}
+      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        title="Close Toolbar"
+        onClick={onClose} // Call the onClose prop when clicked
+      >
+        <X className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
