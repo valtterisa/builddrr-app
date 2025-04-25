@@ -237,7 +237,6 @@ export default function WebsitePreview({
       htmlElement.classList.remove("hover-active", "focus-active");
     });
     iframe.contentDocument.removeEventListener("click", handleDocumentClick);
-    setShowToolbar(false);
   };
 
   const handleElementClick = (e: Event) => {
@@ -255,7 +254,6 @@ export default function WebsitePreview({
       !target.hasAttribute("data-editable") &&
       !target.closest('[data-toolbar="true"]')
     ) {
-      setShowToolbar(false);
       if (
         selectedElement &&
         selectedElement.hasAttribute("data-editable-text")
@@ -700,7 +698,7 @@ export default function WebsitePreview({
     let elementCounter = 0;
 
     selectableElements.forEach((el) => {
-      if (el.closest("script, style, noscript, svg")) return;
+      if (el.closest("script, style, noscript")) return;
 
       const htmlEl = el as HTMLElement;
       const tagNameLower = htmlEl.tagName.toLowerCase();

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // Font size options
+// @TODO revise the font sizes. Currently FUCKED
 const fontSizeOptions = [
   { name: "Small", value: "1" },
   { name: "Normal", value: "3" },
@@ -108,7 +109,6 @@ export default function FloatingToolbar({
   onClose, // Existing onClose prop
 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const [isToolbarPositioned, setIsToolbarPositioned] = useState(false);
 
   // State for menu visibility
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
@@ -130,6 +130,26 @@ export default function FloatingToolbar({
 
   // Toggle menu visibility
   const toggleMenu = (menu: string) => {
+    // Store the current state of the menu being toggled
+    let wasOpen = false;
+    switch (menu) {
+      case "fontSize":
+        wasOpen = showFontSizeMenu;
+        break;
+      case "color":
+        wasOpen = showColorMenu;
+        break;
+      case "background":
+        wasOpen = showBackgroundMenu;
+        break;
+      case "link":
+        wasOpen = showLinkMenu;
+        break;
+      case "alt":
+        wasOpen = showAltMenu;
+        break;
+    }
+
     // Close all menus first
     setShowFontSizeMenu(false);
     setShowColorMenu(false);
@@ -137,23 +157,25 @@ export default function FloatingToolbar({
     setShowLinkMenu(false);
     setShowAltMenu(false);
 
-    // Then open the selected menu
-    switch (menu) {
-      case "fontSize":
-        setShowFontSizeMenu((prev) => !prev);
-        break;
-      case "color":
-        setShowColorMenu((prev) => !prev);
-        break;
-      case "background":
-        setShowBackgroundMenu((prev) => !prev);
-        break;
-      case "link":
-        setShowLinkMenu((prev) => !prev);
-        break;
-      case "alt":
-        setShowAltMenu((prev) => !prev);
-        break;
+    // If the clicked menu wasn't already open, open it
+    if (!wasOpen) {
+      switch (menu) {
+        case "fontSize":
+          setShowFontSizeMenu(true);
+          break;
+        case "color":
+          setShowColorMenu(true);
+          break;
+        case "background":
+          setShowBackgroundMenu(true);
+          break;
+        case "link":
+          setShowLinkMenu(true);
+          break;
+        case "alt":
+          setShowAltMenu(true);
+          break;
+      }
     }
   };
 
@@ -169,29 +191,30 @@ export default function FloatingToolbar({
     setShowColorMenu(false);
   };
 
-  // Handle clicks outside the toolbar
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        toolbarRef.current &&
-        !toolbarRef.current.contains(event.target as Node) &&
-        event.target !== selectedElement
-      ) {
-        onClose();
-        // Close all menus
-        setShowFontSizeMenu(false);
-        setShowColorMenu(false);
-        setShowBackgroundMenu(false);
-        setShowLinkMenu(false);
-        setShowAltMenu(false);
-      }
-    };
+  // Apply background color
+  const applyBackgroundColor = (color: string) => {
+    onSetBackgroundColor(color);
+    // setShowBackgroundMenu(false);
+  };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [selectedElement, onClose]);
+  // Apply background image
+  const applyBackgroundImage = (url: string) => {
+    onSetBackgroundImage(url);
+    // Optionally close menu
+    // setShowBackgroundMenu(false);
+  };
+
+  // Apply link
+  const applyLink = (url: string) => {
+    onSetLink(url);
+    setShowLinkMenu(false);
+  };
+
+  // Apply alt tag
+  const applyAltTag = (alt: string) => {
+    onSetAltTag(alt);
+    setShowAltMenu(false);
+  };
 
   // Adjust toolbar position if it goes out of viewport
   useEffect(() => {
@@ -220,10 +243,6 @@ export default function FloatingToolbar({
         toolbar.style.left = `${newLeft}px`;
         toolbar.style.top = `${newTop}px`;
       }
-
-      setIsToolbarPositioned(true);
-    } else {
-      setIsToolbarPositioned(false);
     }
   }, [show, position]);
 
@@ -286,10 +305,9 @@ export default function FloatingToolbar({
               variant="ghost"
               size="sm"
               className="h-8 gap-1 px-2"
-              onClick={() => toggleMenu("fontSize")}
+              onClick={() => toggleMenu("fontSize")} // Keep onClick for toggling menu
             >
               <Type className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only sm:text-xs">Size</span>
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
 
@@ -404,7 +422,8 @@ export default function FloatingToolbar({
                           key={color}
                           className="h-6 w-6 rounded-md border border-gray-200 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-gray-200"
                           style={{ backgroundColor: color }}
-                          onClick={() => onSetBackgroundColor(color)}
+                          onClick={() => applyBackgroundColor(color)} // Use updated handler
+                          onMouseDown={(e) => e.preventDefault()} // Add this
                           title={color}
                         />
                       ))}
@@ -416,7 +435,8 @@ export default function FloatingToolbar({
                         className="h-8 text-xs"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
-                            onSetBackgroundColor(
+                            applyBackgroundColor(
+                              // Use updated handler
                               (e.target as HTMLInputElement).value
                             );
                             (e.target as HTMLInputElement).value = "";
@@ -431,7 +451,7 @@ export default function FloatingToolbar({
                           const input = e.currentTarget
                             .previousSibling as HTMLInputElement;
                           if (input.value) {
-                            onSetBackgroundColor(input.value);
+                            applyBackgroundColor(input.value); // Use updated handler
                             input.value = "";
                           }
                         }}
@@ -460,7 +480,7 @@ export default function FloatingToolbar({
                             "bg-image-url"
                           ) as HTMLInputElement;
                           if (input.value) {
-                            onSetBackgroundImage(input.value);
+                            applyBackgroundImage(input.value); // Use updated handler
                             input.value = "";
                           }
                         }}
@@ -505,12 +525,13 @@ export default function FloatingToolbar({
                   <Button
                     variant="outline"
                     size="sm"
+                    onMouseDown={(e) => e.preventDefault()} // Add this
                     onClick={() => {
                       const input = document.getElementById(
                         "link-url"
                       ) as HTMLInputElement;
                       if (input.value) {
-                        onSetLink(input.value);
+                        applyLink(input.value); // Use updated handler
                         input.value = "";
                       }
                     }}
@@ -557,11 +578,12 @@ export default function FloatingToolbar({
                   <Button
                     variant="outline"
                     size="sm"
+                    onMouseDown={(e) => e.preventDefault()} // Add this
                     onClick={() => {
                       const input = document.getElementById(
                         "alt-text"
                       ) as HTMLInputElement;
-                      onSetAltTag(input.value);
+                      applyAltTag(input.value);
                     }}
                   >
                     Update Alt Text
@@ -580,7 +602,7 @@ export default function FloatingToolbar({
         size="icon"
         className="h-8 w-8"
         title="Close Toolbar"
-        onClick={onClose} // Call the onClose prop when clicked
+        onClick={onClose}
       >
         <X className="h-4 w-4" />
       </Button>

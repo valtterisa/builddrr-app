@@ -289,7 +289,7 @@ export function WebsiteEditor() {
           ) : (
             <Edit className="h-4 w-4 mr-1" />
           )}
-          {isEditMode ? "Preview" : "Edit"}
+          Edit
         </Button>
 
         <div className="flex items-center space-x-2 ml-auto">
