@@ -124,7 +124,6 @@ export default function WebsitePreview({
       style.textContent = `
         .editor-active [data-editable="true"] {
           cursor: pointer !important;
-          position: relative !important;
         }
         
         .editor-active [data-editable="true"].hover-active {

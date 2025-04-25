@@ -515,33 +515,8 @@ export default function FloatingToolbar({
                     </div>
 
                     <div className="mt-4 pt-3 border-t">
-                      <h4 className="text-sm font-medium mb-2">
-                        Background Image
-                      </h4>
                       <div className="flex flex-col space-y-2">
-                        <Input
-                          type="url"
-                          placeholder="Image URL"
-                          className="h-8 text-xs"
-                          id="bg-image-url"
-                        />
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const input = document.getElementById(
-                                "bg-image-url"
-                              ) as HTMLInputElement;
-                              if (input.value) {
-                                applyBackgroundImage(input.value); // Use updated handler
-                                input.value = "";
-                              }
-                            }}
-                            className="flex-1"
-                          >
-                            Apply URL
-                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
