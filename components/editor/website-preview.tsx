@@ -445,7 +445,7 @@ export default function WebsitePreview({
         let node = range.startContainer;
         // If selection is in a text node, get its parent element
         if (node.nodeType === Node.TEXT_NODE) {
-          node = node.parentElement;
+          node = node.parentElement as HTMLElement;
         }
         // Ensure we have an element node to check style
         if (node && node.nodeType === Node.ELEMENT_NODE) {
@@ -677,6 +677,42 @@ export default function WebsitePreview({
     addEditModeListeners,
     removeEditModeListeners,
   ]); // Added add/remove listeners to dependencies
+
+  // Listen for image change events from the MediaLibrary
+  useEffect(() => {
+    const handleImageChanged = (event: CustomEvent) => {
+      const { url, editorId } = event.detail;
+      if (url && editorId) {
+        recordChange(editorId, "attribute", "src", url);
+        // Also update alt text if not already set
+        const iframe = iframeRef.current;
+        if (iframe && iframe.contentDocument) {
+          const imgElement = iframe.contentDocument.querySelector(
+            `[data-editor-id="${editorId}"]`
+          ) as HTMLImageElement | null;
+          if (imgElement && !imgElement.alt) {
+            // Extract filename from URL for basic alt text
+            const filename = url.split("/").pop()?.split(".")[0] || "";
+            const altText = filename.replace(/[-_]/g, " ");
+            imgElement.alt = altText;
+            recordChange(editorId, "attribute", "alt", altText);
+          }
+        }
+      }
+    };
+
+    document.addEventListener(
+      "imageChanged",
+      handleImageChanged as EventListener
+    );
+
+    return () => {
+      document.removeEventListener(
+        "imageChanged",
+        handleImageChanged as EventListener
+      );
+    };
+  }, [recordChange]);
 
   useEffect(() => {
     setUrl(inputUrl);

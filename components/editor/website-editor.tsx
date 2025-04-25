@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   Edit,
   Eye,
+  Image,
 } from "lucide-react";
 
 import type { ComponentType } from "@/components/component-library";
@@ -36,6 +37,7 @@ import { useMobile } from "@/hooks/use-mobile";
 import WebsitePreview from "./website-preview";
 import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
+import { MediaLibraryModal } from "../media-library/media-library-modal";
 
 type ViewportSize = "desktop" | "mobile";
 
@@ -197,6 +199,19 @@ export function WebsiteEditor() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[825px]">
             <ComponentLibrary onSelectComponent={addComponent} />
+          </DialogContent>
+        </Dialog>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="w-fit mb-4">
+              <Image className="h-4 w-4" />
+              <DialogHeader className="hidden">
+                <DialogTitle>Component Library</DialogTitle>
+              </DialogHeader>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[825px]">
+            <MediaLibraryModal />
           </DialogContent>
         </Dialog>
 
