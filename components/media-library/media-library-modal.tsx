@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MediaLibrary } from "./media-library";
+import { Image } from "lucide-react";
 
 interface MediaLibraryModalProps {
   open?: boolean;
@@ -18,7 +19,7 @@ interface MediaLibraryModalProps {
 
 export function MediaLibraryModal({
   open = false,
-  onOpenChange = () => {},
+  onOpenChange = () => { },
   onSelectImage,
   title = "Media Library",
 }: MediaLibraryModalProps) {
@@ -27,9 +28,12 @@ export function MediaLibraryModal({
     onOpenChange(false);
   };
 
+  // @TODO convert to not be a dialog so it works on website-editor.tsx
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl">
+        <Image />
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

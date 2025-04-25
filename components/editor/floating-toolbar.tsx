@@ -224,20 +224,15 @@ export default function FloatingToolbar({
   // Handle image selection from media library
   const handleMediaSelection = (imageUrl: string | null) => {
     if (imageUrl) {
-      if (elementType === "img") {
-        // For img elements, change the src
-        (selectedElement as HTMLImageElement).src = imageUrl;
-        if (selectedElement?.getAttribute("data-editor-id")) {
-          const editorId = selectedElement.getAttribute("data-editor-id")!;
-          // This is handled via the website-preview component to record changes
-          const event = new CustomEvent("imageChanged", {
-            detail: { url: imageUrl, editorId },
-          });
-          document.dispatchEvent(event);
-        }
-      } else {
-        // For other elements, set as background image
-        applyBackgroundImage(imageUrl);
+      // For img elements, change the src
+      (selectedElement as HTMLImageElement).src = imageUrl;
+      if (selectedElement?.getAttribute("data-editor-id")) {
+        const editorId = selectedElement.getAttribute("data-editor-id")!;
+        // This is handled via the website-preview component to record changes
+        const event = new CustomEvent("imageChanged", {
+          detail: { url: imageUrl, editorId },
+        });
+        document.dispatchEvent(event);
       }
     }
   };

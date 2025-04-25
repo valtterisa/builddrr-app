@@ -153,6 +153,23 @@ export function WebsiteEditor() {
     setDraggedIndex(null);
   };
 
+  const [IsMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  // Handle image selection from media library
+  const handleMediaSelection = (imageUrl: string | null) => {
+    if (imageUrl) {
+      // // For img elements, change the src
+      // (selectedElement as HTMLImageElement).src = imageUrl;
+      // if (selectedElement?.getAttribute("data-editor-id")) {
+      //   const editorId = selectedElement.getAttribute("data-editor-id")!;
+      //   // This is handled via the website-preview component to record changes
+      //   const event = new CustomEvent("imageChanged", {
+      //     detail: { url: imageUrl, editorId },
+      //   });
+      //   document.dispatchEvent(event);
+      // }
+    }
+  };
+
   const renderComponentLibrarySidebar = () => {
     const content = (
       <div className="rounded h-full w-fit flex flex-col">
@@ -185,7 +202,6 @@ export function WebsiteEditor() {
             <DialogHeader>
               <DialogTitle>Component Library</DialogTitle>
             </DialogHeader>
-            <ComponentLibrary onSelectComponent={addComponent} />
           </DialogContent>
         </Dialog>
         <Dialog>
@@ -201,19 +217,10 @@ export function WebsiteEditor() {
             <ComponentLibrary onSelectComponent={addComponent} />
           </DialogContent>
         </Dialog>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="w-fit mb-4">
-              <Image className="h-4 w-4" />
-              <DialogHeader className="hidden">
-                <DialogTitle>Component Library</DialogTitle>
-              </DialogHeader>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[825px]">
-            <MediaLibraryModal />
-          </DialogContent>
-        </Dialog>
+        <MediaLibraryModal open={IsMediaModalOpen} onOpenChange={setIsMediaModalOpen} onSelectImage={handleMediaSelection}
+          title={
+            "Select Image"
+          } />
 
         <div className="flex-grow overflow-auto">
           <div className="space-y-2">
@@ -226,11 +233,10 @@ export function WebsiteEditor() {
                 onDrop={(e) => handleDrop(index, e)}
                 onDragEnd={() => setDraggedIndex(null)}
                 onClick={() => setSelectedComponentIndex(index)}
-                className={`p-2 border rounded-md cursor-pointer flex justify-between items-center transition-all ${
-                  selectedComponentIndex === index
-                    ? "bg-primary/10 border-primary"
-                    : "bg-white border-gray-200"
-                } ${draggedIndex === index ? "shadow-lg" : "shadow-sm"}`}
+                className={`p-2 border rounded-md cursor-pointer flex justify-between items-center transition-all ${selectedComponentIndex === index
+                  ? "bg-primary/10 border-primary"
+                  : "bg-white border-gray-200"
+                  } ${draggedIndex === index ? "shadow-lg" : "shadow-sm"}`}
               >
                 <span className="truncate flex-1">{component.name}</span>
                 <div className="flex space-x-1">
@@ -274,9 +280,8 @@ export function WebsiteEditor() {
       </Sheet>
     ) : (
       <div
-        className={`border-r bg-muted/20 p-4 flex flex-col md:rounded-none rounded-t-lg ${
-          leftSidebarOpen ? "" : "w-0 overflow-hidden"
-        }`}
+        className={`border-r bg-muted/20 p-4 flex flex-col md:rounded-none rounded-t-lg ${leftSidebarOpen ? "" : "w-0 overflow-hidden"
+          }`}
       >
         {content}
       </div>
