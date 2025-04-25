@@ -93,6 +93,7 @@ export interface FloatingToolbarProps {
   onSetLink: (url: string) => void;
   onSetAltTag: (alt: string) => void;
   onClose: () => void;
+  activeTextColor?: string | null; // Add prop for active text color
 }
 
 export default function FloatingToolbar({
@@ -107,6 +108,7 @@ export default function FloatingToolbar({
   onSetLink,
   onSetAltTag,
   onClose, // Existing onClose prop
+  activeTextColor, // Destructure the new prop
 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -339,17 +341,43 @@ export default function FloatingToolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 relative"
             title="Text Color"
             onClick={() => toggleMenu("color")}
           >
-            <Palette className="h-4 w-4" />
+            {/* Visual indicator for active text color */}
+            <Palette
+              className="h-4 w-4"
+              style={{ stroke: activeTextColor || "currentColor" }}
+            />
+            {activeTextColor && (
+              <div
+                className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white shadow-sm"
+                style={{ backgroundColor: activeTextColor }}
+                title={`Active color: ${activeTextColor}`}
+              />
+            )}
           </Button>
 
           {showColorMenu && (
             <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-[100]">
               <div className="p-3">
                 <h4 className="text-sm font-medium">Text Color</h4>
+                {/* Display current active color */}
+                {activeTextColor && (
+                  <div className="mt-1 mb-2 flex items-center gap-2">
+                    <div className="text-xs">Current:</div>
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-4 h-4 rounded border border-gray-300"
+                        style={{ backgroundColor: activeTextColor }}
+                      />
+                      <span className="text-xs font-mono">
+                        {activeTextColor}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-6 gap-1 mt-2">
                   {colorPalette.map((color) => (
                     <button
@@ -595,8 +623,6 @@ export default function FloatingToolbar({
         </div>
       )}
 
-      {/* Add Separator and Close Button */}
-      <Separator orientation="vertical" className="h-6 mx-1" />
       <Button
         variant="ghost"
         size="icon"

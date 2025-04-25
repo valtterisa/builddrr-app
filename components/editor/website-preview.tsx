@@ -39,6 +39,7 @@ export default function WebsitePreview({
     italic: false,
     underline: false,
   });
+  const [activeTextColor, setActiveTextColor] = useState<string | null>(null); // State for active text color
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
   );
@@ -179,6 +180,11 @@ export default function WebsitePreview({
       if (isEditMode) {
         iframe.contentDocument.body.classList.add("editor-active");
         addEditModeListeners();
+        // Add selection change listener here as well for initial load
+        iframe.contentDocument.addEventListener(
+          "selectionchange",
+          handleSelectionChange
+        );
       } else {
         iframe.contentDocument.body.classList.remove("editor-active");
       }
@@ -215,6 +221,11 @@ export default function WebsitePreview({
     });
 
     iframe.contentDocument.addEventListener("click", handleDocumentClick);
+    // Add listener for selection changes
+    iframe.contentDocument.addEventListener(
+      "selectionchange",
+      handleSelectionChange
+    );
   };
 
   const removeEditModeListeners = () => {
@@ -237,6 +248,11 @@ export default function WebsitePreview({
       htmlElement.classList.remove("hover-active", "focus-active");
     });
     iframe.contentDocument.removeEventListener("click", handleDocumentClick);
+    // Remove listener for selection changes
+    iframe.contentDocument.removeEventListener(
+      "selectionchange",
+      handleSelectionChange
+    );
   };
 
   const handleElementClick = (e: Event) => {
@@ -344,7 +360,8 @@ export default function WebsitePreview({
       iframe.contentWindow.focus();
       element.focus();
 
-      checkActiveFormats(element);
+      // Initial check when element is selected
+      checkActiveFormats();
 
       const selection = iframe.contentWindow.getSelection();
       if (selection && selection.rangeCount === 0) {
@@ -355,89 +372,105 @@ export default function WebsitePreview({
       }
     } else {
       element.contentEditable = "false";
+      // Reset formats if image is selected
+      setActiveFormats({ bold: false, italic: false, underline: false });
+      setActiveTextColor(null);
     }
   };
 
-  const checkActiveFormats = useCallback(
-    (element: HTMLElement) => {
-      if (!element || element.tagName === "IMG") return;
+  // Converts RGB color format to HEX format
+  const rgbToHex = useCallback((rgb: string | null): string | null => {
+    if (!rgb) return null;
+    // Check if the color is already in hex format
+    if (rgb.startsWith("#")) return rgb;
 
-      try {
-        const iframe = iframeRef.current;
-        if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
+    // Extract RGB values from the format "rgb(r, g, b)" or "rgba(r, g, b, a)"
+    const rgbMatch = rgb.match(
+      /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/
+    );
+    if (!rgbMatch) return rgb; // Return original if format doesn't match
 
-        const selection = iframe.contentWindow.getSelection();
-        let isBold = false;
-        let isItalic = false;
-        let isUnderline = false;
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
 
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          let node: Node | null = range.commonAncestorContainer;
+    // Convert to hex
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+  }, []);
 
-          while (node && node !== element.parentElement) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              const style = iframe.contentWindow.getComputedStyle(
-                node as Element
-              );
-              if (
-                style.fontWeight === "bold" ||
-                parseInt(style.fontWeight, 10) >= 700
-              ) {
-                isBold = true;
-              }
-              if (style.fontStyle === "italic") {
-                isItalic = true;
-              }
-              if (style.textDecorationLine.includes("underline")) {
-                isUnderline = true;
-              }
-            }
-            if (isBold && isItalic && isUnderline) break;
-            if (node === element) break;
-            node = node.parentNode;
-          }
+  // Renamed and updated checkActiveFormats
+  const checkActiveFormats = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
 
-          if (!isBold || !isItalic || !isUnderline) {
-            const elementStyle = iframe.contentWindow.getComputedStyle(element);
-            if (
-              !isBold &&
-              (elementStyle.fontWeight === "bold" ||
-                parseInt(elementStyle.fontWeight, 10) >= 700)
-            ) {
-              isBold = true;
-            }
-            if (!isItalic && elementStyle.fontStyle === "italic") {
-              isItalic = true;
-            }
-            if (
-              !isUnderline &&
-              elementStyle.textDecorationLine.includes("underline")
-            ) {
-              isUnderline = true;
-            }
-          }
-        } else {
-          const style = iframe.contentWindow.getComputedStyle(element);
-          isBold =
-            style.fontWeight === "bold" ||
-            parseInt(style.fontWeight, 10) >= 700;
-          isItalic = style.fontStyle === "italic";
-          isUnderline = style.textDecorationLine.includes("underline");
-        }
+    const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
 
-        setActiveFormats({
-          bold: isBold,
-          italic: isItalic,
-          underline: isUnderline,
-        });
-      } catch (error) {
-        console.error("Error checking active formats:", error);
-        setDebugInfo(`Error checking formats: ${error}`);
+    try {
+      const selection = win.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        // If no selection, maybe reset or use element's style? For now, reset.
+        setActiveFormats({ bold: false, italic: false, underline: false });
+        setActiveTextColor(null);
+        return;
       }
-    },
-    [selectedElement]
-  );
+
+      // Check basic formats using queryCommandState
+      const isBold = doc.queryCommandState("bold");
+      const isItalic = doc.queryCommandState("italic");
+      const isUnderline = doc.queryCommandState("underline");
+
+      setActiveFormats({
+        bold: isBold,
+        italic: isItalic,
+        underline: isUnderline,
+      });
+
+      // Check text color - try first with queryCommandValue for more accurate results
+      let color: string | null = null;
+      try {
+        // Try to get color using queryCommandValue first
+        const foreColor = doc.queryCommandValue("foreColor");
+        if (foreColor && foreColor !== "false") {
+          color = foreColor.toString();
+        }
+      } catch (e) {
+        // Fallback to computed style if queryCommandValue fails
+        console.log("Error getting text color with queryCommandValue:", e);
+      }
+
+      // If queryCommandValue didn't work, use getComputedStyle as fallback
+      if (!color || color === "false") {
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+        // If selection is in a text node, get its parent element
+        if (node.nodeType === Node.TEXT_NODE) {
+          node = node.parentElement;
+        }
+        // Ensure we have an element node to check style
+        if (node && node.nodeType === Node.ELEMENT_NODE) {
+          color = win.getComputedStyle(node as Element).color;
+        }
+      }
+
+      // Convert RGB format to HEX for consistency and better UI display
+      const normalizedColor = rgbToHex(color);
+      setActiveTextColor(normalizedColor);
+    } catch (error) {
+      console.error("Error checking active formats:", error);
+      setDebugInfo(`Error checking formats: ${error}`);
+      // Reset on error
+      setActiveFormats({ bold: false, italic: false, underline: false });
+      setActiveTextColor(null);
+    }
+  }, [rgbToHex]); // Added rgbToHex as dependency
+
+  // Handler for the selectionchange event
+  const handleSelectionChange = useCallback(() => {
+    if (!isEditMode) return;
+    // Check formats whenever the selection changes
+    checkActiveFormats();
+  }, [isEditMode, checkActiveFormats]);
 
   const formatText = (command: string, value = "") => {
     if (!isEditMode) return;
@@ -491,12 +524,15 @@ export default function WebsitePreview({
         }
       }
 
-      checkActiveFormats(selectedElement);
+      // Re-check formats immediately after applying command
+      checkActiveFormats();
 
       setTimeout(() => {
         selectedElement.dispatchEvent(
           new Event("input", { bubbles: true, cancelable: true })
         );
+        // Check again after input event potentially changes things
+        checkActiveFormats();
       }, 0);
     } catch (error) {
       console.error(`Error applying format ${command}:`, error);
@@ -622,27 +658,25 @@ export default function WebsitePreview({
       const iframeBody = iframe.contentDocument.body;
       if (isEditMode) {
         iframeBody.classList.add("editor-active");
-        addEditModeListeners();
+        addEditModeListeners(); // This already adds the selectionchange listener
       } else {
         saveChanges();
         iframeBody.classList.remove("editor-active");
-        removeEditModeListeners();
+        removeEditModeListeners(); // This already removes the selectionchange listener
       }
     } else {
       // Log if conditions aren't met
+      // console.log("useEffect [isEditMode, isEditorReady]: Conditions not met", { isEditorReady, iframeExists: !!iframe, docExists: !!iframe?.contentDocument, bodyExists: !!iframe?.contentDocument?.body });
     }
-    return () => {
-      if (
-        isEditorReady &&
-        iframe &&
-        iframe.contentDocument &&
-        iframe.contentDocument.body
-      ) {
-        iframe.contentDocument.body.classList.remove("editor-active");
-        removeEditModeListeners();
-      }
-    };
-  }, [isEditMode, isEditorReady, saveChanges]);
+    // No need for explicit return cleanup for listeners added/removed in add/removeEditModeListeners
+    // The dependency array ensures this effect runs when isEditMode or isEditorReady changes.
+  }, [
+    isEditMode,
+    isEditorReady,
+    saveChanges,
+    addEditModeListeners,
+    removeEditModeListeners,
+  ]); // Added add/remove listeners to dependencies
 
   useEffect(() => {
     setUrl(inputUrl);
@@ -756,6 +790,7 @@ export default function WebsitePreview({
           show={showToolbar}
           position={toolbarPosition}
           activeFormats={activeFormats}
+          activeTextColor={activeTextColor} // Pass the active text color
           elementType={elementType}
           selectedElement={selectedElement}
           onFormatText={formatText}
