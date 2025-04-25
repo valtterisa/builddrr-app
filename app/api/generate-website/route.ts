@@ -12,12 +12,10 @@ export async function POST(request: NextRequest) {
       description: websiteData.businessInfo.description,
       colors: websiteData.design.colors,
       components: websiteData.components,
-    })
+    });
 
     // Query AI and get streaming response
-    const generatedContent = await generateAIResponse(prompt)
-
-    // generateServerFiles(generatedContent)
+    const generatedContent = await generateAIResponse(prompt);
 
     console.log("Generated Content:", generatedContent);
 

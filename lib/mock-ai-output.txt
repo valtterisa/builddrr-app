@@ -1,0 +1,209 @@
+<component-analysis>
+1. Business Description Analysis:
+   a. Main points: Software agency
+   b. Unique selling points: Need to emphasize technical expertise, innovation, and reliability
+
+2. Required Components:
+   - Header with responsive navigation
+   - Footer with proper site structure
+   - Hero section
+   - Testimonials section
+
+3. Component Implementation:
+   a. Header:
+      - Structure: Logo, navigation links, CTA button
+      - Data: Navigation items (Home, Services, About, Projects, Contact)
+      - Styling: Fixed position, transparent on hero section, solid elsewhere        
+      - shadcn/ui: NavigationMenu, Button
+      - Accessibility: Proper ARIA labels, keyboard navigation
+      - User interactions: Mobile hamburger menu, hover effects
+      - Performance: Minimal JS for toggle functionality
+
+   b. Footer:
+      - Structure: Logo, site links, contact info, social links, copyright
+      - Data: Navigation links, contact details, social media links
+      - Styling: Dark background with proper spacing
+      - shadcn/ui: Button for CTA
+      - Accessibility: Proper heading structure, link descriptions
+      - Performance: Static rendering
+
+   c. Hero:
+      - Structure: Headline, subheading, CTA buttons, background image/pattern       
+      - Data: Company tagline, brief description
+      - Styling: Full-width, gradient background with primary/secondary colors       
+      - shadcn/ui: Button for CTAs
+      - Animations: Text fade-in, subtle background animation
+      - Responsive: Text size adjustments, layout changes
+
+   d. Testimonials:
+      - Structure: Heading, testimonial cards with quotes and attribution
+      - Data: Customer quotes, names, companies, optional avatars
+      - Styling: Card-based layout with accent color highlights
+      - shadcn/ui: Card, Avatar components
+      - Animations: Card reveal on scroll
+      - Responsive: Grid to single column layout
+
+4. Overall Layout:
+   - Modern, clean design with ample whitespace
+   - Content-focused with clear hierarchy
+   - Consistent padding and spacing
+
+5. Color Scheme Usage:
+   - Primary (#6366F1): Main brand color, buttons, key headings
+   - Secondary (#8B5CF6): Accents, gradients, secondary elements
+   - Accent (#EC4899): Highlights, call-to-action elements, emphasis
+
+6. Responsive Strategy:
+   - Mobile-first approach
+   - Breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px)
+   - Header transforms to hamburger menu on mobile
+   - Grid layouts adjust columns based on screen size
+
+7. shadcn/ui Components:
+   - Button: CTAs throughout the site
+   - NavigationMenu: Header navigation
+   - Sheet: Mobile navigation
+   - Card: Testimonials
+   - Avatar: Team/testimonial images
+
+8. Animation Plan:
+   - Subtle entrance animations for hero elements
+   - Scroll-triggered animations for testimonials
+   - Hover effects on interactive elements
+   - Page transitions
+
+9. Additional Suggested Components:
+   - Services section: Showcase the agency's expertise
+   - Projects/Portfolio: Display past work
+   - Team section: Highlight team members
+   - Contact form: Allow potential clients to reach out
+
+10. All required components are accounted for in this plan.
+</component-analysis>
+
+<siteforge-code>
+<siteforge-add-dependency>
+framer-motion
+</siteforge-add-dependency>
+
+<siteforge-write file="/app/components/site-components/header/header.tsx">
+"use client";
+
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import Logo from "./logo";
+import NavLinks from "./nav-links";
+
+const Header = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <motion.header
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6",     
+        isScrolled
+          ? "bg-white/95 backdrop-blur-sm shadow-sm"
+          : "bg-transparent"
+      )}
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="container mx-auto flex items-center justify-between">
+        <Logo />
+
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-8">
+          <NavLinks className="flex items-center space-x-6" />
+          <Button className="bg-primary hover:bg-primary/90">Contact Us</Button>     
+        </div>
+
+        {/* Mobile Navigation */}
+        <Sheet>
+          <SheetTrigger asChild className="md:hidden">
+            <Button variant="ghost" size="icon">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+            <div className="flex flex-col h-full">
+              <div className="flex justify-end py-4">
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <X className="h-6 w-6" />
+                    <span className="sr-only">Close menu</span>
+                  </Button>
+                </SheetTrigger>
+              </div>
+              <NavLinks className="flex flex-col space-y-6 text-lg" />
+              <div className="mt-auto py-6">
+                <Button className="w-full bg-primary hover:bg-primary/90">
+                  Contact Us
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </motion.header>
+  );
+};
+
+export default Header;
+</siteforge-write>
+
+<siteforge-write file="/app/components/site-components/header/logo.tsx">
+import React from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+
+const Logo = () => {
+  return (
+    <Link href="/" className="flex items-center">
+      <motion.div
+        className="text-2xl font-bold flex items-center"
+        whileHover={{ scale: 1.05 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      >
+        <span className="text-primary">Bittive</span>
+        <span className="text-secondary ml-1">Oy</span>
+      </motion.div>
+    </Link>
+  );
+};
+
+export default Logo;
+</siteforge-write>
+
+<siteforge-write file="/app/components/site-components/header/nav-links.tsx">        
+import React from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+
+interface NavLinksProps {
+  className?: string;
+}
+
+const navItems = [
+  { name: "Home", href: "/" },
+  { name: "Services", href: "/services" },
+  { name: "About", href: "/about" },
+  { name: "Projects", href: "/projects" },
+
+why isnt this program finding anything from this?
