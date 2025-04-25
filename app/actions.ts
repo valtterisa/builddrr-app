@@ -22,7 +22,6 @@ export async function generateAIResponse(prompt: string): Promise<void> {
       },
     });
 
-    // Assuming result is immediately available without await (may cause issues)
     const reader = result.textStream.getReader();
     // Removed TextDecoder based on user input
     let buffer = "";
@@ -37,6 +36,7 @@ export async function generateAIResponse(prompt: string): Promise<void> {
 
     while (true) {
       // Assuming reader.read() resolves correctly without await on streamText
+      // check if value is string. Also add other file tag processings. Like siteforge-update, siteforge-delete, etc.
       const { done, value } = await reader.read(); // value is treated as string
       if (done) {
         processBuffer();
@@ -45,7 +45,7 @@ export async function generateAIResponse(prompt: string): Promise<void> {
         }
         break;
       }
-
+      console.log("Received value:", value);
       buffer += value;
       processBuffer();
     }
