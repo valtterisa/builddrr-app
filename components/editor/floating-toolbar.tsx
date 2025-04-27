@@ -119,7 +119,6 @@ export default function FloatingToolbar({
   const [showBackgroundMenu, setShowBackgroundMenu] = useState(false);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
   const [showAltMenu, setShowAltMenu] = useState(false);
-  // State for media library modal
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
   // Determine if element can have a link
@@ -662,9 +661,6 @@ export default function FloatingToolbar({
         open={showMediaLibrary}
         onOpenChange={setShowMediaLibrary}
         onSelectImage={handleMediaSelection}
-        title={
-          elementType === "img" ? "Change Image" : "Select Background Image"
-        }
       />
     </>
   );

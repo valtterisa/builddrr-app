@@ -38,6 +38,7 @@ import WebsitePreview from "./website-preview";
 import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
 import { MediaLibraryModal } from "../media-library/media-library-modal";
+import { MediaLibrary } from "../media-library/media-library";
 
 type ViewportSize = "desktop" | "mobile";
 
@@ -153,7 +154,7 @@ export function WebsiteEditor() {
     setDraggedIndex(null);
   };
 
-  const [IsMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  const [IsMediaModalOpen, setIsMediaModalOpen] = useState(false);
   // Handle image selection from media library
   const handleMediaSelection = (imageUrl: string | null) => {
     if (imageUrl) {
@@ -217,10 +218,19 @@ export function WebsiteEditor() {
             <ComponentLibrary onSelectComponent={addComponent} />
           </DialogContent>
         </Dialog>
-        <MediaLibraryModal open={IsMediaModalOpen} onOpenChange={setIsMediaModalOpen} onSelectImage={handleMediaSelection}
-          title={
-            "Select Image"
-          } />
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="w-fit mb-4">
+              <Image className="h-4 w-4" />
+              <DialogHeader className="hidden">
+                <DialogTitle>Media Library</DialogTitle>
+              </DialogHeader>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[825px]">
+            <MediaLibrary onSelectImage={() => 2 + 2} />
+          </DialogContent>
+        </Dialog>
 
         <div className="flex-grow overflow-auto">
           <div className="space-y-2">
@@ -233,10 +243,11 @@ export function WebsiteEditor() {
                 onDrop={(e) => handleDrop(index, e)}
                 onDragEnd={() => setDraggedIndex(null)}
                 onClick={() => setSelectedComponentIndex(index)}
-                className={`p-2 border rounded-md cursor-pointer flex justify-between items-center transition-all ${selectedComponentIndex === index
-                  ? "bg-primary/10 border-primary"
-                  : "bg-white border-gray-200"
-                  } ${draggedIndex === index ? "shadow-lg" : "shadow-sm"}`}
+                className={`p-2 border rounded-md cursor-pointer flex justify-between items-center transition-all ${
+                  selectedComponentIndex === index
+                    ? "bg-primary/10 border-primary"
+                    : "bg-white border-gray-200"
+                } ${draggedIndex === index ? "shadow-lg" : "shadow-sm"}`}
               >
                 <span className="truncate flex-1">{component.name}</span>
                 <div className="flex space-x-1">
@@ -280,8 +291,9 @@ export function WebsiteEditor() {
       </Sheet>
     ) : (
       <div
-        className={`border-r bg-muted/20 p-4 flex flex-col md:rounded-none rounded-t-lg ${leftSidebarOpen ? "" : "w-0 overflow-hidden"
-          }`}
+        className={`border-r bg-muted/20 p-4 flex flex-col md:rounded-none rounded-t-lg ${
+          leftSidebarOpen ? "" : "w-0 overflow-hidden"
+        }`}
       >
         {content}
       </div>
