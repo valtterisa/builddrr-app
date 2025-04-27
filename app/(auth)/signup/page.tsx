@@ -42,6 +42,8 @@ export default async function SignupPage() {
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
+                  type="text"
+                  name="name"
                   placeholder="John Doe"
                   required
                   className="border-purple-100 focus:border-purple-300"
