@@ -34,7 +34,7 @@ import { format } from "date-fns";
 const initialImages = [
   {
     id: "1",
-    url: "/mountain-valley-vista.png",
+    url: "https://placehold.co/600x400",
     name: "Mountain Valley",
     type: "image/png",
     size: 1200000,
@@ -42,7 +42,7 @@ const initialImages = [
   },
   {
     id: "2",
-    url: "/thoughtful-gaze.png",
+    url: "https://placehold.co/600x400",
     name: "Portrait Study",
     type: "image/png",
     size: 980000,
@@ -50,7 +50,7 @@ const initialImages = [
   },
   {
     id: "3",
-    url: "/swirling-colors.png",
+    url: "https://placehold.co/600x400",
     name: "Abstract Art",
     type: "image/png",
     size: 850000,
@@ -58,7 +58,7 @@ const initialImages = [
   },
   {
     id: "4",
-    url: "/forest-stream.png",
+    url: "https://placehold.co/600x400",
     name: "Forest Stream",
     type: "image/png",
     size: 1450000,
@@ -169,7 +169,7 @@ export function MediaLibrary({ onSelectImage }: MediaLibraryProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold">Media Assets</h2>
         <div className="flex items-center gap-2">

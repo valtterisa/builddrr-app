@@ -6,9 +6,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { MediaLibrary } from "./media-library";
 import { Image } from "lucide-react";
+import { Button } from "../ui/button";
 
 interface MediaLibraryModalProps {
   open?: boolean;
@@ -19,7 +21,7 @@ interface MediaLibraryModalProps {
 
 export function MediaLibraryModal({
   open = false,
-  onOpenChange = () => { },
+  onOpenChange = () => {},
   onSelectImage,
   title = "Media Library",
 }: MediaLibraryModalProps) {
@@ -28,18 +30,18 @@ export function MediaLibraryModal({
     onOpenChange(false);
   };
 
-  // @TODO convert to not be a dialog so it works on website-editor.tsx
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="w-fit mb-4">
+          <Image className="h-4 w-4" />
+          <DialogHeader className="hidden">
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-w-5xl">
-        <Image />
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <div className="mt-4">
-          <MediaLibrary onSelectImage={handleSelectImage} />
-        </div>
+        <MediaLibrary onSelectImage={handleSelectImage} />
       </DialogContent>
     </Dialog>
   );
