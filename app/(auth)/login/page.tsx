@@ -14,23 +14,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toast } from "sonner"; // Add your toast library!
 import { login } from "../actions";
 import { OAuthButton } from "@/components/auth/oauth-button";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   async function handleLogin(formData: FormData) {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
       await login(formData);
-      toast.success("Logged in successfully!");
+      toast({
+        title: "Success!",
+        description: "You have been successfully logged in.",
+        variant: "default",
+      });
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong!"
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Something went wrong!";
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -39,6 +51,14 @@ export default function LoginPage() {
   return (
     <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
+        <div className="flex justify-center mb-8">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary/10 p-1 rounded-md">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+            <span className="font-bold text-2xl tracking-tight">SiteForge</span>
+          </div>
+        </div>
         <Card className="border-purple-100 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Login</CardTitle>
@@ -46,6 +66,7 @@ export default function LoginPage() {
               Login with Google or use your email and password
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             {/* Google OAuth Button */}
             <OAuthButton provider="google" variant="default" action="sign-in" />
@@ -96,7 +117,10 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white"
               >
-                {loading ? <Loader2 className="animate-spin" /> : "Login"}
+                {loading ? (
+                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                ) : null}
+                Login
               </Button>
             </form>
           </CardContent>

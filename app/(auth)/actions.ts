@@ -10,41 +10,113 @@ import { Provider } from "@supabase/supabase-js";
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
-  // type-casting here for convenience
-  // in practice, you should validate your inputs
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
+  // Create a schema for validation
+  const loginSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(1, "Password is required"),
+  });
 
-  const { error } = await supabase.auth.signInWithPassword(data);
+  try {
+    // Extract and validate form data
+    const formValues = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    };
 
-  if (error) {
-    redirect("/error");
+    const validatedData = loginSchema.parse(formValues);
+
+    // Attempt to sign in
+    const { error } = await supabase.auth.signInWithPassword({
+      email: validatedData.email,
+      password: validatedData.password,
+    });
+
+    if (error) {
+      if (error.message.includes("Invalid login credentials")) {
+        throw new Error("Invalid email or password");
+      }
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/", "layout");
+    redirect("/dashboard");
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      // Get the first validation error
+      const firstError = error.errors[0];
+      throw new Error(firstError.message);
+    }
+    throw error; // Re-throw the error to be caught by the client
   }
-
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
 }
 
 export async function signup(formData: FormData) {
   const supabase = await createClient();
 
-  // type-casting here for convenience
-  // in practice, you should validate your inputs
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
+  // Create a schema for validation
+  const signupSchema = z
+    .object({
+      firstName: z.string().min(1, "First name is required"),
+      lastName: z.string().min(1, "Last name is required"),
+      email: z.string().email("Invalid email address"),
+      password: z.string().min(8, "Password must be at least 8 characters"),
+      confirmPassword: z.string().min(1, "Please confirm your password"),
+      terms: z
+        .any()
+        .refine(
+          (val) => val === "on",
+          "You must accept the terms and conditions"
+        ),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
 
-  const { error } = await supabase.auth.signUp(data);
+  try {
+    // Extract and validate form data
+    const formValues = {
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+      confirmPassword: formData.get("confirmPassword") as string,
+      terms: formData.get("terms") as string,
+    };
 
-  if (error) {
+    const validatedData = signupSchema.parse(formValues);
+
+    // Create the user in Supabase Auth
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: validatedData.email,
+      password: validatedData.password,
+      options: {
+        data: {
+          first_name: validatedData.firstName,
+          last_name: validatedData.lastName,
+          full_name: `${validatedData.firstName} ${validatedData.lastName}`,
+        },
+      },
+    });
+
+    if (authError) {
+      // Handle specific error cases
+      if (authError.message.includes("User already registered")) {
+        redirect("/login?error=already-registered");
+      }
+      redirect("/error");
+    }
+
+    revalidatePath("/", "layout");
+    redirect("/dashboard");
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      // Get the first validation error
+      const firstError = error.errors[0];
+      redirect(`/signup?error=${encodeURIComponent(firstError.message)}`);
+    }
     redirect("/error");
   }
-
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
 }
 
 export async function logout() {

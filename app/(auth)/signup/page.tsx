@@ -1,9 +1,13 @@
-import type React from "react";
+"use client";
 
+import type React from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -12,21 +16,74 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Sparkles } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { signup } from "../actions";
+import { useToast } from "@/hooks/use-toast";
 
-export default async function SignupPage() {
+export default function SignupPage() {
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Get error from URL search params on initial load
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      setError(errorParam);
+
+      toast({
+        title: "Error",
+        description: errorParam,
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
+
+  async function handleSignup(formData: FormData) {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const password = formData.get("password") as string;
+      const confirmPassword = formData.get("confirmPassword") as string;
+
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        toast({
+          title: "Error",
+          description: "Passwords do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await signup(formData);
+
+      toast({
+        title: "Account created!",
+        description: "Your account has been successfully created.",
+        variant: "default",
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Something went wrong!";
+      setError(errorMessage);
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary/10 p-1 rounded-md">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </div>
-            <span className="font-bold text-2xl tracking-tight">SiteForge</span>
-          </div>
-        </div>
         <Card className="border-purple-100 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">
@@ -37,17 +94,30 @@ export default async function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  name="name"
-                  placeholder="John Doe"
-                  required
-                  className="border-purple-100 focus:border-purple-300"
-                />
+            <form action={handleSignup} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    name="firstName"
+                    placeholder="John"
+                    required
+                    className="border-purple-100 focus:border-purple-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    name="lastName"
+                    placeholder="Doe"
+                    required
+                    className="border-purple-100 focus:border-purple-300"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -73,11 +143,49 @@ export default async function SignupPage() {
                   Password must be at least 8 characters long
                 </p>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  className="border-purple-100 focus:border-purple-300"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="terms" name="terms" required />
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  I accept the{" "}
+                  <Link
+                    href="/terms"
+                    className="text-purple-600 hover:underline"
+                  >
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    href="/privacy"
+                    className="text-purple-600 hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
               <Button
-                formAction={signup}
+                type="submit"
+                disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white"
               >
-                Create Account
+                <span className="inline-flex items-center gap-2">
+                  {loading ? (
+                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  ) : null}
+                  Create Account
+                </span>
               </Button>
             </form>
           </CardContent>
