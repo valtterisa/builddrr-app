@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { Provider } from "@supabase/supabase-js";
@@ -75,4 +76,17 @@ export async function signInWithOAuth(provider: Provider) {
 
   revalidatePath("/", "layout");
   data.url ? redirect(data.url) : redirect("/dashboard");
+}
+
+export async function signOut() {
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    redirect("/error");
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/");
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { SignOutButton } from "../auth/sign-out-button";
 
 export default function Navbar({ user }: any) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,9 +37,12 @@ export default function Navbar({ user }: any) {
         </div>
         <div className="flex items-center gap-4">
           {user ? (
-            <Button href="/dashboard">Dashboard</Button>
+            <div className="flex items-center gap-4">
+              <Button href="/dashboard">Dashboard</Button>
+              <SignOutButton />
+            </div>
           ) : (
-            <div>
+            <div className="flex gap-2">
               <Button
                 href="/login"
                 className="hidden md:flex text-purple-600 border-purple-600 hover:bg-purple-50"

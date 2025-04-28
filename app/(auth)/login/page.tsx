@@ -1,5 +1,7 @@
-import type React from "react";
+"use client";
 
+import type React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +14,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner"; // Add your toast library!
 import { login } from "../actions";
 import { OAuthButton } from "@/components/auth/oauth-button";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(formData: FormData) {
+    try {
+      setLoading(true);
+      await login(formData);
+      toast.success("Logged in successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Something went wrong!"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
@@ -40,7 +59,9 @@ export default function LoginPage() {
                 <span className="bg-white px-2 text-muted-foreground">Or</span>
               </div>
             </div>
-            <form className="space-y-4">
+
+            {/* Form */}
+            <form action={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -71,13 +92,15 @@ export default function LoginPage() {
                 />
               </div>
               <Button
-                formAction={login}
+                type="submit"
+                disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white"
               >
-                Login
+                {loading ? <Loader2 className="animate-spin" /> : "Login"}
               </Button>
             </form>
           </CardContent>
+
           <CardFooter className="flex flex-col">
             <div className="text-sm text-center text-muted-foreground mt-2">
               Don&apos;t have an account?{" "}
