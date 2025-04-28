@@ -59,7 +59,7 @@ export default function Navbar({ user }: any) {
               <Button
                 href="/login"
                 variant="outline"
-                className="hidden md:flex text-purple-600 border-purple-600 hover:bg-purple-50"
+                className="hidden md:flex text-purple-600  hover:bg-purple-50"
               >
                 Sign In
               </Button>
