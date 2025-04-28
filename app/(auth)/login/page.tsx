@@ -14,27 +14,32 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Sparkles } from "lucide-react";
 import { login } from "../actions";
+import { OAuthButton } from "@/components/auth/oauth-button";
 
 export default function LoginPage() {
   return (
     <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary/10 p-1 rounded-md">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </div>
-            <span className="font-bold text-2xl tracking-tight">SiteForge</span>
-          </div>
-        </div>
         <Card className="border-purple-100 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Login</CardTitle>
             <CardDescription>
-              Enter your email and password to access your account
+              Login with Google or use your email and password
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Google OAuth Button */}
+            <OAuthButton provider="google" variant="default" action="sign-in" />
+
+            {/* Separator */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-purple-100"></span>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
             <form className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

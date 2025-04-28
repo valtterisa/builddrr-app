@@ -4,10 +4,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
 
-export default function Navbar() {
+export default function Navbar({ user }: any) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+
   return (
     <motion.header className="sticky top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -35,15 +36,27 @@ export default function Navbar() {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            className="hidden md:flex text-purple-600 border-purple-600 hover:bg-purple-50"
-          >
-            Sign In
-          </Button>
-          <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700">
-            Get Started
-          </Button>
+          {user ? (
+            <Link className="" href="/dashboard">
+              Dashboard
+            </Link>
+          ) : (
+            <div>
+              <Link
+                href="/login"
+                className="hidden md:flex text-purple-600 border-purple-600 hover:bg-purple-50"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="signup"
+                className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+              >
+                Get Started
+              </Link>
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="icon"

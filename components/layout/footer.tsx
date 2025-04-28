@@ -1,6 +1,6 @@
 import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 
-export function Footer() {
+export default function Footer() {
   return (
     <footer className="w-full bg-gradient-to-b from-white to-purple-50">
       <div className="container mx-auto px-4 py-12">
