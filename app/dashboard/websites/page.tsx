@@ -59,10 +59,8 @@ export default function WebsitesPage() {
       setWebsites([
         {
           id: "1",
-          name: parsedData.businessName,
-          url: `https://siteforge.app/${parsedData.businessName
-            .toLowerCase()
-            .replace(/\s+/g, "-")}`,
+          name: "Bittive Oy",
+          url: `https://siteforge.app/bittive-oy`,
           createdAt: new Date().toISOString(),
           visits: Math.floor(Math.random() * 100),
           template: parsedData.template || "custom",

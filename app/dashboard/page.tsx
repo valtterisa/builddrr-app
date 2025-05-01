@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   Globe,
   Plus,
-  ArrowUpRight,
   CreditCard,
   LinkIcon,
   Mail,
@@ -23,13 +22,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [websiteData, setWebsiteData] = useState<any>(null);
   const [plan, setPlan] = useState<"starter" | "pro" | "enterprise">("starter");
-  const [isLoading, setIsLoading] = useState(true);
 
   return (
     <div className="container py-10 px-4 md:px-6">
@@ -123,47 +119,17 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {websiteData ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Globe className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">
-                        {websiteData.businessName}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Created today
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {plan}
-                    </Badge>
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href="/website/editor">
-                        <ArrowUpRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Globe className="h-10 w-10 text-muted-foreground mb-4" />
-                <h3 className="font-medium text-lg mb-1">No websites yet</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Create your first website to get started.
-                </p>
-                <Button onClick={() => router.push("/")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Website
-                </Button>
-              </div>
-            )}
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Globe className="h-10 w-10 text-muted-foreground mb-4" />
+              <h3 className="font-medium text-lg mb-1">No websites yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create your first website to get started.
+              </p>
+              <Button onClick={() => router.push("/")}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Website
+              </Button>
+            </div>
           </CardContent>
           <CardFooter>
             <Button variant="outline" asChild className="w-full">
@@ -223,7 +189,7 @@ export default function DashboardPage() {
               className="bg-amber-600 hover:bg-amber-700 text-white"
               asChild
             >
-              <Link href="/upgrade">Upgrade to Pro</Link>
+              <Link href="/dashboard/upgrade">Upgrade to Pro</Link>
             </Button>
           </CardFooter>
         </Card>

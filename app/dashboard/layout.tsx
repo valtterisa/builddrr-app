@@ -115,9 +115,9 @@ export default function DashboardLayout({
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/billing"}
+                      isActive={pathname === "/dashboard/account/billing"}
                     >
-                      <Link href="/dashboard/billing">
+                      <Link href="/dashboard/account/billing">
                         <CreditCard className="h-5 w-5 mr-3" />
                         Billing
                       </Link>
@@ -126,9 +126,9 @@ export default function DashboardLayout({
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/team"}
+                      isActive={pathname === "/dashboard/account/team"}
                     >
-                      <Link href="/dashboard/team">
+                      <Link href="/dashboard/account/team">
                         <Users className="h-5 w-5 mr-3" />
                         Team
                       </Link>
@@ -137,9 +137,9 @@ export default function DashboardLayout({
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/settings"}
+                      isActive={pathname === "/dashboard/account/settings"}
                     >
-                      <Link href="/dashboard/settings">
+                      <Link href="/dashboard/account/settings">
                         <Settings className="h-5 w-5 mr-3" />
                         Settings
                       </Link>
