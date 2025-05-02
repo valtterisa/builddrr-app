@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import AnalyticsOverview from "@/components/analytics/analytics-overview";
 import AdvancedAnalytics from "@/components/analytics/advanced-analytics";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/router";
 
 export const metadata: Metadata = {
   title: "Analytics - Social Media Platform",
   description: "Track and analyze your social media performance",
 };
+
+// redirect user away for now
+const router = useRouter();
+router.push("/dashboard/content");
 
 export default function AnalyticsPage() {
   return (

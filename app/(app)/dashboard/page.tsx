@@ -57,9 +57,8 @@ export default function DashboardPage() {
       </div>
       {/* Quick Actions Section */}
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight mb-4">
-          Quick Actions
-        </h2>
+        <hr className="my-8 border-border" />
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Example Quick Action: Create New Post */}
           <Card

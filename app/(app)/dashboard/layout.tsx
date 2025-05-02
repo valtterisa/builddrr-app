@@ -106,14 +106,6 @@ export default function DashboardLayout({
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={pathname === "/dashboard/content/pages"}
-                        >
-                          <Link href="/dashboard/content/pages">Domains</Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          asChild
                           isActive={pathname === "/dashboard/content/blog"}
                         >
                           <Link href="/dashboard/content/blog">Blog</Link>
@@ -125,6 +117,24 @@ export default function DashboardLayout({
                           isActive={pathname === "/dashboard/content/media"}
                         >
                           <Link href="/dashboard/content/media">Editor</Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === "/dashboard/content/media"}
+                        >
+                          <Link href="/dashboard/content/media">
+                            My websites
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === "/dashboard/content/pages"}
+                        >
+                          <Link href="/dashboard/content/pages">Domains</Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     </CollapsibleContent>
@@ -144,13 +154,16 @@ export default function DashboardLayout({
 
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/analytics"}
+                      disabled
+                      className="opacity-70 cursor-not-allowed relative"
                     >
-                      <Link href="/dashboard/analytics">
+                      <div className="flex items-center">
                         <ChartColumn className="h-5 w-5 mr-3" />
                         Analytics
-                      </Link>
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+                          coming soon
+                        </span>
+                      </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
