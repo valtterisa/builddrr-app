@@ -15,6 +15,8 @@ import {
   LinkIcon,
   Mail,
   Menu,
+  Images,
+  ChartColumn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -32,7 +34,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
-import { logout } from "../(auth)/actions";
+import { logout } from "../../(auth)/actions";
 
 export default function DashboardLayout({
   children,
@@ -72,33 +74,34 @@ export default function DashboardLayout({
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/websites"}
+                      isActive={pathname === "/dashboard/content"}
                     >
-                      <Link href="/dashboard/websites">
+                      <Link href="/dashboard/content">
+                        <Images className="h-5 w-5 mr-3" />
+                        Content
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === "/dashboard/website"}
+                    >
+                      <Link href="/dashboard/website">
                         <Globe className="h-5 w-5 mr-3" />
-                        My Websites
+                        Website
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/domains"}
+                      isActive={pathname === "/dashboard/analytics"}
                     >
-                      <Link href="/dashboard/domains">
-                        <LinkIcon className="h-5 w-5 mr-3" />
-                        Domains
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/integrations"}
-                    >
-                      <Link href="/dashboard/integrations">
-                        <Mail className="h-5 w-5 mr-3" />
-                        Integrations
+                      <Link href="/dashboard/analytics">
+                        <ChartColumn className="h-5 w-5 mr-3" />
+                        Analytics
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

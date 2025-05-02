@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // Removed useEffect as it's not used
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
+  // CardFooter, // Removed unused component
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -15,185 +15,212 @@ import { Button } from "@/components/ui/button";
 import {
   Globe,
   Plus,
-  CreditCard,
-  LinkIcon,
-  Mail,
   BarChart3,
-  AlertCircle,
+  LayoutGrid,
+  PenSquare,
+  Settings,
+  Bell,
+  CalendarClock,
+  UploadCloud,
+  FileText,
 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+
+// Mock data for notifications and scheduled posts (replace with actual data fetching)
+const notifications = [
+  { id: 1, message: "Your new website 'My Portfolio' is live!" },
+  { id: 2, message: "Subscription renewal due next week." },
+];
+
+const scheduledPosts = [
+  { id: 1, title: "Blog Post: The Future of AI", date: "May 5, 2025" },
+  {
+    id: 2,
+    title: "Social Media Update: New Feature Launch",
+    date: "May 7, 2025",
+  },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [plan, setPlan] = useState<"starter" | "pro" | "enterprise">("starter");
+  // const [plan, setPlan] = useState<"starter" | "pro" | "enterprise">("starter"); // Removed plan state if not needed for this view
 
   return (
-    <div className="container py-10 px-4 md:px-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+    <div className="container py-10 px-4 md:px-6 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back to your SiteForge dashboard.
+            Welcome back! Navigate your workspace below.
           </p>
         </div>
-        <div className="mt-4 md:mt-0">
-          <Button onClick={() => router.push("/")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Website
-          </Button>
+      </div>
+      {/* Quick Actions Section */}
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight mb-4">
+          Quick Actions
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Example Quick Action: Create New Post */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => router.push("/dashboard/content?action=createPost")}
+          >
+            <CardHeader className="flex flex-row items-center space-x-3">
+              <FileText className="h-6 w-6 text-primary" />
+              <CardTitle className="text-lg">Create New Post</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Start drafting a new blog or social media post.
+              </CardDescription>
+            </CardContent>
+          </Card>
+          {/* Example Quick Action: Upload Media */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => router.push("/dashboard/content?action=uploadMedia")}
+          >
+            <CardHeader className="flex flex-row items-center space-x-3">
+              <UploadCloud className="h-6 w-6 text-primary" />
+              <CardTitle className="text-lg">Upload Media</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Add new images or videos to your library.
+              </CardDescription>
+            </CardContent>
+          </Card>
+          {/* Example Quick Action: Create New Website (Duplicate from header for convenience) */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => router.push("/")}
+          >
+            <CardHeader className="flex flex-row items-center space-x-3">
+              <Plus className="h-6 w-6 text-primary" />
+              <CardTitle className="text-lg">Create New Website</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Start building a new website project.
+              </CardDescription>
+            </CardContent>
+          </Card>
+          {/* Add more quick actions as needed */}
         </div>
       </div>
+      <hr className="my-8 border-border" />
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Websites
-            </CardTitle>
-            <Globe className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">+0% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">
-              +12% from last month
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Plan</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold capitalize">{plan}</div>
-            <p className="text-xs text-muted-foreground">
-              {plan === "starter"
-                ? "Free plan"
-                : plan === "pro"
-                  ? "$19/month"
-                  : "$49/month"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">5%</div>
-            <Progress value={5} className="h-2" />
-          </CardContent>
-        </Card>
+      {/* Main Navigation Links */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Link href="/dashboard/website" passHref>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
+            <CardHeader>
+              <LayoutGrid className="h-10 w-10 mb-3 text-primary" />
+              <CardTitle>Manage Websites</CardTitle>
+              <CardDescription>
+                View, edit, and publish your websites.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/dashboard/content" passHref>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
+            <CardHeader>
+              <PenSquare className="h-10 w-10 mb-3 text-primary" />
+              <CardTitle>Content Hub</CardTitle>
+              <CardDescription>
+                Create and manage your content library.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/dashboard/analytics" passHref>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
+            <CardHeader>
+              <BarChart3 className="h-10 w-10 mb-3 text-primary" />
+              <CardTitle>Analytics</CardTitle>
+              <CardDescription>Track your website performance.</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/dashboard/settings" passHref>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
+            <CardHeader>
+              <Settings className="h-10 w-10 mb-3 text-primary" />
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>
+                Manage account, billing, and integrations.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        {/* Add more links as needed */}
       </div>
 
-      {/* Recent Websites */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-        <Card className="col-span-full md:col-span-1 lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent Websites</CardTitle>
-            <CardDescription>
-              Your recently created or updated websites.
-            </CardDescription>
+      {/* Separator Line */}
+      <hr className="my-8 border-border" />
+
+      {/* Notifications and Scheduled Posts */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Notifications Block */}
+        <Card>
+          <CardHeader className="flex flex-row items-center space-x-2">
+            <Bell className="h-5 w-5" />
+            <CardTitle>Notifications</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Globe className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="font-medium text-lg mb-1">No websites yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Create your first website to get started.
+            {notifications.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {notifications.map((notification) => (
+                  <li
+                    key={notification.id}
+                    className="flex items-start space-x-2"
+                  >
+                    <span
+                      className="mt-1 block h-2 w-2 flex-shrink-0 rounded-full bg-sky-500"
+                      aria-hidden="true"
+                    />
+                    <span>{notification.message}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No new notifications.
               </p>
-              <Button onClick={() => router.push("/")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Website
-              </Button>
-            </div>
+            )}
           </CardContent>
-          <CardFooter>
-            <Button variant="outline" asChild className="w-full">
-              <Link href="/dashboard/websites">View All Websites</Link>
-            </Button>
-          </CardFooter>
         </Card>
 
-        {/* Quick Actions */}
+        {/* Scheduled Posts Block */}
         <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks and actions.</CardDescription>
+          <CardHeader className="flex flex-row items-center space-x-2">
+            <CalendarClock className="h-5 w-5" />
+            <CardTitle>Scheduled Posts</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/dashboard/domains">
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Set Up Custom Domain
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/dashboard/integrations">
-                <Mail className="mr-2 h-4 w-4" />
-                Connect Email Service
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/dashboard/billing">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Manage Subscription
-              </Link>
-            </Button>
+          <CardContent>
+            {scheduledPosts.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {scheduledPosts.map((post) => (
+                  <li key={post.id}>
+                    <strong>{post.title}</strong> - Scheduled for {post.date}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No posts scheduled.
+              </p>
+            )}
+            {/* Link to full schedule view if available */}
+            {/* <Button variant="link" size="sm" className="mt-2 p-0 h-auto">View full schedule</Button> */}
           </CardContent>
         </Card>
       </div>
 
-      {/* Alerts */}
-      {plan === "starter" && (
-        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-          <CardHeader>
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <CardTitle className="text-amber-600 dark:text-amber-400">
-                Upgrade Your Plan
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-amber-700 dark:text-amber-300">
-              You're currently on the Starter plan. Upgrade to Pro to unlock
-              premium features like custom domains, advanced forms, and more.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-              asChild
-            >
-              <Link href="/dashboard/upgrade">Upgrade to Pro</Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+      {/* Separator Line */}
+      <hr className="my-8 border-border" />
     </div>
   );
 }
