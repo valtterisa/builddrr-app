@@ -121,9 +121,13 @@ export default function DashboardLayout({
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={pathname === "/dashboard/my-websites"}
+                          isActive={
+                            pathname === "/dashboard/website/my-websites"
+                          }
                         >
-                          <Link href="/dashboard/my-websites">My websites</Link>
+                          <Link href="/dashboard/website/my-websites">
+                            My websites
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
@@ -317,12 +321,12 @@ export default function DashboardLayout({
                               </Button>
                             </Link>
                             <Link
-                              href="/dashboard/my-websites"
+                              href="/dashboard/website/my-websites"
                               onClick={() => setMobileMenuOpen(false)}
                             >
                               <Button
                                 variant={
-                                  pathname === "/dashboard/my-websites"
+                                  pathname === "/dashboard/website/my-websites"
                                     ? "default"
                                     : "ghost"
                                 }
