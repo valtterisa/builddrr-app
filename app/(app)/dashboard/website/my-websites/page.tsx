@@ -39,6 +39,36 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/utils/supabase/client";
+
+export type MyWebsite = {
+  id: string;
+  user_id: string;
+  name: string;
+  url: string;
+  template?: string;
+  plan?: string;
+  created_at: string;
+  visits?: number;
+};
+
+// Helper to slugify a string
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/[^a-z0-9-]/g, "") // Remove all non-alphanumeric except -
+    .replace(/-+/g, "-") // Replace multiple - with single -
+    .replace(/^-+|-+$/g, ""); // Trim - from start/end
+}
+
+// Helper to construct unique url
+function constructWebsiteUrl(name: string, uuid: string): string {
+  const slug = slugify(name);
+  const shortId = uuid.split("-")[0];
+  return `/site/${slug}-${shortId}`;
+}
 
 export default function WebsitesPage() {
   const router = useRouter();
@@ -50,35 +80,31 @@ export default function WebsitesPage() {
   const [websiteToDelete, setWebsiteToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get website data from localStorage
-    const data = localStorage.getItem("websiteData");
-    if (data) {
-      const parsedData = JSON.parse(data);
-
-      // Create a mock website entry
-      setWebsites([
-        {
-          id: "1",
-          name: "Bittive Oy",
-          url: `http://localhost:3000/test`,
-          createdAt: new Date().toISOString(),
-          visits: Math.floor(Math.random() * 100),
-          template: parsedData.template || "custom",
-          plan: parsedData.plan || "starter",
-        },
-        {
-          id: "2",
-          name: "Bittive Oy",
-          url: `http://localhost:3000/test-two`,
-          createdAt: new Date().toISOString(),
-          visits: Math.floor(Math.random() * 100),
-          template: parsedData.template || "custom",
-          plan: parsedData.plan || "starter",
-        },
-      ]);
-    }
-
-    setIsLoading(false);
+    const fetchWebsites = async () => {
+      setIsLoading(true);
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setWebsites([]);
+        setIsLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("my_websites")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        setWebsites([]);
+      } else {
+        setWebsites(data || []);
+      }
+      setIsLoading(false);
+    };
+    fetchWebsites();
   }, []);
 
   const handleDeleteWebsite = (id: string) => {
@@ -86,16 +112,30 @@ export default function WebsitesPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (websiteToDelete) {
-      setWebsites(websites.filter((website) => website.id !== websiteToDelete));
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("my_websites")
+        .delete()
+        .eq("id", websiteToDelete);
+      if (!error) {
+        setWebsites(
+          websites.filter((website) => website.id !== websiteToDelete)
+        );
+        toast({
+          title: "Website deleted",
+          description: "Your website has been successfully deleted.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete website. Please try again.",
+          variant: "destructive",
+        });
+      }
       setShowDeleteDialog(false);
       setWebsiteToDelete(null);
-
-      toast({
-        title: "Website deleted",
-        description: "Your website has been successfully deleted.",
-      });
     }
   };
 
@@ -175,11 +215,17 @@ export default function WebsitesPage() {
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 justify-between">
-                    <span className="text-sm text-gray-500">{website.url}</span>
+                    <span className="text-sm text-gray-500">
+                      {constructWebsiteUrl(website.name, website.id)}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleCopyUrl(website.url)}
+                      onClick={() =>
+                        handleCopyUrl(
+                          constructWebsiteUrl(website.name, website.id)
+                        )
+                      }
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -198,7 +244,12 @@ export default function WebsitesPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(website.url, "_blank")}
+                  onClick={() =>
+                    window.open(
+                      constructWebsiteUrl(website.name, website.id),
+                      "_blank"
+                    )
+                  }
                 >
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Visit

@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight, Loader2, Palette, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
+import { createClient } from "@/utils/supabase/client";
 
 const steps = [
   {
@@ -48,16 +49,52 @@ const industries = [
 ];
 
 const componentOptions = [
-  { id: "contact-form", name: "Contact Form", description: "Let visitors get in touch with you" },
-  { id: "blog", name: "Blog Section", description: "Share updates and articles" },
-  { id: "testimonials", name: "Testimonials", description: "Display customer reviews" },
-  { id: "gallery", name: "Image Gallery", description: "Showcase your work or products" },
-  { id: "pricing", name: "Pricing Tables", description: "Display your pricing plans" },
-  { id: "team", name: "Team Section", description: "Introduce your team members" },
+  {
+    id: "contact-form",
+    name: "Contact Form",
+    description: "Let visitors get in touch with you",
+  },
+  {
+    id: "blog",
+    name: "Blog Section",
+    description: "Share updates and articles",
+  },
+  {
+    id: "testimonials",
+    name: "Testimonials",
+    description: "Display customer reviews",
+  },
+  {
+    id: "gallery",
+    name: "Image Gallery",
+    description: "Showcase your work or products",
+  },
+  {
+    id: "pricing",
+    name: "Pricing Tables",
+    description: "Display your pricing plans",
+  },
+  {
+    id: "team",
+    name: "Team Section",
+    description: "Introduce your team members",
+  },
   { id: "faq", name: "FAQ Section", description: "Answer common questions" },
-  { id: "newsletter", name: "Newsletter Signup", description: "Collect email subscribers" },
-  { id: "social", name: "Social Media Feed", description: "Display your social media posts" },
-  { id: "map", name: "Location Map", description: "Show your physical location" },
+  {
+    id: "newsletter",
+    name: "Newsletter Signup",
+    description: "Collect email subscribers",
+  },
+  {
+    id: "social",
+    name: "Social Media Feed",
+    description: "Display your social media posts",
+  },
+  {
+    id: "map",
+    name: "Location Map",
+    description: "Show your physical location",
+  },
 ];
 
 const colorOptions = [
@@ -129,6 +166,60 @@ const loadingSteps = [
     description: "Putting everything together and preparing for launch",
   },
 ];
+
+// Helper to slugify a string
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/[^a-z0-9-]/g, "") // Remove all non-alphanumeric except -
+    .replace(/-+/g, "-") // Replace multiple - with single -
+    .replace(/^-+|-+$/g, ""); // Trim - from start/end
+}
+
+// Helper to construct unique url
+function constructWebsiteUrl(name: string, uuid: string): string {
+  const slug = slugify(name);
+  const shortId = uuid.split("-")[0];
+  return `/site/${slug}-${shortId}`;
+}
+
+function randomString(length: number) {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+async function getUniqueWebsiteUrl(
+  supabase: ReturnType<typeof createClient>,
+  name: string,
+  uuid: string,
+  maxAttempts = 5
+): Promise<string> {
+  let baseUrl = constructWebsiteUrl(name, uuid);
+  let url = baseUrl;
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    const { data, error } = await supabase
+      .from("my_websites")
+      .select("id")
+      .eq("url", url)
+      .maybeSingle();
+    if (!data) {
+      return url;
+    }
+    // If exists, append random string
+    url = `${baseUrl}-${randomString(4)}`;
+    attempt++;
+  }
+  throw new Error(
+    "Could not generate a unique URL for your website. Please try again."
+  );
+}
 
 export default function CreatePage() {
   const router = useRouter();
@@ -207,50 +298,85 @@ export default function CreatePage() {
 
   const handleGenerate = async () => {
     setIsGenerating(true);
-    const colors = showCustomColors ? formData.customColors : formData.selectedColors.colors;
+    const colors = showCustomColors
+      ? formData.customColors
+      : formData.selectedColors.colors;
 
     try {
       const websiteData = {
         businessInfo: {
           name: formData.businessName,
           description: formData.description,
-          industry: formData.industry
+          industry: formData.industry,
         },
         design: {
           colors: {
             primary: colors.primary,
             secondary: colors.secondary,
-            accent: colors.accent
-          }
+            accent: colors.accent,
+          },
         },
-        components: formData.selectedComponents.map(id => ({
+        components: formData.selectedComponents.map((id) => ({
           type: id,
-          ...componentOptions.find(c => c.id === id)
-        }))
+          ...componentOptions.find((c) => c.id === id),
+        })),
       };
 
-      const response = await fetch('/api/generate-website', {
-        method: 'POST',
+      const response = await fetch("/api/generate-website", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(websiteData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate website');
+        throw new Error("Failed to generate website");
       }
 
       const data = await response.json();
-      console.log('Generated website data:', data);
+      console.log("Generated website data:", data);
 
       // Store in localStorage for editor
-      localStorage.setItem('websiteData', JSON.stringify(websiteData));
+      localStorage.setItem("websiteData", JSON.stringify(websiteData));
 
-      // Redirect to editor
-      router.push('/website/editor');
+      // Insert into Supabase my_websites table
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error("User not authenticated");
+      // Insert first to get the id
+      const { error: insertError, data: insertData } = await supabase
+        .from("my_websites")
+        .insert([
+          {
+            user_id: userData.user.id,
+            name: formData.businessName,
+            url: "", // placeholder, will update after insert
+            template: data.template || "",
+            plan: "starter",
+            visits: 0,
+          },
+        ])
+        .select()
+        .single();
+      if (insertError || !insertData) throw insertError;
+
+      // Construct the unique url
+      const uniqueUrl = await getUniqueWebsiteUrl(
+        supabase,
+        formData.businessName,
+        insertData.id
+      );
+      const { error: updateError } = await supabase
+        .from("my_websites")
+        .update({ url: uniqueUrl })
+        .eq("id", insertData.id);
+      if (updateError) throw updateError;
+
+      // Redirect to editor for the new website
+      router.push(`/website/editor/${insertData.id}`);
     } catch (error) {
-      console.error('Error generating website:', error);
+      console.error("Error generating website:", error);
       toast.error("Failed to generate website. Please try again.");
     } finally {
       setIsGenerating(false);
@@ -258,7 +384,9 @@ export default function CreatePage() {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -287,7 +415,10 @@ export default function CreatePage() {
         return (
           <div className="space-y-6">
             <div>
-              <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="businessName"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Business Name
               </label>
               <Input
@@ -299,12 +430,17 @@ export default function CreatePage() {
                 className={`w-full ${errors.businessName ? "border-red-500" : ""}`}
               />
               {errors.businessName && (
-                <p className="mt-1 text-sm text-red-500">{errors.businessName}</p>
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.businessName}
+                </p>
               )}
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Business Description
               </label>
               <Textarea
@@ -316,13 +452,25 @@ export default function CreatePage() {
                 className={`min-h-[150px] ${errors.description ? "border-red-500" : ""}`}
               />
               <div className="flex justify-between text-sm text-gray-500 mt-1">
-                <span>{formData.description.length}/{MAX_DESCRIPTION_LENGTH} characters</span>
-                <span className={formData.description.length > MAX_DESCRIPTION_LENGTH ? "text-red-500" : ""}>
-                  {MAX_DESCRIPTION_LENGTH - formData.description.length} characters remaining
+                <span>
+                  {formData.description.length}/{MAX_DESCRIPTION_LENGTH}{" "}
+                  characters
+                </span>
+                <span
+                  className={
+                    formData.description.length > MAX_DESCRIPTION_LENGTH
+                      ? "text-red-500"
+                      : ""
+                  }
+                >
+                  {MAX_DESCRIPTION_LENGTH - formData.description.length}{" "}
+                  characters remaining
                 </span>
               </div>
               {errors.description && (
-                <p className="mt-1 text-sm text-red-500">{errors.description}</p>
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.description}
+                </p>
               )}
             </div>
 
@@ -334,13 +482,21 @@ export default function CreatePage() {
                 {industries.map((industry) => (
                   <button
                     key={industry.id}
-                    onClick={() => setFormData(prev => ({ ...prev, industry: industry.id }))}
-                    className={`p-4 rounded-lg border-2 transition-all ${formData.industry === industry.id
-                      ? "border-purple-500 ring-2 ring-purple-200 bg-purple-50"
-                      : "border-gray-200 hover:border-purple-300"
-                      }`}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        industry: industry.id,
+                      }))
+                    }
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      formData.industry === industry.id
+                        ? "border-purple-500 ring-2 ring-purple-200 bg-purple-50"
+                        : "border-gray-200 hover:border-purple-300"
+                    }`}
                   >
-                    <div className="text-sm font-medium text-gray-900">{industry.name}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {industry.name}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -364,11 +520,12 @@ export default function CreatePage() {
                     }));
                     setShowCustomColors(false);
                   }}
-                  className={`p-4 rounded-lg border-2 transition-all ${!showCustomColors &&
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    !showCustomColors &&
                     formData.selectedColors.name === option.name
-                    ? "border-purple-500 ring-2 ring-purple-200"
-                    : "border-gray-200 hover:border-purple-300"
-                    }`}
+                      ? "border-purple-500 ring-2 ring-purple-200"
+                      : "border-gray-200 hover:border-purple-300"
+                  }`}
                 >
                   <div className="space-y-2">
                     <div
@@ -391,10 +548,11 @@ export default function CreatePage() {
               ))}
               <button
                 onClick={() => setShowCustomColors(true)}
-                className={`p-4 rounded-lg border-2 transition-all ${showCustomColors
-                  ? "border-purple-500 ring-2 ring-purple-200"
-                  : "border-gray-200 hover:border-purple-300"
-                  }`}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  showCustomColors
+                    ? "border-purple-500 ring-2 ring-purple-200"
+                    : "border-gray-200 hover:border-purple-300"
+                }`}
               >
                 <div className="h-24 rounded-md mb-2 bg-gray-100 flex items-center justify-center">
                   <Plus className="h-8 w-8 text-gray-400" />
@@ -467,21 +625,30 @@ export default function CreatePage() {
               {componentOptions.map((component) => (
                 <div
                   key={component.id}
-                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${formData.selectedComponents.includes(component.id)
-                    ? "border-purple-500 ring-2 ring-purple-200"
-                    : "border-gray-200 hover:border-purple-300"
-                    }`}
+                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                    formData.selectedComponents.includes(component.id)
+                      ? "border-purple-500 ring-2 ring-purple-200"
+                      : "border-gray-200 hover:border-purple-300"
+                  }`}
                   onClick={() => {
                     setFormData((prev) => ({
                       ...prev,
-                      selectedComponents: prev.selectedComponents.includes(component.id)
-                        ? prev.selectedComponents.filter((id) => id !== component.id)
+                      selectedComponents: prev.selectedComponents.includes(
+                        component.id
+                      )
+                        ? prev.selectedComponents.filter(
+                            (id) => id !== component.id
+                          )
                         : [...prev.selectedComponents, component.id],
                     }));
                   }}
                 >
-                  <h3 className="font-medium text-gray-900">{component.name}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{component.description}</p>
+                  <h3 className="font-medium text-gray-900">
+                    {component.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {component.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -491,20 +658,28 @@ export default function CreatePage() {
         return (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="font-medium text-gray-900 mb-4">Business Information</h3>
+              <h3 className="font-medium text-gray-900 mb-4">
+                Business Information
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700">Business Name</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Business Name
+                  </h4>
                   <p className="text-gray-900 mt-1">{formData.businessName}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700">Description</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Description
+                  </h4>
                   <p className="text-gray-900 mt-1">{formData.description}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700">Industry</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Industry
+                  </h4>
                   <p className="text-gray-900 mt-1">
-                    {industries.find(i => i.id === formData.industry)?.name}
+                    {industries.find((i) => i.id === formData.industry)?.name}
                   </p>
                 </div>
               </div>
@@ -514,7 +689,9 @@ export default function CreatePage() {
               <h3 className="font-medium text-gray-900 mb-4">Design Style</h3>
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700">Color Scheme</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Color Scheme
+                  </h4>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="grid grid-cols-3 gap-2 w-32">
                       <div
@@ -543,7 +720,9 @@ export default function CreatePage() {
                       />
                     </div>
                     <span className="text-gray-900">
-                      {showCustomColors ? "Custom Colors" : formData.selectedColors.name}
+                      {showCustomColors
+                        ? "Custom Colors"
+                        : formData.selectedColors.name}
                     </span>
                   </div>
                 </div>
@@ -551,17 +730,25 @@ export default function CreatePage() {
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="font-medium text-gray-900 mb-4">Selected Components</h3>
+              <h3 className="font-medium text-gray-900 mb-4">
+                Selected Components
+              </h3>
               {formData.selectedComponents.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
-                  {formData.selectedComponents.map(componentId => {
-                    const component = componentOptions.find(c => c.id === componentId);
+                  {formData.selectedComponents.map((componentId) => {
+                    const component = componentOptions.find(
+                      (c) => c.id === componentId
+                    );
                     return (
                       <div key={componentId} className="flex items-start gap-2">
                         <div className="w-2 h-2 rounded-full bg-purple-500 mt-2" />
                         <div>
-                          <h4 className="text-sm font-medium text-gray-900">{component?.name}</h4>
-                          <p className="text-sm text-gray-600">{component?.description}</p>
+                          <h4 className="text-sm font-medium text-gray-900">
+                            {component?.name}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {component?.description}
+                          </p>
                         </div>
                       </div>
                     );
@@ -650,21 +837,24 @@ export default function CreatePage() {
               {steps.map((step, index) => (
                 <div
                   key={step.id}
-                  className={`flex items-center ${index < steps.length - 1 ? "flex-1" : ""
-                    }`}
+                  className={`flex items-center ${
+                    index < steps.length - 1 ? "flex-1" : ""
+                  }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${index <= currentStep
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-200 text-gray-600"
-                      }`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      index <= currentStep
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-600"
+                    }`}
                   >
                     {index + 1}
                   </div>
                   {index < steps.length - 1 && (
                     <div
-                      className={`flex-1 h-1 mx-2 ${index < currentStep ? "bg-purple-600" : "bg-gray-200"
-                        }`}
+                      className={`flex-1 h-1 mx-2 ${
+                        index < currentStep ? "bg-purple-600" : "bg-gray-200"
+                      }`}
                     />
                   )}
                 </div>

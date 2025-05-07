@@ -14,7 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,12 +24,13 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,92 +89,28 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Create an account to publish</DialogTitle>
+          <DialogTitle>Sign up or log in to continue</DialogTitle>
           <DialogDescription>
-            Sign up or log in to publish your website and access all features.
+            You need an account to generate and publish websites.
           </DialogDescription>
         </DialogHeader>
-
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              {error && <div className="text-sm text-red-500">{error}</div>}
-
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white hover:from-purple-600 hover:to-purple-800"
-                disabled={isLoading}
-              >
-                {isLoading ? "Logging in..." : "Login"}
-              </Button>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="signup">
-            <form onSubmit={handleSignup} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              {error && <div className="text-sm text-red-500">{error}</div>}
-
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white hover:from-purple-600 hover:to-purple-800"
-                disabled={isLoading}
-              >
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+        <div className="flex flex-col gap-4 mt-4">
+          <Button
+            className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white hover:from-purple-600 hover:to-purple-800"
+            onClick={() => router.push("/login")}
+          >
+            Log In
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
+            onClick={() => router.push("/signup")}
+          >
+            Sign Up
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
