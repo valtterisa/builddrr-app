@@ -41,7 +41,7 @@ import { MediaLibrary } from "../media-library/media-library";
 
 type ViewportSize = "desktop" | "mobile";
 
-export function WebsiteEditor() {
+export function WebsiteEditor({ id }: { id: string }) {
   const [components, setComponents] = useState<any[]>([]);
   const [selectedComponentIndex, setSelectedComponentIndex] = useState<
     number | null
@@ -54,6 +54,11 @@ export function WebsiteEditor() {
   const vfs = VirtualFileSystem.getInstance();
 
   const isMobile = useMobile();
+
+  const url =
+    id === "1"
+      ? "http://localhost:3000/test"
+      : "http://localhost:3000/test-two";
 
   useEffect(() => {
     vfs.loadFromLocalStorage();
@@ -370,11 +375,9 @@ export function WebsiteEditor() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {renderComponentLibrarySidebar()}
-
         <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
           <div className={`transition-all duration-300 ${getViewportWidth()}`}>
-            <WebsitePreview isEditMode={isEditMode} />
+            <WebsitePreview isEditMode={isEditMode} initialUrl={url} />
           </div>
         </div>
       </div>

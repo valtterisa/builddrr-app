@@ -87,58 +87,6 @@ export default function DomainsPage() {
     setShowAddDomainDialog(true);
   };
 
-  const handleConfirmAddDomain = () => {
-    if (!newDomain || !selectedWebsite) return;
-
-    // Validate domain format
-    const domainRegex =
-      /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(newDomain)) {
-      toast({
-        title: "Invalid domain",
-        description: "Please enter a valid domain name (e.g., example.com).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Add new domain
-    const newDomainObj = {
-      id: Date.now().toString(),
-      name: newDomain,
-      status: "pending",
-      websiteId: selectedWebsite,
-      ssl: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    setDomains([...domains, newDomainObj]);
-    setNewDomain("");
-    setShowAddDomainDialog(false);
-
-    toast({
-      title: "Domain added",
-      description: "Your domain has been added and is pending verification.",
-    });
-  };
-
-  const handleVerifyDomain = (domainId: string) => {
-    // Simulate domain verification
-    setDomains(
-      domains.map((domain) =>
-        domain.id === domainId
-          ? { ...domain, status: "active", ssl: true }
-          : domain
-      )
-    );
-
-    toast({
-      title: "Domain verified",
-      description:
-        "Your domain has been successfully verified and is now active.",
-    });
-  };
-
   const handleDeleteDomain = (domainId: string) => {
     setDomains(domains.filter((domain) => domain.id !== domainId));
 
@@ -177,12 +125,6 @@ export default function DomainsPage() {
       </div>
 
       <Tabs defaultValue="domains" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="domains">My Domains</TabsTrigger>
-          <TabsTrigger value="dns">DNS Records</TabsTrigger>
-          <TabsTrigger value="ssl">SSL Certificates</TabsTrigger>
-        </TabsList>
-
         <TabsContent value="domains" className="space-y-4">
           {plan === "starter" ? (
             <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
@@ -281,10 +223,7 @@ export default function DomainsPage() {
                     </Button>
                     <div className="flex gap-2">
                       {domain.status !== "active" && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleVerifyDomain(domain.id)}
-                        >
+                        <Button size="sm">
                           <Check className="h-4 w-4 mr-1" />
                           Verify
                         </Button>
@@ -430,10 +369,7 @@ export default function DomainsPage() {
                         {domain.ssl ? (
                           <Badge className="bg-green-500">Active</Badge>
                         ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleVerifyDomain(domain.id)}
-                          >
+                          <Button size="sm">
                             <RefreshCw className="h-4 w-4 mr-1" />
                             Issue Certificate
                           </Button>
@@ -515,7 +451,7 @@ export default function DomainsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleConfirmAddDomain}>Add Domain</Button>
+            <Button>Add Domain</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

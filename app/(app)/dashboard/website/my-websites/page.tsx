@@ -60,7 +60,16 @@ export default function WebsitesPage() {
         {
           id: "1",
           name: "Bittive Oy",
-          url: `https://siteforge.app/bittive-oy`,
+          url: `http://localhost:3000/test`,
+          createdAt: new Date().toISOString(),
+          visits: Math.floor(Math.random() * 100),
+          template: parsedData.template || "custom",
+          plan: parsedData.plan || "starter",
+        },
+        {
+          id: "2",
+          name: "Bittive Oy",
+          url: `http://localhost:3000/test-two`,
           createdAt: new Date().toISOString(),
           visits: Math.floor(Math.random() * 100),
           template: parsedData.template || "custom",
@@ -165,11 +174,8 @@ export default function WebsitesPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">URL:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate max-w-[150px]">
-                      {website.url}
-                    </span>
+                  <div className="flex items-center gap-2 justify-between">
+                    <span className="text-sm text-gray-500">{website.url}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -179,29 +185,25 @@ export default function WebsitesPage() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Visits:</span>
-                  <span className="text-sm font-medium">{website.visits}</span>
-                </div>
               </CardContent>
-              <CardFooter className="flex justify-between">
+              <CardFooter className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push("/website/editor")}
+                  onClick={() => router.push(`editor/${website.id}`)}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(website.url, "_blank")}
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Visit
+                </Button>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(website.url, "_blank")}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Visit
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="icon">
@@ -209,8 +211,7 @@ export default function WebsitesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel hidden>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
                         onClick={() => router.push("/dashboard/domains")}
                       >

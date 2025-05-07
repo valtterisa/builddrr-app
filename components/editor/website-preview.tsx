@@ -23,12 +23,11 @@ interface IframeEditorProps {
 }
 
 export default function WebsitePreview({
-  initialUrl = "http://localhost:3000/test", // @TODO: Make this dynamic
+  initialUrl,
   isEditMode,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [url, setUrl] = useState(initialUrl);
-  const [inputUrl, setInputUrl] = useState(initialUrl);
+  const [url] = useState(initialUrl);
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition>({
     top: 0,
@@ -812,10 +811,9 @@ export default function WebsitePreview({
   }, [recordChange]);
 
   useEffect(() => {
-    setUrl(inputUrl);
     setShowToolbar(false);
     setDebugInfo("");
-  }, [inputUrl]);
+  }, []);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -1456,7 +1454,7 @@ export default function WebsitePreview({
         )}
         <iframe
           ref={iframeRef}
-          key={url}
+          key={`url-${url}`}
           src={url}
           className="w-full h-full"
           sandbox="allow-same-origin allow-forms allow-scripts"
