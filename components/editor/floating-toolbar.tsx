@@ -12,6 +12,8 @@ import {
   ImageIcon,
   FileImage,
   X, // Import the X icon
+  Scissors,
+  Eraser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,6 @@ import { Label } from "@/components/ui/label";
 import { MediaLibraryModal } from "@/components/media-library/media-library-modal";
 
 // Font size options
-// @TODO revise the font sizes. Currently FUCKED
 const fontSizeOptions = [
   { name: "Small", value: "1" },
   { name: "Normal", value: "3" },
@@ -71,6 +72,31 @@ const colorPalette = [
   "#FFFFFF",
 ];
 
+const FONT_WEIGHTS = [
+  { label: "Thin", value: "100" },
+  { label: "Light", value: "300" },
+  { label: "Regular", value: "400" },
+  { label: "Medium", value: "500" },
+  { label: "Bold", value: "700" },
+  { label: "Black", value: "900" },
+];
+
+const FONT_SIZES = [
+  { label: "XS", class: "text-xs", fontSize: "0.75rem", lineHeight: "1" },
+  { label: "SM", class: "text-sm", fontSize: "0.875rem", lineHeight: "1.25" },
+  { label: "Base", class: "text-base", fontSize: "1rem", lineHeight: "1.5" },
+  { label: "LG", class: "text-lg", fontSize: "1.125rem", lineHeight: "1.75" },
+  { label: "XL", class: "text-xl", fontSize: "1.25rem", lineHeight: "1.75" },
+  { label: "2XL", class: "text-2xl", fontSize: "1.5rem", lineHeight: "2" },
+  { label: "3XL", class: "text-3xl", fontSize: "1.875rem", lineHeight: "2.25" },
+  { label: "4XL", class: "text-4xl", fontSize: "2.25rem", lineHeight: "2.5" },
+  { label: "5XL", class: "text-5xl", fontSize: "3rem", lineHeight: "1" },
+  { label: "6XL", class: "text-6xl", fontSize: "3.75rem", lineHeight: "1" },
+  { label: "7XL", class: "text-7xl", fontSize: "4.5rem", lineHeight: "1" },
+  { label: "8XL", class: "text-8xl", fontSize: "6rem", lineHeight: "1" },
+  { label: "9XL", class: "text-9xl", fontSize: "8rem", lineHeight: "1" },
+];
+
 export interface ActiveFormats {
   bold: boolean;
   italic: boolean;
@@ -94,7 +120,10 @@ export interface FloatingToolbarProps {
   onSetLink: (url: string) => void;
   onSetAltTag: (alt: string) => void;
   onClose: () => void;
-  activeTextColor?: string | null; // Add prop for active text color
+  activeTextColor?: string | null;
+  setActiveTextColor: (color: string) => void;
+  onRemoveStandalone: () => void;
+  canRemoveStandalone: boolean;
 }
 
 export default function FloatingToolbar({
@@ -108,8 +137,11 @@ export default function FloatingToolbar({
   onSetBackgroundImage,
   onSetLink,
   onSetAltTag,
-  onClose, // Existing onClose prop
-  activeTextColor, // Destructure the new prop
+  onClose,
+  activeTextColor,
+  setActiveTextColor,
+  onRemoveStandalone,
+  canRemoveStandalone,
 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -121,10 +153,11 @@ export default function FloatingToolbar({
   const [showAltMenu, setShowAltMenu] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
-  // Determine if element can have a link
-  const canHaveLink =
-    elementType &&
-    !["img", "h1", "h2", "h3", "h4", "h5", "h6"].includes(elementType);
+  // Font weight state for real-time sync
+  const [fontWeightValue, setFontWeightValue] = useState("400");
+
+  // Font size state for real-time sync
+  const [fontSizeValue, setFontSizeValue] = useState("1rem");
 
   // Determine if element can have text formatting
   const canFormatText = elementType && elementType !== "img";
@@ -191,7 +224,7 @@ export default function FloatingToolbar({
 
   // Apply text color
   const applyTextColor = (color: string) => {
-    onFormatText("foreColor", color);
+    onFormatText("color", color);
     setShowColorMenu(false);
   };
 
@@ -266,6 +299,27 @@ export default function FloatingToolbar({
     }
   }, [show, position]);
 
+  useEffect(() => {
+    if (selectedElement) {
+      setFontWeightValue(selectedElement.style.fontWeight || "400");
+      setFontSizeValue(selectedElement.style.fontSize || "1rem");
+    }
+  }, [
+    selectedElement,
+    selectedElement?.style.fontWeight,
+    selectedElement?.style.fontSize,
+  ]);
+
+  const handleFontSizeChange = (fontSize: string, lineHeight: string) => {
+    setFontSizeValue(fontSize);
+    if (selectedElement) {
+      selectedElement.style.fontSize = fontSize;
+      selectedElement.style.lineHeight = lineHeight;
+      onFormatText("fontSize", fontSize); // for consistency, but direct style is set
+    }
+    setShowFontSizeMenu(false);
+  };
+
   return (
     <>
       <div
@@ -320,38 +374,35 @@ export default function FloatingToolbar({
 
         {/* Font Size - only for text elements */}
         {canFormatText && (
-          <>
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1 px-2"
-                onClick={() => toggleMenu("fontSize")} // Keep onClick for toggling menu
-              >
-                <Type className="h-4 w-4" />
-                <ChevronDown className="h-3 w-3 opacity-50" />
-              </Button>
-
-              {showFontSizeMenu && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-[100]">
-                  <div className="p-1">
-                    {fontSizeOptions.map((size) => (
-                      <Button
-                        key={size.name}
-                        variant="ghost"
-                        className="justify-start h-8 px-2 text-left w-full"
-                        onClick={() => applyFontSize(size.value)}
-                      >
-                        <span>{size.name}</span>
-                      </Button>
-                    ))}
-                  </div>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 px-2"
+              onClick={() => toggleMenu("fontSize")}
+            >
+              <Type className="h-4 w-4" />
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </Button>
+            {showFontSizeMenu && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-[100]">
+                <div className="p-1">
+                  {FONT_SIZES.map((size) => (
+                    <Button
+                      key={size.class}
+                      variant="ghost"
+                      className={`justify-start h-8 px-2 text-left w-full ${fontSizeValue === size.fontSize ? "bg-muted" : ""}`}
+                      onClick={() =>
+                        handleFontSizeChange(size.fontSize, size.lineHeight)
+                      }
+                    >
+                      <span>{size.label} </span>
+                    </Button>
+                  ))}
                 </div>
-              )}
-            </div>
-
-            <Separator orientation="vertical" className="h-6" />
-          </>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Text Color - only for text elements */}
@@ -365,10 +416,7 @@ export default function FloatingToolbar({
               onClick={() => toggleMenu("color")}
             >
               {/* Visual indicator for active text color */}
-              <Palette
-                className="h-4 w-4"
-                style={{ stroke: activeTextColor || "currentColor" }}
-              />
+              <Palette className="h-4 w-4" />
               {activeTextColor && (
                 <div
                   className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white shadow-sm"
@@ -401,9 +449,12 @@ export default function FloatingToolbar({
                     {colorPalette.map((color) => (
                       <button
                         key={color}
-                        className="h-6 w-6 rounded-md border border-gray-200 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="h-6 w-6 rounded-md border border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-200"
                         style={{ backgroundColor: color }}
-                        onClick={() => applyTextColor(color)}
+                        onClick={() => {
+                          onFormatText("color", color),
+                            setActiveTextColor(color);
+                        }}
                         title={color}
                       />
                     ))}
@@ -411,11 +462,13 @@ export default function FloatingToolbar({
                   <div className="flex items-center mt-2">
                     <Input
                       type="text"
-                      placeholder="#000000"
                       className="h-8 text-xs"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
-                          applyTextColor((e.target as HTMLInputElement).value);
+                          onFormatText(
+                            "color",
+                            (e.target as HTMLInputElement).value
+                          );
                           (e.target as HTMLInputElement).value = "";
                         }
                       }}
@@ -428,9 +481,11 @@ export default function FloatingToolbar({
                         const input = e.currentTarget
                           .previousSibling as HTMLInputElement;
                         if (input.value) {
-                          applyTextColor(input.value);
+                          onFormatText("color", input.value);
                           input.value = "";
                         }
+                        setActiveTextColor(input.value);
+                        setShowColorMenu(false);
                       }}
                     >
                       Apply
@@ -446,7 +501,7 @@ export default function FloatingToolbar({
         {canHaveBackground && (
           <>
             <div className="relative">
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
@@ -454,9 +509,9 @@ export default function FloatingToolbar({
                 onClick={() => toggleMenu("background")}
               >
                 <FileImage className="h-4 w-4" />
-              </Button>
+              </Button> */}
 
-              {showBackgroundMenu && (
+              {/* {showBackgroundMenu && (
                 <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-[100]">
                   <div className="p-3">
                     <div>
@@ -467,7 +522,7 @@ export default function FloatingToolbar({
                         {colorPalette.map((color) => (
                           <button
                             key={color}
-                            className="h-6 w-6 rounded-md border border-gray-200 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                            className="h-6 w-6 rounded-md border border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-200"
                             style={{ backgroundColor: color }}
                             onClick={() => applyBackgroundColor(color)} // Use updated handler
                             onMouseDown={(e) => e.preventDefault()} // Add this
@@ -524,7 +579,7 @@ export default function FloatingToolbar({
                     </div>
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
 
             <Separator orientation="vertical" className="h-6" />
@@ -532,7 +587,7 @@ export default function FloatingToolbar({
         )}
 
         {/* Link Setting - only for appropriate elements */}
-        {canHaveLink && (
+        {/* {canHaveLink && (
           <div className="relative">
             <Button
               variant="ghost"
@@ -576,10 +631,10 @@ export default function FloatingToolbar({
               </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Image Setting - only for images */}
-        {elementType === "img" && (
+        {/* {elementType === "img" && (
           <div className="relative">
             <Button
               variant="ghost"
@@ -591,10 +646,10 @@ export default function FloatingToolbar({
               <ImageIcon className="h-4 w-4" />
             </Button>
           </div>
-        )}
+        )} */}
 
         {/* Alt Tag Setting - only for images */}
-        {elementType === "img" && (
+        {/* {elementType === "img" && (
           <div className="relative">
             <Button
               variant="ghost"
@@ -643,6 +698,27 @@ export default function FloatingToolbar({
               </div>
             )}
           </div>
+        )} */}
+
+        {/* Remove Standalone Button */}
+        {canFormatText && (
+          <div className="relative flex items-center gap-2">
+            <Button
+              variant={canRemoveStandalone ? "destructive" : "ghost"}
+              size="icon"
+              className={cn(
+                "h-8 w-8 border-2 transition-all",
+                canRemoveStandalone
+                  ? "border-red-500 bg-red-100 text-red-700 hover:bg-red-200"
+                  : "border-transparent text-gray-400 cursor-not-allowed opacity-60"
+              )}
+              title="Remove standalone span (unwrap)"
+              onClick={onRemoveStandalone}
+              disabled={!canRemoveStandalone}
+            >
+              <Eraser className="h-4 w-4" />
+            </Button>
+          </div>
         )}
 
         <Button
@@ -657,11 +733,11 @@ export default function FloatingToolbar({
       </div>
 
       {/* Media Library Modal */}
-      <MediaLibraryModal
+      {/* <MediaLibraryModal
         open={showMediaLibrary}
         onOpenChange={setShowMediaLibrary}
         onSelectImage={handleMediaSelection}
-      />
+      /> */}
     </>
   );
 }
