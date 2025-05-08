@@ -1,5 +1,5 @@
+import { createClient } from "@/utils/supabase/server";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../app/utils/supabase/supabase";
 
 // Type definitions
 export type Profile = {
@@ -100,7 +100,7 @@ function handleError(error: any, customMessage: string): never {
 // Profiles
 export async function getProfile(userId: string): Promise<Profile> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -119,7 +119,7 @@ export async function updateProfile(
   updates: Partial<Profile>
 ): Promise<Profile> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
       .update(updates)
@@ -138,7 +138,7 @@ export async function upsertProfile(
   profile: Partial<Profile> & { id: string }
 ): Promise<Profile> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
       .upsert(profile)
@@ -158,7 +158,7 @@ export async function upsertProfile(
 // Websites
 export async function getWebsites(userId: string): Promise<Website[]> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("websites")
       .select("*")
@@ -174,7 +174,7 @@ export async function getWebsites(userId: string): Promise<Website[]> {
 
 export async function getWebsite(websiteId: string): Promise<Website> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("websites")
       .select("*")
@@ -193,7 +193,7 @@ export async function createWebsite(
   websiteData: Partial<Website>
 ): Promise<Website> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("websites")
       .insert([
@@ -220,7 +220,7 @@ export async function updateWebsite(
   updates: Partial<Website>
 ): Promise<Website> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("websites")
       .update(updates)
@@ -237,7 +237,7 @@ export async function updateWebsite(
 
 export async function deleteWebsite(websiteId: string): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { error } = await supabase
       .from("websites")
       .delete()
@@ -252,7 +252,7 @@ export async function deleteWebsite(websiteId: string): Promise<boolean> {
 
 export async function incrementWebsiteVisits(websiteId: string): Promise<void> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { error } = await supabase.rpc("increment_website_visits", {
       website_id: websiteId,
     });
@@ -270,7 +270,7 @@ export async function incrementWebsiteVisits(websiteId: string): Promise<void> {
 // Domains
 export async function getDomains(websiteId: string): Promise<Domain[]> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("domains")
       .select("*")
@@ -286,7 +286,7 @@ export async function getDomains(websiteId: string): Promise<Domain[]> {
 
 export async function getDomain(domainId: string): Promise<Domain> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("domains")
       .select("*")
@@ -305,7 +305,7 @@ export async function createDomain(
   domainData: Partial<Domain>
 ): Promise<Domain> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("domains")
       .insert([
@@ -334,7 +334,7 @@ export async function updateDomain(
   updates: Partial<Domain>
 ): Promise<Domain> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("domains")
       .update(updates)
@@ -351,7 +351,7 @@ export async function updateDomain(
 
 export async function deleteDomain(domainId: string): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { error } = await supabase
       .from("domains")
       .delete()
@@ -370,7 +370,7 @@ export async function getIntegrations(
   websiteId?: string
 ): Promise<Integration[]> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     let query = supabase.from("integrations").select("*").eq("user_id", userId);
 
     if (websiteId) {
@@ -392,7 +392,7 @@ export async function getIntegration(
   integrationId: string
 ): Promise<Integration> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("integrations")
       .select("*")
@@ -411,7 +411,7 @@ export async function createIntegration(
   integrationData: Partial<Integration>
 ): Promise<Integration> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("integrations")
       .insert([
@@ -439,7 +439,7 @@ export async function updateIntegration(
   updates: Partial<Integration>
 ): Promise<Integration> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("integrations")
       .update(updates)
@@ -458,7 +458,7 @@ export async function deleteIntegration(
   integrationId: string
 ): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { error } = await supabase
       .from("integrations")
       .delete()
@@ -474,7 +474,7 @@ export async function deleteIntegration(
 // Assets
 export async function getAssets(websiteId: string): Promise<Asset[]> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("assets")
       .select("*")
@@ -490,7 +490,7 @@ export async function getAssets(websiteId: string): Promise<Asset[]> {
 
 export async function getAsset(assetId: string): Promise<Asset> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("assets")
       .select("*")
@@ -509,7 +509,7 @@ export async function createAsset(
   assetData: Partial<Asset>
 ): Promise<Asset> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("assets")
       .insert([
@@ -536,7 +536,7 @@ export async function updateAsset(
   updates: Partial<Asset>
 ): Promise<Asset> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("assets")
       .update(updates)
@@ -553,7 +553,7 @@ export async function updateAsset(
 
 export async function deleteAsset(assetId: string): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const { error } = await supabase.from("assets").delete().eq("id", assetId);
 
     if (error) throw error;
