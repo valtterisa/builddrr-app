@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS public.integrations;
 DROP TABLE IF EXISTS public.domains;
 DROP TABLE IF EXISTS public.websites;
 DROP TABLE IF EXISTS public.profiles;
+DROP TABLE IF EXISTS machines;
 
 -- Drop existing triggers
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -82,6 +83,19 @@ CREATE TABLE public.assets (
     metadata JSONB DEFAULT '{}'::JSONB
 );
 
+-- Create machines table
+CREATE TABLE IF NOT EXISTS machines (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    machine_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    region TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'stopped',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(user_id, machine_id)
+);
+
 -- Create function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -118,6 +132,7 @@ ALTER TABLE public.websites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.domains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile"
@@ -243,4 +258,40 @@ USING (
         AND websites.user_id = auth.uid()
     )
 );
+
+-- Create policies for machines
+CREATE POLICY "Users can view their own machines"
+ON machines FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own machines"
+ON machines FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own machines"
+ON machines FOR UPDATE
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own machines"
+ON machines FOR DELETE
+USING (auth.uid() = user_id);
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = TIMEZONE('utc'::text, NOW());
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_machines_updated_at
+    BEFORE UPDATE ON machines
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Add indexes for better query performance
+CREATE INDEX IF NOT EXISTS machines_user_id_idx ON machines(user_id);
+CREATE INDEX IF NOT EXISTS machines_machine_id_idx ON machines(machine_id);
+CREATE INDEX IF NOT EXISTS machines_status_idx ON machines(status);
 
