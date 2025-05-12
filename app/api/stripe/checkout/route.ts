@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createCheckoutSession, PLANS } from "@/lib/stripe";
-import { getSupabaseClient } from "@/lib/supabase/supabase";
-
+import { createClient } from "@/lib/supabase/server";
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const {
       data: { session },
     } = await supabase!.auth.getSession();

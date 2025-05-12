@@ -1,12 +1,13 @@
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/supabase/supabase";
 
 export async function GET() {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
+
     const {
       data: { session },
-    } = await supabase!.auth.getSession();
+    } = await supabase!.auth.getSession(); // TODO: fix this not safe without validating cookies
 
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

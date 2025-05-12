@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { stripe, PLANS } from "@/lib/stripe";
-import { getSupabaseClient } from "@/lib/supabase/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
-  const signature = headers().get("stripe-signature") as string;
+  const headersList = await headers();
+  const signature = headersList.get("stripe-signature") as string;
 
   let event;
 
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = getSupabaseClient();
+  const supabase = await createClient();
 
   try {
     // Handle the event
@@ -53,9 +54,9 @@ export async function POST(request: NextRequest) {
             plan,
             stripe_subscription_id: subscription.id,
             subscription_status: subscription.status,
-            subscription_period_end: new Date(
-              subscription.current_period_end * 1000
-            ).toISOString(),
+            // subscription_period_end: new Date(
+            //   subscription.current_period_end * 1000
+            // ).toISOString(),
             subscription_interval: interval,
           })
           .eq("stripe_customer_id", subscription.customer);
