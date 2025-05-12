@@ -1,99 +1,224 @@
-import { createClient } from '@supabase/supabase-js';
-import { MachineConfig } from './machine';
+import { createClient } from "@supabase/supabase-js";
+import { MachineConfig, MachineFile, updateMachineWithFiles } from "./machine";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// This client should only be used for operations that don't require auth
+// For operations that need auth, use the server client
+const anonSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export type FileOperation = {
-    path: string;
-    content: string;
-    operation: 'create' | 'update' | 'delete';
+  path: string;
+  content: string;
+  operation: "create" | "update" | "delete";
 };
 
-export async function updateMachineFiles(machineId: string, files: FileOperation[]) {
-    try {
-        // Get machine details from Supabase
-        const { data: machine, error: fetchError } = await supabase
-            .from('machines')
-            .select('*')
-            .eq('machine_id', machineId)
-            .single();
+export async function updateMachineFiles(
+  machineId: string,
+  files: FileOperation[]
+) {
+  try {
+    // Use server client with auth for RLS compliance
+    const supabase = await createServerClient();
 
-        if (fetchError || !machine) {
-            throw new Error('Machine not found');
+    // Get website details from Supabase using machine_id
+    const { data: website, error: fetchError } = await supabase
+      .from("websites")
+      .select("*")
+      .eq("machine_id", machineId)
+      .single();
+
+    if (fetchError || !website) {
+      console.error("Website with machine_id not found error:", fetchError);
+      throw new Error("Machine not found");
+    }
+
+    console.log(
+      "Website found:",
+      website.id,
+      "machine_id:",
+      website.machine_id,
+      "app_name:",
+      website.app_name
+    );
+
+    // Get the app name from the website record
+    const appName = website.app_name;
+    if (!appName) {
+      throw new Error(
+        "appName is required for updating machine files on Fly.io"
+      );
+    }
+
+    // Wait a bit to ensure the machine is fully initialized
+    console.log("Waiting for machine to initialize fully...");
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    // Separate operations by type
+    const createOrUpdateFiles = files.filter(
+      (file) => file.operation !== "delete"
+    );
+
+    const deleteFiles = files.filter((file) => file.operation === "delete");
+
+    // Handle create/update operations using machine config update
+    if (createOrUpdateFiles.length > 0) {
+      // Convert our file operations to Fly.io MachineFile format
+      const machineFiles: MachineFile[] = createOrUpdateFiles.map((file) => ({
+        guest_path: `/app/${file.path}`,
+        raw_value: Buffer.from(file.content).toString("base64"),
+      }));
+
+      console.log(
+        `Updating ${machineFiles.length} files on machine ${machineId} in app ${appName}`
+      );
+      const result = await updateMachineWithFiles(
+        machineId,
+        machineFiles,
+        appName
+      );
+
+      if (!result.success) {
+        throw new Error(`Failed to update machine files: ${result.error}`);
+      }
+    }
+
+    // Handle delete operations separately using shell commands
+    if (deleteFiles.length > 0) {
+      console.log(
+        `Deleting ${deleteFiles.length} files on machine ${machineId}`
+      );
+
+      for (const file of deleteFiles) {
+        try {
+          console.log(`Deleting file: ${file.path}`);
+          await executeCommand(machineId, `rm -f /app/${file.path}`, appName);
+        } catch (err) {
+          console.error(`Error deleting file ${file.path}:`, err);
+          // Continue with other files even if one fails
+        }
+      }
+    }
+
+    // Update website status
+    await supabase
+      .from("websites")
+      .update({
+        status: "running",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("machine_id", machineId);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating machine files:", error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function executeCommand(
+  machineId: string,
+  command: string,
+  appName: string,
+  retries = 3,
+  delay = 2000
+) {
+  console.log(`Executing command on machine ${machineId}: ${command}`);
+
+  if (!appName) {
+    throw new Error("appName is required for executing commands on Fly.io");
+  }
+
+  // Retry loop
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(
+        `${process.env.FLY_API_BASE}/v1/apps/${appName}/machines/${machineId}/exec`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            command: ["sh", "-c", command],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(
+          `Command failed (attempt ${attempt}/${retries}): ${response.status} - ${errorText}`
+        );
+
+        // If this is our last attempt, throw the error
+        if (attempt === retries) {
+          throw new Error(`Failed to execute command: ${response.statusText}`);
         }
 
-        // Execute file operations directly on the target machine
-        for (const file of files) {
-            switch (file.operation) {
-                case 'create':
-                    // Create directory if it doesn't exist and write file
-                    await executeCommand(machineId, `mkdir -p $(dirname /app/${file.path})`);
-                    await executeCommand(machineId, `echo '${file.content}' > /app/${file.path}`);
-                    break;
-                case 'update':
-                    // Create directory if it doesn't exist and write file
-                    await executeCommand(machineId, `mkdir -p $(dirname /app/${file.path})`);
-                    await executeCommand(machineId, `echo '${file.content}' > /app/${file.path}`);
-                    break;
-                case 'delete':
-                    await executeCommand(machineId, `rm -f /app/${file.path}`);
-                    break;
-            }
-        }
+        // Wait before retrying
+        console.log(`Waiting ${delay / 1000} seconds before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
 
-        // Update machine status
-        await supabase
-            .from('machines')
-            .update({
-                status: 'running',
-                updated_at: new Date().toISOString()
-            })
-            .eq('machine_id', machineId);
+        // Increase delay for next attempt (exponential backoff)
+        delay *= 2;
+        continue;
+      }
 
-        return { success: true };
+      return response.json();
     } catch (error) {
-        console.error('Error updating machine files:', error);
-        return { success: false, error: (error as Error).message };
+      // If this is our last attempt, rethrow the error
+      if (attempt === retries) {
+        throw error;
+      }
+
+      console.warn(
+        `Error executing command (attempt ${attempt}/${retries}): ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+
+      // Wait before retrying
+      console.log(`Waiting ${delay / 1000} seconds before retry...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Increase delay for next attempt (exponential backoff)
+      delay *= 2;
     }
+  }
+
+  // This should never be reached due to the throws above, but TypeScript needs it
+  throw new Error(`Failed to execute command after ${retries} attempts`);
 }
 
-async function executeCommand(machineId: string, command: string) {
-    const response = await fetch(`${process.env.FLY_API_BASE}/v1/apps/plain-nextjs-app/machines/${machineId}/exec`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${process.env.FLY_API_TOKEN}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            command: ['sh', '-c', command]
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to execute command: ${response.statusText}`);
-    }
-
-    return response.json();
+export async function getMachineFiles(
+  machineId: string,
+  path: string = "/app",
+  appName: string
+) {
+  try {
+    const result = await executeCommand(
+      machineId,
+      `find ${path} -type f -exec cat {} \\;`,
+      appName
+    );
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
 }
 
-export async function getMachineFiles(machineId: string, path: string = '/app') {
-    try {
-        const result = await executeCommand(machineId, `find ${path} -type f -exec cat {} \\;`);
-        return { success: true, data: result };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
-    }
+export async function deleteMachineFiles(
+  machineId: string,
+  paths: string[],
+  appName: string
+) {
+  try {
+    const commands = paths.map((path) => `rm -rf /app/${path}`);
+    await executeCommand(machineId, commands.join(" && "), appName);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
 }
-
-export async function deleteMachineFiles(machineId: string, paths: string[]) {
-    try {
-        const commands = paths.map(path => `rm -rf /app/${path}`);
-        await executeCommand(machineId, commands.join(' && '));
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
-    }
-} 

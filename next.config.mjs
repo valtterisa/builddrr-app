@@ -14,6 +14,10 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  env: {
+    // Set default value for Fly.io API base URL
+    FLY_API_BASE: "https://api.machines.dev",
+  },
   async redirects() {
     return [
       {

@@ -41,6 +41,11 @@ CREATE TABLE public.websites (
     custom_domain TEXT,
     settings JSONB DEFAULT '{}'::JSONB,
     visits INTEGER DEFAULT 0,
+    machine_id TEXT,
+    app_name TEXT,
+    status TEXT DEFAULT 'creating',
+    url TEXT,
+    last_deployed TIMESTAMP WITH TIME ZONE,
     plan TEXT DEFAULT 'starter' CHECK (plan IN ('starter', 'pro', 'enterprise'))
 );
 

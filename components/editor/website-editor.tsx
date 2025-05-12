@@ -30,6 +30,7 @@ import {
   Edit,
   Eye,
   Image,
+  Loader2,
 } from "lucide-react";
 
 import type { ComponentType } from "@/components/component-library";
@@ -38,6 +39,14 @@ import WebsitePreview from "./website-preview";
 import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
 import { MediaLibrary } from "../media-library/media-library";
+import {
+  getUserWebsites,
+  startWebsite,
+  stopWebsite,
+} from "@/app/actions/website";
+import { getMachineUrl } from "@/lib/fly/machine-manager";
+import { createClient } from "@/utils/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 type ViewportSize = "desktop" | "mobile";
 
@@ -51,18 +60,84 @@ export function WebsiteEditor({ id }: { id: string }) {
   const [viewportSize, setViewportSize] = useState<ViewportSize>("desktop");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [website, setWebsite] = useState<any>(null);
   const vfs = VirtualFileSystem.getInstance();
 
   const isMobile = useMobile();
 
-  const url =
-    id === "1"
-      ? "http://localhost:3000/test"
-      : "http://localhost:3000/test-two";
-
   useEffect(() => {
     vfs.loadFromLocalStorage();
-  }, []);
+
+    const loadWebsite = async () => {
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          throw new Error("User not authenticated");
+        }
+
+        // Get the website details
+        const result = await getUserWebsites(user.id);
+
+        if (!result.success || !result.data) {
+          throw new Error("Failed to fetch websites");
+        }
+
+        // Find the website with the matching ID
+        const siteData = result.data.find((site) => site.id === id);
+
+        if (!siteData) {
+          throw new Error("Website not found");
+        }
+
+        setWebsite(siteData);
+
+        // If the website is not running, start it
+        if (siteData.status !== "running") {
+          await startWebsite(user.id, id);
+          toast({
+            title: "Starting website...",
+            description:
+              "Your website is being started. This may take a few moments.",
+          });
+        }
+
+        // Set the website URL
+        if (siteData.url) {
+          setWebsiteUrl(siteData.url);
+        } else {
+          // Fallback if no URL is set - use app name instead of machine ID
+          setWebsiteUrl(
+            getMachineUrl(siteData.app_name || `${siteData.name}-app`)
+          );
+        }
+      } catch (error) {
+        console.error("Error loading website:", error);
+        toast({
+          title: "Error",
+          description:
+            error instanceof Error ? error.message : "Failed to load website",
+          variant: "destructive",
+        });
+        // Fallback to test URLs
+        setWebsiteUrl(
+          id === "1"
+            ? "http://localhost:3000/test"
+            : "http://localhost:3000/test-two"
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWebsite();
+  }, [id]);
 
   const addComponent = (component: ComponentType) => {
     const newComponents = [...components, component];
@@ -156,6 +231,47 @@ export function WebsiteEditor({ id }: { id: string }) {
     setSelectedComponentIndex(index);
     addToHistory(newComponents);
     setDraggedIndex(null);
+  };
+
+  const handleGoLive = async () => {
+    if (!website) return;
+
+    setIsLoading(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // For now, just ensure the website is running
+      await startWebsite(user.id, id);
+
+      // Use the direct fly.dev URL
+      const urlToOpen =
+        websiteUrl || getMachineUrl(website.app_name || `${website.name}-app`);
+
+      toast({
+        title: "Website is live!",
+        description: `Your website is now accessible at ${urlToOpen}`,
+      });
+
+      // Open the website in a new tab
+      window.open(urlToOpen, "_blank");
+    } catch (error) {
+      console.error("Error publishing website:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to publish website",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const [IsMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -304,6 +420,20 @@ export function WebsiteEditor({ id }: { id: string }) {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <h3 className="text-lg font-medium">Loading website...</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            This may take a few moments
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="h-14 border-b flex items-center px-4 gap-2">
@@ -367,7 +497,7 @@ export function WebsiteEditor({ id }: { id: string }) {
               <span className="hidden sm:inline">Save Changes</span>
             </Button>
           )}
-          <Button size="sm">
+          <Button size="sm" onClick={handleGoLive}>
             <Rocket className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Go Live</span>
           </Button>
@@ -377,7 +507,10 @@ export function WebsiteEditor({ id }: { id: string }) {
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
           <div className={`transition-all duration-300 ${getViewportWidth()}`}>
-            <WebsitePreview isEditMode={isEditMode} initialUrl={url} />
+            <WebsitePreview
+              isEditMode={isEditMode}
+              initialUrl={websiteUrl || undefined}
+            />
           </div>
         </div>
       </div>

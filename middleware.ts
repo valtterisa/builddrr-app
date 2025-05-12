@@ -1,7 +1,14 @@
-import { type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { updateSession } from "./utils/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl;
+
+  // We no longer need to check for machine-specific URLs
+  // because we're using app-specific URLs, which are standard Fly.io domains
+
+  // Continue with the normal session updating
   return await updateSession(request);
 }
 
