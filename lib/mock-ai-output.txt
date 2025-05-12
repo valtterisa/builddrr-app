@@ -86,7 +86,7 @@
 framer-motion
 </siteforge-add-dependency>
 
-<siteforge-write file="/app/components/site-components/header/header.tsx">
+<siteforge-write file="/components/site-components/header/header.tsx">
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -167,7 +167,7 @@ const Header = () => {
 export default Header;
 </siteforge-write>
 
-<siteforge-write file="/app/components/site-components/header/logo.tsx">
+<siteforge-write file="/components/site-components/header/logo.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";

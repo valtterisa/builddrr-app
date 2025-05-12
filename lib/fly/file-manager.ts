@@ -63,6 +63,33 @@ export async function updateMachineFiles(
 
     const deleteFiles = files.filter((file) => file.operation === "delete");
 
+    // Ensure all parent directories exist before file upload
+    for (const file of createOrUpdateFiles) {
+      const dirPath = file.path.includes("/")
+        ? `/app/${file.path.substring(0, file.path.lastIndexOf("/"))}`
+        : "/app";
+      if (dirPath && dirPath !== "/app") {
+        // Check if directory exists, if not, create it
+        try {
+          const checkResult = await executeCommand(
+            machineId,
+            `[ -d '${dirPath}' ] && echo 'exists' || echo 'missing'`,
+            appName
+          );
+          if (
+            !checkResult ||
+            !checkResult.stdout ||
+            !checkResult.stdout.includes("exists")
+          ) {
+            console.log(`Directory ${dirPath} does not exist. Creating...`);
+            await executeCommand(machineId, `mkdir -p '${dirPath}'`, appName);
+          }
+        } catch (err) {
+          console.warn(`Could not verify or create directory ${dirPath}:`, err);
+        }
+      }
+    }
+
     // Handle create/update operations using machine config update
     if (createOrUpdateFiles.length > 0) {
       // Convert our file operations to Fly.io MachineFile format
@@ -71,6 +98,14 @@ export async function updateMachineFiles(
         raw_value: Buffer.from(file.content).toString("base64"),
       }));
 
+      // Log each file being uploaded
+      for (const file of createOrUpdateFiles) {
+        const guestPath = `/app/${file.path}`;
+        const preview = file.content.slice(0, 100);
+        console.log(`Uploading file to machine: ${guestPath}`);
+        console.log(`Content preview (first 100 chars): ${preview}`);
+      }
+
       console.log(
         `Updating ${machineFiles.length} files on machine ${machineId} in app ${appName}`
       );
@@ -78,6 +113,12 @@ export async function updateMachineFiles(
         machineId,
         machineFiles,
         appName
+      );
+
+      // Log the result of the update
+      console.log(
+        "updateMachineWithFiles result:",
+        JSON.stringify(result, null, 2)
       );
 
       if (!result.success) {

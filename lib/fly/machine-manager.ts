@@ -151,7 +151,7 @@ export async function assignMachineToUser(
       name: machineName,
       region: "arn",
       image:
-        "registry.fly.io/plain-nextjs-app:deployment-9824ac950e095e93223427935bb49dbf",
+        "registry.fly.io/plain-nextjs-app-ljnfng:deployment-a2b8fc6f15444909638798488a6c6ae3",
       guest: {
         cpu_kind: "shared",
         cpus: 1,

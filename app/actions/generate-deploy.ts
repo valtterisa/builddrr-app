@@ -30,42 +30,14 @@ async function getMockAIResponse(): Promise<string> {
   // For now, we'll use a mock response from a static file
   try {
     // Using a hardcoded mock response for now
-    const mockResponse = `<component-analysis>
-1. Business Description Analysis:
-   a. Main points: Software agency
-   b. Unique selling points: Need to emphasize technical expertise, innovation, and reliability
-
-2. Required Components:
-   - Header with responsive navigation
-   - Footer with proper site structure
-   - Hero section
-   - Testimonials section
-
-3. Component Implementation:
-   a. Header:
-      - Structure: Logo, navigation links, CTA button
-      - Data: Navigation items (Home, Services, About, Projects, Contact)
-      - Styling: Fixed position, transparent on hero section, solid elsewhere        
-      - shadcn/ui: NavigationMenu, Button
-      - Accessibility: Proper ARIA labels, keyboard navigation
-      - User interactions: Mobile hamburger menu, hover effects
-      - Performance: Minimal JS for toggle functionality
-
-   b. Footer:
-      - Structure: Logo, site links, contact info, social links, copyright
-      - Data: Navigation links, contact details, social media links
-      - Styling: Dark background with proper spacing
-      - shadcn/ui: Button for CTA
-      - Accessibility: Proper heading structure, link descriptions
-      - Performance: Static rendering
-</component-analysis>
+    const mockResponse = `
 
 <siteforge-code>
 <siteforge-add-dependency>
 framer-motion
 </siteforge-add-dependency>
 
-<siteforge-write file="/app/components/site-components/header/header.tsx">
+<siteforge-write file="/components/site-components/header/header.tsx">
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -76,7 +48,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import Logo from "./logo";
-import NavLinks from "./nav-links";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -93,10 +64,8 @@ const Header = () => {
   return (
     <motion.header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6",     
-        isScrolled
-          ? "bg-white/95 backdrop-blur-sm shadow-sm"
-          : "bg-transparent"
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6",
+        isScrolled ? "bg-white/95 backdrop-blur-sm shadow-sm" : "bg-transparent"
       )}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -107,8 +76,7 @@ const Header = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-8">
-          <NavLinks className="flex items-center space-x-6" />
-          <Button className="bg-primary hover:bg-primary/90">Contact Us</Button>     
+          <Button className="bg-primary hover:bg-primary/90">Contact Us</Button>
         </div>
 
         {/* Mobile Navigation */}
@@ -129,7 +97,6 @@ const Header = () => {
                   </Button>
                 </SheetTrigger>
               </div>
-              <NavLinks className="flex flex-col space-y-6 text-lg" />
               <div className="mt-auto py-6">
                 <Button className="w-full bg-primary hover:bg-primary/90">
                   Contact Us
@@ -144,9 +111,10 @@ const Header = () => {
 };
 
 export default Header;
+
 </siteforge-write>
 
-<siteforge-write file="/app/components/site-components/header/logo.tsx">
+<siteforge-write file="/components/site-components/header/logo.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
