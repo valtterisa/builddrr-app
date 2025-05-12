@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
 import { toast } from "@/components/ui/use-toast";

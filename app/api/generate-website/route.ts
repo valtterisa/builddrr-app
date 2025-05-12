@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
 import * as fs from "fs";
 import * as path from "path";

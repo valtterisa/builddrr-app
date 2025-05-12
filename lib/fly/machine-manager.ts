@@ -10,7 +10,7 @@ import {
   MachineFile,
   FLY_API_BASE,
 } from "./machine";
-import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { FileOperation } from "./file-manager";
 
 export type MachineInfo = {

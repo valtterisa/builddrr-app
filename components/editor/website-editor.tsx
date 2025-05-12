@@ -45,7 +45,7 @@ import {
   stopWebsite,
 } from "@/app/actions/website";
 import { getMachineUrl } from "@/lib/fly/machine-manager";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
 type ViewportSize = "desktop" | "mobile";

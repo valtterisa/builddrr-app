@@ -9,7 +9,7 @@ import { ArrowLeft, ArrowRight, Loader2, Palette, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 const steps = [
   {
