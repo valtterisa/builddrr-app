@@ -1,9 +1,9 @@
-import Stripe from "stripe"
+import Stripe from "stripe";
 
 // Initialize Stripe with your secret key
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
-})
+  apiVersion: "2025-03-31.basil",
+});
 
 // Update the PLANS object with hardcoded price IDs
 export const PLANS = {
@@ -21,9 +21,15 @@ export const PLANS = {
       priceId: "price_1OvXYZABCDEFGHIJKLMNOPQS", // Replace with your actual monthly price ID
       interval: "month",
     },
-    features: ["Custom domains", "Contact forms", "Testimonials section", "Basic analytics", "Email integrations"],
+    features: [
+      "Custom domains",
+      "Contact forms",
+      "Testimonials section",
+      "Basic analytics",
+      "Email integrations",
+    ],
   },
-}
+};
 
 export async function createStripeCustomer(email: string, name?: string) {
   return stripe.customers.create({
@@ -32,7 +38,7 @@ export async function createStripeCustomer(email: string, name?: string) {
     metadata: {
       source: "website-generator",
     },
-  })
+  });
 }
 
 export async function createCheckoutSession({
@@ -42,11 +48,11 @@ export async function createCheckoutSession({
   cancelUrl,
   metadata = {},
 }: {
-  customerId: string
-  priceId: string
-  successUrl: string
-  cancelUrl: string
-  metadata?: Record<string, string>
+  customerId: string;
+  priceId: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
 }) {
   return stripe.checkout.sessions.create({
     customer: customerId,
@@ -61,25 +67,31 @@ export async function createCheckoutSession({
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata,
-  })
+  });
 }
 
-export async function createBillingPortalSession(customerId: string, returnUrl: string) {
+export async function createBillingPortalSession(
+  customerId: string,
+  returnUrl: string
+) {
   return stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
-  })
+  });
 }
 
 export async function getSubscription(subscriptionId: string) {
-  return stripe.subscriptions.retrieve(subscriptionId)
+  return stripe.subscriptions.retrieve(subscriptionId);
 }
 
 export async function cancelSubscription(subscriptionId: string) {
-  return stripe.subscriptions.cancel(subscriptionId)
+  return stripe.subscriptions.cancel(subscriptionId);
 }
 
-export async function updateSubscription(subscriptionId: string, priceId: string) {
+export async function updateSubscription(
+  subscriptionId: string,
+  priceId: string
+) {
   return stripe.subscriptions.retrieve(subscriptionId).then((subscription) => {
     return stripe.subscriptions.update(subscriptionId, {
       items: [
@@ -88,7 +100,6 @@ export async function updateSubscription(subscriptionId: string, priceId: string
           price: priceId,
         },
       ],
-    })
-  })
+    });
+  });
 }
-

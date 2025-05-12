@@ -1,13 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { MachineConfig, MachineFile, updateMachineWithFiles } from "./machine";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-
-// This client should only be used for operations that don't require auth
-// For operations that need auth, use the server client
-const anonSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export type FileOperation = {
   path: string;

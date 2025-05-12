@@ -8,7 +8,6 @@ import {
   type MachineConfig,
   MachineConfigSchema,
   MachineFile,
-  FLY_API_BASE,
 } from "./machine";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { FileOperation } from "./file-manager";
@@ -146,16 +145,7 @@ export async function assignMachineToUser(
     // Generate a unique machine name that includes user info for easier identification
     const machineName = `${websiteName}-${userId.slice(0, 8)}`;
 
-    // Generate/locate AI output directory for the user
-    const aiOutputDir = "/path/to/ai/output"; // Replace with actual path
-    // Clone Next.js repo, inject AI files, build and push Docker image
-    const imageTag = await buildAndPushUserApp({
-      userId,
-      aiComponentsDir: aiOutputDir, // Path to AI-generated files
-      flyAppName: appName,
-      flyRegistryToken: process.env.FLY_REGISTRY_TOKEN!,
-      log: (msg) => console.log(`[DOCKER] ${msg}`),
-    });
+    const imageTag = "ASDASD"; // TODO: replace with actual image tag
 
     // Create machine configuration for users Fly.io machine
     const config: MachineConfig = {
