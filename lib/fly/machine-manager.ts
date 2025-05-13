@@ -11,6 +11,7 @@ import {
 } from "./machine";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { FileOperation } from "./file-manager";
+import { getFlyRegistryUrl } from "@/lib/fly/registry";
 
 export type MachineInfo = {
   id: string;
@@ -142,14 +143,13 @@ export async function assignMachineToUser(
     await allocateIPv4Address(appName);
     console.log(`IPv4 address allocated for app: ${appName}`);
 
-    // Generate a unique machine name that includes user info for easier identification
-    const machineName = `${websiteName}-${userId.slice(0, 8)}`;
-
-    const imageTag = "ASDASD"; // TODO: replace with actual image tag
+    // Always use the correct image tag from the GitLab runner
+    // Convert the trigger-pipeline to actions.ts and export from there no need for API route
+    let imageTag = `${getFlyRegistryUrl(websiteName)}:latest`;
 
     // Create machine configuration for users Fly.io machine
     const config: MachineConfig = {
-      name: machineName,
+      name: `${websiteName}-${userId.slice(0, 8)}`,
       region: "arn",
       image: imageTag,
       guest: {
@@ -249,7 +249,7 @@ export async function assignMachineToUser(
       data: {
         machine_id: machine.id,
         app_name: appName,
-        name: machineName,
+        name: `${websiteName}-${userId.slice(0, 8)}`,
         region: config.region,
         status: "creating",
         user_id: userId,

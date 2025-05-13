@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
 import * as fs from "fs";
 import * as path from "path";
@@ -197,33 +196,30 @@ export async function POST(request: NextRequest) {
     // Check if we should auto-deploy to Fly.io
     const autoDeploy = requestData.autoDeploy !== false;
 
+    let gitlabRepoUrl: string | undefined = undefined;
     if (autoDeploy) {
       // Use the server action to generate and deploy in one step
       const result = await generateAndDeployWebsite(user.id, userPrompt);
-
       if (!result.success) {
         return NextResponse.json(
           { error: result.error || "Failed to deploy website" },
           { status: 500 }
         );
       }
-
-      // Return both the generated content and deployment info
+      // Return both the generated content, deployment info, and GitLab repo URL if available
       return NextResponse.json({
         success: true,
         data: {
           websiteId: result.data?.websiteId,
           machineId: result.data?.machineId,
           url: result.data?.url,
+          repoUrl: gitlabRepoUrl,
         },
         userId: user.id,
       });
     } else {
       // Traditional approach - just generate AI content without deploying
-      // const generatedContentJSON = await generateAIResponse(userPrompt); // COMMENTED OUT: Real AI generation
-      const generatedContentJSON = await getMockAIResponse(); // USING MOCK RESPONSE
-
-      // Add the user ID to the response
+      const generatedContentJSON = await getMockAIResponse();
       return NextResponse.json({
         data: generatedContentJSON,
         userId: user.id,
