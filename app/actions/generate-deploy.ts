@@ -1,16 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import {
-  createWebsite,
-  deployAIResponseToMachine,
-  parseAIResponse,
-} from "./website";
-import { startUserMachine, getMachineUrl } from "@/lib/fly/machine-manager";
-import { FileOperation } from "@/lib/fly/file-manager";
+import { createWebsite } from "./website";
 import { revalidatePath } from "next/cache";
-import * as fs from "fs";
-import * as path from "path";
+import { parseAIResponse } from "@/lib/utils";
 
 type GenerateDeployResult = {
   success: boolean;
@@ -169,8 +162,6 @@ export async function generateAndDeployWebsite(
       throw new Error("Failed to generate website content");
     }
 
-    console.log("Mock AI content generated successfully");
-
     // 2. Parse the AI response to extract file operations
     const fileOperations = await parseAIResponse(aiResponse);
 
@@ -225,44 +216,7 @@ export async function generateAndDeployWebsite(
     console.log(
       `Website created with ID: ${websiteId}, Machine ID: ${machineId}, App: ${appName}`
     );
-
-    // 5. Start the machine (with a few retries if needed)
-    console.log("Starting machine...");
-    let startResult;
-    const startAttempts = 3;
-    let startDelay = 5000; // Start with 5 seconds
-
-    for (let attempt = 1; attempt <= startAttempts; attempt++) {
-      try {
-        console.log(`Start attempt ${attempt}/${startAttempts}`);
-        startResult = await startUserMachine(userId, machineId);
-
-        if (startResult.success) {
-          console.log(`Machine started successfully on attempt ${attempt}`);
-          break;
-        } else {
-          throw new Error(startResult.error || "Unknown start error");
-        }
-      } catch (error) {
-        console.error(`Start attempt ${attempt} failed:`, error);
-
-        if (attempt < startAttempts) {
-          console.log(`Waiting ${startDelay / 1000}s before retry...`);
-          await new Promise((resolve) => setTimeout(resolve, startDelay));
-          startDelay *= 2; // Exponential backoff
-        } else {
-          // If all start attempts fail, we can still return the website info
-          // The user can try to start it manually later
-          console.warn("Could not start machine, but website was created");
-          startResult = { success: true };
-        }
-      }
-    }
-
-    // 6. Get the machine URL and update website record using app name
-    const url = getMachineUrl(appName);
-    console.log(`Website URL: ${url}`);
-
+    let url = `https://${appName}.fly.dev`;
     // Update the website with URL and content
     const supabase = await createClient();
     await supabase
@@ -270,10 +224,6 @@ export async function generateAndDeployWebsite(
       .update({
         status: "running",
         url: url,
-        content: {
-          ai_response: aiResponse,
-          last_updated: new Date().toISOString(),
-        },
       })
       .eq("id", websiteId);
 
