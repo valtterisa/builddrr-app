@@ -55,7 +55,9 @@ export function WebsiteEditor({ id }: { id: string }) {
   const [viewportSize, setViewportSize] = useState<ViewportSize>("desktop");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState<string | null>(
+    `https://${id}.fly.dev`
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [website, setWebsite] = useState<any>(null);
   const vfs = VirtualFileSystem.getInstance();

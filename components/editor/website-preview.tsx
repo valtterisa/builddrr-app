@@ -23,7 +23,7 @@ interface IframeEditorProps {
 }
 
 export default function WebsitePreview({
-  initialUrl = "/test",
+  initialUrl,
   isEditMode,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -42,7 +42,7 @@ export default function WebsitePreview({
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
   );
-  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isEditorReady, setIsEditorReady] = useState(true);
   const [debugInfo, setDebugInfo] = useState("");
   const [elementType, setElementType] = useState<string>("");
   const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]);
@@ -107,7 +107,7 @@ export default function WebsitePreview({
   const initializeEditor = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-      setDebugInfo("Iframe or contentDocument not available");
+      console.log("Iframe or contentDocument not available");
       return;
     }
 
