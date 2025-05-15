@@ -56,7 +56,7 @@ export function WebsiteEditor({ id }: { id: string }) {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [website, setWebsite] = useState<any>(null);
   const vfs = VirtualFileSystem.getInstance();
 

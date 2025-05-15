@@ -23,7 +23,7 @@ interface IframeEditorProps {
 }
 
 export default function WebsitePreview({
-  initialUrl,
+  initialUrl = "/test",
   isEditMode,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
