@@ -206,6 +206,8 @@ export async function generateAndDeployWebsite(
       })
       .eq("id", appName);
 
+    console.log("Website updated in database");
+
     // 7. Revalidate relevant paths to update UI
     revalidatePath("/dashboard/website/my-websites");
     revalidatePath(`/dashboard/website/editor/${appName}`);

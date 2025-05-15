@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
 import * as fs from "fs";
 import * as path from "path";
+import { createClient } from "@/lib/supabase/server";
 
 // Mock AI response function
 async function getMockAIResponse(): Promise<string> {
@@ -152,29 +152,13 @@ export default Logo;
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
   try {
-    // Extract the session token from the Authorization header
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    // Create a Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
     // Verify the user session
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser(token);
+    } = await supabase.auth.getUser();
     if (error || !user) {
       return NextResponse.json(
         { error: "Invalid authentication" },
