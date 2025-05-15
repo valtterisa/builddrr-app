@@ -1,47 +1,38 @@
 "use client";
 
 import type React from "react";
-
-import { useState, useRef, useEffect } from "react";
-import { ComponentLibrary } from "@/components/component-library";
-import { Button } from "@/components/ui/button";
+import {useEffect, useState} from "react";
+import type {ComponentType} from "@/components/component-library";
+import {ComponentLibrary} from "@/components/component-library";
+import {Button} from "@/components/ui/button";
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,} from "@/components/ui/dialog";
+import {Sheet, SheetContent} from "@/components/ui/sheet";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import {
-  Save,
-  Plus,
-  MoveUp,
-  MoveDown,
-  Undo,
-  Redo,
-  Smartphone,
-  Monitor,
-  Menu,
-  Rocket,
-  Settings,
-  WandSparkles,
   ChevronLeft,
   Edit,
   Eye,
   Image,
   Loader2,
+  Menu,
+  Monitor,
+  MoveDown,
+  MoveUp,
+  Plus,
+  Redo,
+  Rocket,
+  Save,
+  Settings,
+  Smartphone,
+  Undo,
+  WandSparkles,
 } from "lucide-react";
-
-import type { ComponentType } from "@/components/component-library";
-import { useMobile } from "@/hooks/use-mobile";
+import {useMobile} from "@/hooks/use-mobile";
 import WebsitePreview from "./website-preview";
-import { VirtualFileSystem } from "@/lib/virtual-fs";
+import {VirtualFileSystem} from "@/lib/virtual-fs";
 import Link from "next/link";
-import { MediaLibrary } from "../media-library/media-library";
-
-import { createClient } from "@/lib/supabase/client";
-import { toast } from "@/components/ui/use-toast";
+import {MediaLibrary} from "../media-library/media-library";
+import {useToast} from "@/hooks/use-toast";
+import {deployWebsite} from "@/lib/website-generator/website-creator";
 
 type ViewportSize = "desktop" | "mobile";
 
@@ -63,6 +54,7 @@ export function WebsiteEditor({ id }: { id: string }) {
   const vfs = VirtualFileSystem.getInstance();
 
   const isMobile = useMobile();
+  const { toast } = useToast();
 
   const addComponent = (component: ComponentType) => {
     const newComponents = [...components, component];
@@ -158,7 +150,32 @@ export function WebsiteEditor({ id }: { id: string }) {
     setDraggedIndex(null);
   };
 
-  const handleGoLive = async () => {};
+  const handleGoLive = async () => {
+     toast({
+            title: "Deploying website...",
+            description: "Please wait while we deploy your website.",
+            variant: "default",
+    })
+    // Call the server action to deploy the website
+    const deployResult = await deployWebsite(id);
+
+    if (!deployResult.success) {
+      toast({
+        title: "Error",
+        description: deployResult.error || "Failed to deploy the website.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (deployResult.data?.url) {
+      setWebsiteUrl(deployResult.data.url);
+    }
+    toast({
+      title: "Success",
+      description: deployResult.data?.message || "Website deployed successfully.",
+      variant: "default",
+    });
+  };
 
   const [IsMediaModalOpen, setIsMediaModalOpen] = useState(false);
   // Handle image selection from media library
@@ -423,3 +440,4 @@ export function WebsiteEditor({ id }: { id: string }) {
 }
 
 export default WebsiteEditor;
+

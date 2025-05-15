@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
 import { createClient } from "@/lib/supabase/client";
+import { createAndDeployWebsite } from "@/lib/website-generator/website-creator";
 
 const steps = [
   {
@@ -303,78 +304,34 @@ export default function CreatePage() {
       : formData.selectedColors.colors;
 
     try {
-      const websiteData = {
-        businessInfo: {
-          name: formData.businessName,
-          description: formData.description,
-          industry: formData.industry,
-        },
-        design: {
-          colors: {
-            primary: colors.primary,
-            secondary: colors.secondary,
-            accent: colors.accent,
-          },
-        },
-        components: formData.selectedComponents.map((id) => ({
-          type: id,
-          ...componentOptions.find((c) => c.id === id),
-        })),
-      };
-
-      const response = await fetch("/api/generate-website", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(websiteData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate website");
-      }
-
-      const data = await response.json();
-      console.log("Generated website data:", data);
-
-      // Store in localStorage for editor
-      localStorage.setItem("websiteData", JSON.stringify(websiteData));
-
-      // Insert into Supabase my_websites table
+      // Get the authenticated user
       const supabase = createClient();
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error("User not authenticated");
-      // Insert first to get the id
-      const { error: insertError, data: insertData } = await supabase
-        .from("my_websites")
-        .insert([
-          {
-            user_id: userData.user.id,
-            name: formData.businessName,
-            url: "", // placeholder, will update after insert
-            template: data.template || "",
-            plan: "starter",
-            visits: 0,
-          },
-        ])
-        .select()
-        .single();
-      if (insertError || !insertData) throw insertError;
 
-      // Construct the unique url
-      const uniqueUrl = await getUniqueWebsiteUrl(
-        supabase,
-        formData.businessName,
-        insertData.id
-      );
-      const { error: updateError } = await supabase
-        .from("my_websites")
-        .update({ url: uniqueUrl })
-        .eq("id", insertData.id);
-      if (updateError) throw updateError;
+      // Use our unified createAndDeployWebsite function
+      const websiteData = {
+        name: formData.businessName,
+        description: formData.description,
+        industry: formData.industry,
+        colors: colors,
+        components: formData.selectedComponents,
+      };
+
+      // Call our unified website creation function
+      const result = await createAndDeployWebsite(userData.user.id, websiteData);
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to generate website");
+      }
+
+      console.log("Website created successfully:", result.data);
+
+      // Store data in localStorage for editor
+      localStorage.setItem("currentWebsiteId", result.data.websiteId);
 
       // Redirect to editor for the new website
-      router.push(`/website/editor/${insertData.id}`);
+      router.push(`/website/editor/${result.data.websiteId}`);
     } catch (error) {
       console.error("Error generating website:", error);
       toast.error("Failed to generate website. Please try again.");
@@ -913,3 +870,5 @@ export default function CreatePage() {
     </div>
   );
 }
+
+

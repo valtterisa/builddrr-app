@@ -11,8 +11,8 @@ import {
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
-import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
 import { toast } from "@/components/ui/use-toast";
+import { createAndDeployWebsite } from "@/lib/website-generator/website-creator";
 
 const EXAMPLES = [
   "VitePress docs",
@@ -63,9 +63,21 @@ export default function PromptTool() {
     setGenerationStatus("Generating website content with AI...");
 
     try {
-      // Use our new server action for end-to-end generation and deployment
-      setGenerationStatus("Creating your new Fly.io machine...");
-      const result = await generateAndDeployWebsite(authData.user.id, prompt);
+      // Use our unified function for website creation
+      const websiteData = {
+        name: `AI Generated Website ${new Date().toLocaleDateString()}`,
+        description: `Website generated from user prompt: ${prompt}`,
+        prompt: prompt,
+        // Optional: Default colors if needed
+        colors: {
+          primary: "#6366F1",
+          secondary: "#8B5CF6",
+          accent: "#EC4899",
+        },
+      };
+
+      // Call the unified website creation function
+      const result = await createAndDeployWebsite(authData.user.id, websiteData);
 
       if (!result.success || !result.data) {
         throw new Error(
@@ -181,3 +193,4 @@ export default function PromptTool() {
     </div>
   );
 }
+

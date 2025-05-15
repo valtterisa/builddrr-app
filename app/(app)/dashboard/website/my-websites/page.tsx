@@ -19,6 +19,8 @@ import {
   Copy,
   MoreHorizontal,
   Search,
+  Rocket,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
+import { deployWebsite } from "@/lib/website-generator/website-creator";
 
 export type MyWebsite = {
   id: string;
@@ -51,6 +54,8 @@ export type MyWebsite = {
   plan?: string;
   created_at: string;
   visits?: number;
+  custom_domain?: string;
+  status?: string;
 };
 
 // Helper to slugify a string
@@ -65,9 +70,15 @@ function slugify(text: string): string {
 }
 
 // Helper to construct unique url
-function constructWebsiteUrl(name: string, uuid: string): string {
-  const slug = slugify(name);
-  const shortId = uuid.split("-")[0];
+function constructWebsiteUrl(website: MyWebsite): string {
+  // Use custom domain if available
+  if (website.custom_domain) {
+    return `https://${website.custom_domain}`;
+  }
+
+  // Fall back to default URL format
+  const slug = slugify(website.name);
+  const shortId = website.id.split("-")[0];
   return `/site/${slug}-${shortId}`;
 }
 
@@ -79,6 +90,7 @@ export default function WebsitesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [websiteToDelete, setWebsiteToDelete] = useState<string | null>(null);
+  const [deployingWebsiteId, setDeployingWebsiteId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWebsites = async () => {
@@ -95,7 +107,7 @@ export default function WebsitesPage() {
       }
       const { data, error } = await supabase
         .from("websites")
-        .select("id, name, url, plan, created_at")
+        .select("id, name, url, plan, created_at, custom_domain, visits, status")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
@@ -146,6 +158,53 @@ export default function WebsitesPage() {
       title: "URL copied",
       description: "Website URL copied to clipboard.",
     });
+  };
+
+  // Handle website deployment directly
+  const handleDeploy = async (websiteId: string) => {
+    setDeployingWebsiteId(websiteId);
+
+    toast({
+      title: "Deploying website...",
+      description: "Please wait while we deploy your website.",
+      variant: "default",
+    });
+
+    try {
+      const deployResult = await deployWebsite(websiteId);
+
+      if (!deployResult.success) {
+        toast({
+          title: "Error",
+          description: deployResult.error || "Failed to deploy the website.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update the website status in the local state
+      setWebsites(
+        websites.map(website =>
+          website.id === websiteId
+            ? { ...website, status: "deployed" }
+            : website
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: deployResult.data?.message || "Website deployed successfully.",
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during deployment.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeployingWebsiteId(null);
+    }
   };
 
   const filteredWebsites = websites.filter((website) =>
@@ -217,15 +276,13 @@ export default function WebsitesPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 justify-between">
                     <span className="text-sm text-gray-500">
-                      {constructWebsiteUrl(website.name, website.id)}
+                      {constructWebsiteUrl(website)}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() =>
-                        handleCopyUrl(
-                          constructWebsiteUrl(website.name, website.id)
-                        )
+                        handleCopyUrl(constructWebsiteUrl(website))
                       }
                     >
                       <Copy className="h-4 w-4" />
@@ -242,19 +299,32 @@ export default function WebsitesPage() {
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    window.open(
-                      constructWebsiteUrl(website.name, website.id),
-                      "_blank"
-                    )
-                  }
-                >
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  Visit
-                </Button>
+                {website.status === "deployed" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(constructWebsiteUrl(website), "_blank")
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Visit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeploy(website.id)}
+                    disabled={deployingWebsiteId === website.id || website.status === "deploying"}
+                  >
+                    {deployingWebsiteId === website.id || website.status === "deploying" ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Rocket className="h-4 w-4 mr-1" />
+                    )}
+                    {website.status === "deploying" ? "Deploying..." : "Deploy"}
+                  </Button>
+                )}
                 <div className="flex gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -333,3 +403,5 @@ export default function WebsitesPage() {
     </div>
   );
 }
+
+

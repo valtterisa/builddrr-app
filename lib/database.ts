@@ -26,6 +26,12 @@ export type Website = {
   settings?: any; // JSON settings
   visits: number;
   plan: "starter" | "pro" | "enterprise";
+  machine_id?: string;
+  app_name?: string;
+  status?: string;
+  url?: string;
+  last_deployed?: string;
+  repository_url?: string;
 };
 
 export type Domain = {
@@ -562,3 +568,4 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     return handleError(error, `Failed to delete asset ${assetId}`);
   }
 }
+

@@ -40,6 +40,31 @@ const scheduledPosts = [
   },
 ];
 
+// Mock data for websites with custom domains (replace with actual data fetching)
+const websites = [
+  {
+    id: 1,
+    name: "My Portfolio",
+    url: "https://app-name-1.fly.dev",
+    custom_domain: "portfolio.johndoe.com",
+    published: true
+  },
+  {
+    id: 2,
+    name: "Company Website",
+    url: "https://app-name-2.fly.dev",
+    custom_domain: "www.acme-company.com",
+    published: true
+  },
+  {
+    id: 3,
+    name: "Blog Site",
+    url: "https://app-name-3.fly.dev",
+    custom_domain: null,
+    published: false
+  },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   // const [plan, setPlan] = useState<"starter" | "pro" | "enterprise">("starter"); // Removed plan state if not needed for this view
@@ -220,6 +245,67 @@ export default function DashboardPage() {
 
       {/* Separator Line */}
       <hr className="my-8 border-border" />
+
+      {/* Domains Section */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Your Domains</h2>
+        <Card>
+          <CardHeader className="flex flex-row items-center space-x-2">
+            <Globe className="h-5 w-5" />
+            <CardTitle>Custom Domains</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {websites.filter(site => site.published).length > 0 ? (
+              <div className="space-y-4">
+                {websites.filter(site => site.published).map((website) => (
+                  <div key={website.id} className="border rounded-md p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{website.name}</h3>
+                        <div className="text-sm mt-1">
+                          <p>Default URL: <a href={website.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{website.url}</a></p>
+                          {website.custom_domain ? (
+                            <p className="text-green-600 mt-1">
+                              Custom Domain: <a href={`https://${website.custom_domain}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{website.custom_domain}</a>
+                            </p>
+                          ) : (
+                            <p className="text-muted-foreground mt-1">No custom domain configured</p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => router.push(`/dashboard/website/${website.id}/settings`)}
+                      >
+                        Configure
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No published websites found. Publish a website to configure a custom domain.
+              </p>
+            )}
+            <div className="mt-4">
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0 h-auto"
+                onClick={() => router.push("/dashboard/website")}
+              >
+                Manage all websites
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Separator Line */}
+      <hr className="my-8 border-border" />
     </div>
   );
 }
+
