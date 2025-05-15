@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAndDeployWebsite } from "@/app/actions/generate-deploy";
-import * as fs from "fs";
-import * as path from "path";
 import { createClient } from "@/lib/supabase/server";
 
 // Mock AI response function
@@ -180,7 +178,6 @@ export async function POST(request: NextRequest) {
     // Check if we should auto-deploy to Fly.io
     const autoDeploy = requestData.autoDeploy !== false;
 
-    let gitlabRepoUrl: string | undefined = undefined;
     if (autoDeploy) {
       // Use the server action to generate and deploy in one step
       const result = await generateAndDeployWebsite(user.id, userPrompt);
@@ -197,7 +194,6 @@ export async function POST(request: NextRequest) {
           websiteId: result.data?.websiteId,
           machineId: result.data?.machineId,
           url: result.data?.url,
-          repoUrl: gitlabRepoUrl,
         },
         userId: user.id,
       });

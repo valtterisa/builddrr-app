@@ -1,4 +1,4 @@
-import { generateAppName, getFlyRegistryUrl } from "@/lib/utils";
+import { getFlyRegistryUrl } from "@/lib/utils";
 import { FileOperation } from "@/lib/types";
 
 /**
@@ -37,14 +37,10 @@ export async function createAppAndAssignMachine(
 
     let imageTag = `${getFlyRegistryUrl(appName)}:latest`;
 
-    const gitlabRepoUrl =
-      "https://gitlab.com/bittive-group/plain-nextjs-app.git";
-
     // Call to backend to create app and machines
     const response = await fetch(process.env.PREVIEW_DEPLOY_URL!, {
       method: "POST",
       body: JSON.stringify({
-        gitlabRepoUrl: gitlabRepoUrl,
         imageTag: imageTag,
         appName: appName,
         websiteName: appName,

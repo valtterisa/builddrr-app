@@ -1,4 +1,4 @@
-import { generateAppName, getFlyRegistryUrl } from "@/lib/utils";
+import { getFlyRegistryUrl } from "@/lib/utils";
 import { FileOperation } from "@/lib/types";
 
 /**

@@ -42,7 +42,7 @@ export default function WebsitePreview({
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
   );
-  const [isEditorReady, setIsEditorReady] = useState(true);
+  const [isEditorReady, setIsEditorReady] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
   const [elementType, setElementType] = useState<string>("");
   const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]);
@@ -58,6 +58,9 @@ export default function WebsitePreview({
 
   const applyStoredChanges = useCallback(() => {
     const iframe = iframeRef.current;
+    console.log(iframe);
+    console.log(iframe?.contentDocument);
+    console.log(isApplyingChanges);
     if (!iframe || !iframe.contentDocument || isApplyingChanges) return;
 
     setIsApplyingChanges(true);
@@ -1455,7 +1458,7 @@ export default function WebsitePreview({
         <iframe
           ref={iframeRef}
           key={`url-${url}`}
-          src={url}
+          src={`http://localhost:3001/preview/${url}/`}
           className="w-full h-full"
           sandbox="allow-same-origin allow-forms allow-scripts"
         />
