@@ -1,6 +1,11 @@
 "use server";
 
-import { createWebsite, updateWebsite, getWebsite, addWebsiteUser } from "@/lib/database";
+import {
+  createWebsite,
+  updateWebsite,
+  getWebsite,
+  addWebsiteUser,
+} from "@/lib/database";
 import { parseAIResponse, generateAppName } from "@/lib/utils";
 import { createAppAndAssignMachine } from "@/lib/fly/fly";
 import { revalidatePath } from "next/cache";
@@ -195,9 +200,9 @@ export async function createAndDeployWebsite(
       // 1. Fork repository with app name as slug
       console.log(`Calling fork API with slug=${appName}`);
       const forkResponse = await fetch(`http://localhost:3001/api/fork`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ slug: appName }),
       });
@@ -208,27 +213,34 @@ export async function createAndDeployWebsite(
 
       // Check if response is OK and contains JSON
       if (!forkResponse.ok) {
-        console.warn(`Fork API returned status ${forkResponse.status}: ${forkResponse.statusText}`);
-        console.warn('Continuing without fork data');
+        console.warn(
+          `Fork API returned status ${forkResponse.status}: ${forkResponse.statusText}`
+        );
+        console.warn("Continuing without fork data");
       } else {
         // Check content type to ensure it's JSON
-        const contentType = forkResponse.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
+        const contentType = forkResponse.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
           const forkData = await forkResponse.json();
-          console.log('Fork API response:', forkData);
+          console.log("Fork API response:", forkData);
 
           // Update website with repository URL immediately after successful fork
           try {
             await updateWebsite(website.id, {
-              repository_url: repositoryUrl
+              repository_url: repositoryUrl,
             });
-            console.log(`Website record updated with repository URL: ${repositoryUrl}`);
+            console.log(
+              `Website record updated with repository URL: ${repositoryUrl}`
+            );
           } catch (error) {
-            console.error('Error updating website with repository URL:', error);
+            console.error("Error updating website with repository URL:", error);
           }
         } else {
-          console.warn('Fork API did not return JSON. Content type:', contentType);
-          console.warn('Continuing without fork data');
+          console.warn(
+            "Fork API did not return JSON. Content type:",
+            contentType
+          );
+          console.warn("Continuing without fork data");
         }
       }
 
@@ -238,76 +250,97 @@ export async function createAndDeployWebsite(
 
       // 2. Create pages with same slug
       console.log(`Calling pages-create API with slug=${appName}`);
-      const pagesResponse = await fetch(`http://localhost:3001/api/pages-create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ slug: appName }),
-      });
+      const pagesResponse = await fetch(
+        `http://localhost:3001/api/pages-create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ slug: appName }),
+        }
+      );
 
       // Check if response is OK before parsing JSON
       if (!pagesResponse.ok) {
-        console.warn(`Pages-create API returned status ${pagesResponse.status}: ${pagesResponse.statusText}`);
-        console.warn('Continuing without pages data');
+        console.warn(
+          `Pages-create API returned status ${pagesResponse.status}: ${pagesResponse.statusText}`
+        );
+        console.warn("Continuing without pages data");
       } else {
-        const contentType = pagesResponse.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
+        const contentType = pagesResponse.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
           const pagesData = await pagesResponse.json();
-          console.log('Pages-create API response:', pagesData);
+          console.log("Pages-create API response:", pagesData);
         } else {
-          console.warn('Pages-create API did not return JSON. Content type:', contentType);
-          console.warn('Continuing without pages data');
+          console.warn(
+            "Pages-create API did not return JSON. Content type:",
+            contentType
+          );
+          console.warn("Continuing without pages data");
         }
       }
 
       // 3. Start wire-domain process (don't await the response)
       console.log(`Starting wire-domain process with slug=${appName}`);
       fetch(`http://localhost:3001/api/wire-domain`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ slug: appName }),
       })
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
-            throw new Error(`API returned status ${response.status}: ${response.statusText}`);
+            throw new Error(
+              `API returned status ${response.status}: ${response.statusText}`
+            );
           }
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
             return response.json();
           }
-          throw new Error(`API did not return JSON. Content type: ${contentType}`);
+          throw new Error(
+            `API did not return JSON. Content type: ${contentType}`
+          );
         })
-        .then(async data => {
-          console.log('Wire-domain API response (delayed):', data);
+        .then(async (data) => {
+          console.log("Wire-domain API response (delayed):", data);
 
           // Update the website with custom domain if successful
           if (data.success) {
             try {
               const customDomain = `${appName}.siteforge.bittive.com`;
-              console.log(`Updating website with custom domain: ${customDomain}`);
+              console.log(
+                `Updating website with custom domain: ${customDomain}`
+              );
 
               await updateWebsite(website.id, {
-                primary_url: customDomain
+                primary_url: customDomain,
               });
 
-              console.log(`Website record updated with custom domain: ${customDomain}`);
+              console.log(
+                `Website record updated with custom domain: ${customDomain}`
+              );
               // Revalidate paths to reflect the domain update in the UI
-              revalidatePath("/dashboard/website/my-websites");
+              revalidatePath("/dashboard/website/all");
               revalidatePath(`/website/editor/${website.id}`);
             } catch (error) {
-              console.error('Error updating website with custom domain:', error);
+              console.error(
+                "Error updating website with custom domain:",
+                error
+              );
             }
           }
         })
-        .catch(error => console.error('Error in wire-domain API call:', error));
+        .catch((error) =>
+          console.error("Error in wire-domain API call:", error)
+        );
 
-      console.log('Wire-domain process started (running in background)');
+      console.log("Wire-domain process started (running in background)");
     } catch (error) {
       // Don't fail the whole process if API calls fail
-      console.error('Error calling development APIs:', error);
+      console.error("Error calling development APIs:", error);
     }
 
     // Step 1.6: Add the user as the admin in the website_users table
@@ -315,7 +348,10 @@ export async function createAndDeployWebsite(
       console.log(`Adding user ${userId} as admin for website ${website.id}`);
       await addWebsiteUser(website.id, userId, "admin");
     } catch (error) {
-      console.error('Error adding user as admin in website_users table:', error);
+      console.error(
+        "Error adding user as admin in website_users table:",
+        error
+      );
       throw new Error("Failed to add user as admin in website_users table");
     }
 
@@ -338,7 +374,9 @@ export async function createAndDeployWebsite(
 
     if (!aiResponse) {
       await updateWebsite(website.id, { status: "failed" });
-      console.log(`Website status updated to "failed" due to content generation error`);
+      console.log(
+        `Website status updated to "failed" due to content generation error`
+      );
       throw new Error("Failed to generate website content");
     }
 
@@ -347,7 +385,9 @@ export async function createAndDeployWebsite(
 
     if (files.length === 0) {
       await updateWebsite(website.id, { status: "failed" });
-      console.log(`Website status updated to "failed" due to invalid AI response`);
+      console.log(
+        `Website status updated to "failed" due to invalid AI response`
+      );
       throw new Error("No valid file operations found in AI response");
     }
 
@@ -360,7 +400,11 @@ export async function createAndDeployWebsite(
     // Step 5: Deploy to Fly.io
     console.log(`Creating new Fly.io app: ${appName}`);
 
-    const deployResult = await createAppAndAssignMachine(userId, appName, files);
+    const deployResult = await createAppAndAssignMachine(
+      userId,
+      appName,
+      files
+    );
 
     if (!deployResult.success || !deployResult.data) {
       await updateWebsite(website.id, { status: "failed" });
@@ -375,7 +419,7 @@ export async function createAndDeployWebsite(
 
     // Step 6: Update website record with deployment info
     await updateWebsite(website.id, {
-      preview_url: url,
+      preview_url: url, // @TODO: Use /api/preview-url endpoint.
       published: true,
       status: "preview",
       machine_id: machineId,
@@ -383,10 +427,12 @@ export async function createAndDeployWebsite(
       repository_url: `https://gitlab.com/bittive-group/${appName}`, // Save GitLab repository URL
     });
 
-    console.log("Website record updated with deployment info and repository URL");
+    console.log(
+      "Website record updated with deployment info and repository URL"
+    );
 
     // Step 7: Revalidate paths
-    revalidatePath("/dashboard/website/my-websites");
+    revalidatePath("/dashboard/website/all");
     revalidatePath(`/website/editor/${website.id}`);
 
     return {
@@ -402,12 +448,17 @@ export async function createAndDeployWebsite(
     // Try to update website status to "failed" if we have a website ID
     try {
       // This requires checking if 'website' is defined within scope
-      if (typeof website !== 'undefined' && website && website.id) {
+      if (typeof website !== "undefined" && website && website.id) {
         await updateWebsite(website.id, { status: "failed" });
-        console.log(`Website status updated to "failed" due to unhandled error`);
+        console.log(
+          `Website status updated to "failed" due to unhandled error`
+        );
       }
     } catch (updateError) {
-      console.error("Failed to update website status to 'failed':", updateError);
+      console.error(
+        "Failed to update website status to 'failed':",
+        updateError
+      );
     }
 
     return {
@@ -443,7 +494,9 @@ export async function deployWebsite(websiteId: string): Promise<{
     }
 
     if (!website.app_name) {
-      throw new Error(`Website with ID ${websiteId} has no app_name (slug) configured`);
+      throw new Error(
+        `Website with ID ${websiteId} has no app_name (slug) configured`
+      );
     }
 
     // Update status to "deploying" to indicate deployment in progress
@@ -458,36 +511,44 @@ export async function deployWebsite(websiteId: string): Promise<{
     // Step 2: Call the deployment API
     console.log(`Calling deploy API with slug=${appName}`);
     const deployResponse = await fetch(`http://localhost:3001/api/deploy`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ slug: appName }),
     });
 
     if (!deployResponse.ok) {
-      const errorText = await deployResponse.text().catch(() => 'Unknown error');
+      const errorText = await deployResponse
+        .text()
+        .catch(() => "Unknown error");
       // Update status to reflect deployment failure
       await updateWebsite(websiteId, {
         status: "failed",
       });
       console.log(`Website status updated to "failed" due to deployment error`);
-      throw new Error(`Deploy API returned status ${deployResponse.status}: ${errorText}`);
+      throw new Error(
+        `Deploy API returned status ${deployResponse.status}: ${errorText}`
+      );
     }
 
     // Check content type to ensure it's JSON
-    const contentType = deployResponse.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
+    const contentType = deployResponse.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
       // Update status to reflect deployment failure
       await updateWebsite(websiteId, {
         status: "failed",
       });
-      console.log(`Website status updated to "failed" due to invalid response format`);
-      throw new Error(`Deploy API did not return JSON. Content type: ${contentType}`);
+      console.log(
+        `Website status updated to "failed" due to invalid response format`
+      );
+      throw new Error(
+        `Deploy API did not return JSON. Content type: ${contentType}`
+      );
     }
 
     const deployData = await deployResponse.json();
-    console.log('Deploy API response:', deployData);
+    console.log("Deploy API response:", deployData);
 
     // Step 3: Update website record with latest deployment info
     await updateWebsite(websiteId, {
@@ -495,10 +556,12 @@ export async function deployWebsite(websiteId: string): Promise<{
       last_deployed: new Date().toISOString(),
     });
 
-    console.log(`Website record updated with latest deployment timestamp and status "deployed"`);
+    console.log(
+      `Website record updated with latest deployment timestamp and status "deployed"`
+    );
 
     // Step 4: Revalidate paths to reflect changes in UI
-    revalidatePath("/dashboard/website/my-websites");
+    revalidatePath("/dashboard/website/all");
     revalidatePath(`/website/editor/${websiteId}`);
 
     return {
@@ -506,8 +569,8 @@ export async function deployWebsite(websiteId: string): Promise<{
       data: {
         url: website.primary_url || deployData.url,
         status: "deployed",
-        message: "Website deployed successfully"
-      }
+        message: "Website deployed successfully",
+      },
     };
   } catch (error) {
     console.error("Error in deployWebsite:", error);
@@ -518,7 +581,10 @@ export async function deployWebsite(websiteId: string): Promise<{
       });
       console.log(`Website status updated to "failed" due to unhandled error`);
     } catch (updateError) {
-      console.error("Failed to update website status to 'failed':", updateError);
+      console.error(
+        "Failed to update website status to 'failed':",
+        updateError
+      );
     }
 
     return {
@@ -586,6 +652,3 @@ export async function deleteProjectById(id: string): Promise<{
     };
   }
 }
-
-
-

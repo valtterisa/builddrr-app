@@ -209,7 +209,7 @@ export async function generateAndDeployWebsite(
     console.log("Website updated in database");
 
     // 7. Revalidate relevant paths to update UI
-    revalidatePath("/dashboard/website/my-websites");
+    revalidatePath("/dashboard/website/all");
     revalidatePath(`/dashboard/website/editor/${appName}`);
 
     console.log("Website deployment completed");

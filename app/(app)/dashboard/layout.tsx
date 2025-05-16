@@ -19,6 +19,7 @@ import {
   Plus,
   BarChart3,
   ExternalLink,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -53,12 +54,12 @@ import { logout } from "../../(auth)/actions";
 
 // Define website type
 type Website = {
-    id: string;
-    name: string;
-    custom_domain: string | null;
-    primary_domain: string;
-    status: string;
-    is_active?: boolean; // Optional property to indicate if the website is active
+  id: string;
+  name: string;
+  custom_domain: string | null;
+  primary_domain: string;
+  status: string;
+  is_active?: boolean; // Optional property to indicate if the website is active
 };
 
 export default function DashboardLayout({
@@ -89,9 +90,10 @@ export default function DashboardLayout({
 
         if (websitesData && websitesData.length > 0) {
           // Mark websites as active if they are deployed or deploying
-          const processedWebsites = websitesData.map(site => ({
+          const processedWebsites = websitesData.map((site) => ({
             ...site,
-            is_active: site.status === "deployed" || site.status === "deploying"
+            is_active:
+              site.status === "deployed" || site.status === "deploying",
           }));
 
           setWebsites(processedWebsites);
@@ -135,7 +137,7 @@ export default function DashboardLayout({
 
   // Function to create a new website
   const handleCreateWebsite = () => {
-    router.push("/dashboard/website/my-websites?action=create");
+    router.push("/dashboard/website/all?action=create");
   };
 
   return (
@@ -171,7 +173,7 @@ export default function DashboardLayout({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="flex flex-col justify-between">
+          <SidebarContent className="flex flex-col">
             {/* Website Selector */}
             {websites.length > 0 && (
               <div className="px-3 py-3 border-b">
@@ -181,7 +183,8 @@ export default function DashboardLayout({
                       ACTIVE WEBSITE
                     </span>
                     <Badge variant="outline" className="text-xs font-normal">
-                      {websites.filter(site => site.is_active).length}/{websites.length} live
+                      {websites.filter((site) => site.is_active).length}/
+                      {websites.length} live
                     </Badge>
                   </div>
                   {activeWebsite && (
@@ -195,7 +198,7 @@ export default function DashboardLayout({
                         <ExternalLink className="h-3 w-3 ml-1" />
                       </Link>
                       <Link
-                        href="/dashboard/website/my-websites"
+                        href="/dashboard/website/all"
                         className="text-xs text-primary hover:underline"
                       >
                         Manage all
@@ -232,7 +235,7 @@ export default function DashboardLayout({
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton className="justify-between">
                           <div className="flex items-center">
-                            <Globe className="h-4 w-4 mr-3" />
+                            <Globe className="h-4 w-4 mr-5" />
                             Website
                           </div>
                           {contentMenuOpen ? (
@@ -245,7 +248,7 @@ export default function DashboardLayout({
                     </SidebarMenuItem>
 
                     <CollapsibleContent className="pl-8 space-y-1 mt-1">
-                      <SidebarMenuItem>
+                      {/* <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
                           isActive={pathname === "/dashboard/website/blog"}
@@ -253,26 +256,13 @@ export default function DashboardLayout({
                         >
                           <Link href="/dashboard/website/blog">Blog</Link>
                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      {/*<SidebarMenuItem>*/}
-                      {/*  <SidebarMenuButton*/}
-                      {/*    asChild*/}
-                      {/*    isActive={pathname === "/dashboard/website/editor"}*/}
-                      {/*    disabled={websites.length === 0}*/}
-                      {/*  >*/}
-                      {/*    <Link href="/dashboard/website/editor">Editor</Link>*/}
-                      {/*  </SidebarMenuButton>*/}
-                      {/*</SidebarMenuItem>*/}
+                      </SidebarMenuItem> */}
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={
-                            pathname === "/dashboard/website/my-websites"
-                          }
+                          isActive={pathname === "/dashboard/website/all"}
                         >
-                          <Link href="/dashboard/website/my-websites">
-                            My websites
-                          </Link>
+                          <Link href="/dashboard/website/all">My websites</Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
@@ -311,15 +301,14 @@ export default function DashboardLayout({
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname.includes("/dashboard/content")}
+                      isActive={pathname.includes("/dashboard/analytics")}
                     >
-                      <Link href="/dashboard/content">
-                        <PenSquare className="h-4 w-4 mr-3" />
-                        Content
+                      <Link href="/dashboard/media-library">
+                        <Image className="h-4 w-4 mr-3" />
+                        Media Library
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -328,48 +317,47 @@ export default function DashboardLayout({
             </SidebarGroup>
 
             <SidebarSeparator />
-
-            <SidebarGroup>
-              <SidebarGroupLabel>Account</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/account/billing"}
-                    >
-                      <Link href="/dashboard/account/billing">
-                        <CreditCard className="h-4 w-4 mr-3" />
-                        Billing
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/account/team"}
-                    >
-                      <Link href="/dashboard/account/team">
-                        <Users className="h-4 w-4 mr-3" />
-                        Team
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/account/settings"}
-                    >
-                      <Link href="/dashboard/account/settings">
-                        <Settings className="h-4 w-4 mr-3" />
-                        Settings
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
           </SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/dashboard/account/billing"}
+                  >
+                    <Link href="/dashboard/account/billing">
+                      <CreditCard className="h-4 w-4 mr-3" />
+                      Billing
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/dashboard/account/team"}
+                  >
+                    <Link href="/dashboard/account/team">
+                      <Users className="h-4 w-4 mr-3" />
+                      Team
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/dashboard/account/settings"}
+                  >
+                    <Link href="/dashboard/account/settings">
+                      <Settings className="h-4 w-4 mr-3" />
+                      Settings
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
           <SidebarFooter className="border-t">
             {websites.length === 0 && (
@@ -411,7 +399,11 @@ export default function DashboardLayout({
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent title={"SITEFORGE"} side="left" className="w-[270px] p-0">
+                <SheetContent
+                  title={"SITEFORGE"}
+                  side="left"
+                  className="w-[270px] p-0"
+                >
                   <div className="flex flex-col h-full">
                     <div className="border-b p-4">
                       <div className="flex items-center gap-2">
@@ -428,8 +420,12 @@ export default function DashboardLayout({
                             <span className="text-xs text-muted-foreground font-medium">
                               ACTIVE WEBSITE
                             </span>
-                            <Badge variant="outline" className="text-xs font-normal">
-                              {websites.filter(site => site.is_active).length}/{websites.length} live
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-normal"
+                            >
+                              {websites.filter((site) => site.is_active).length}
+                              /{websites.length} live
                             </Badge>
                           </div>
 
@@ -439,7 +435,11 @@ export default function DashboardLayout({
                                 {activeWebsite.name}
                                 {activeWebsite.status && (
                                   <Badge
-                                    variant={activeWebsite.is_active ? "default" : "secondary"}
+                                    variant={
+                                      activeWebsite.is_active
+                                        ? "default"
+                                        : "secondary"
+                                    }
                                     className="ml-2 text-xs"
                                   >
                                     {activeWebsite.status}
@@ -449,7 +449,13 @@ export default function DashboardLayout({
 
                               <div className="flex justify-between items-center mt-2">
                                 <Link
-                                  href={activeWebsite.custom_domain ? `https://${activeWebsite.custom_domain}` : activeWebsite.primary_domain}
+                                  href={
+                                    activeWebsite.custom_domain
+                                      ? `https://${activeWebsite.custom_domain}`
+                                      : activeWebsite.primary_domain
+                                        ? activeWebsite.primary_domain
+                                        : ""
+                                  }
                                   target="_blank"
                                   className="text-xs text-primary hover:underline flex items-center"
                                 >
@@ -457,7 +463,7 @@ export default function DashboardLayout({
                                   <ExternalLink className="h-3 w-3 ml-1" />
                                 </Link>
                                 <Link
-                                  href="/dashboard/website/my-websites"
+                                  href="/dashboard/website/all"
                                   className="text-xs text-primary hover:underline"
                                   onClick={() => setMobileMenuOpen(false)}
                                 >
@@ -470,11 +476,14 @@ export default function DashboardLayout({
                                   <select
                                     className="w-full px-2 py-1 text-sm border rounded"
                                     value={activeWebsite.id}
-                                    onChange={(e) => handleWebsiteChange(e.target.value)}
+                                    onChange={(e) =>
+                                      handleWebsiteChange(e.target.value)
+                                    }
                                   >
                                     {websites.map((site) => (
                                       <option key={site.id} value={site.id}>
-                                        {site.name} {site.is_active ? "(active)" : ""}
+                                        {site.name}{" "}
+                                        {site.is_active ? "(active)" : ""}
                                       </option>
                                     ))}
                                   </select>
@@ -499,7 +508,9 @@ export default function DashboardLayout({
                           >
                             <Button
                               variant={
-                                pathname === "/dashboard" ? "secondary" : "ghost"
+                                pathname === "/dashboard"
+                                  ? "secondary"
+                                  : "ghost"
                               }
                               className="w-full justify-start h-9 text-sm"
                             >
@@ -520,7 +531,7 @@ export default function DashboardLayout({
                                 className="w-full justify-between h-9 text-sm"
                               >
                                 <div className="flex items-center">
-                                  <Globe className="h-4 w-4 mr-3" />
+                                  <Globe className="h-4 w-4 mr-5" />
                                   Website
                                 </div>
                                 {contentMenuOpen ? (
@@ -531,7 +542,7 @@ export default function DashboardLayout({
                               </Button>
                             </CollapsibleTrigger>
                             <CollapsibleContent className="pl-7 space-y-1 mt-1">
-                              <Link
+                              {/* <Link
                                 href="/dashboard/website/blog"
                                 onClick={() => setMobileMenuOpen(false)}
                               >
@@ -546,7 +557,7 @@ export default function DashboardLayout({
                                 >
                                   Blog
                                 </Button>
-                              </Link>
+                              </Link> */}
                               <Link
                                 href="/dashboard/website/editor"
                                 onClick={() => setMobileMenuOpen(false)}
@@ -564,12 +575,12 @@ export default function DashboardLayout({
                                 </Button>
                               </Link>
                               <Link
-                                href="/dashboard/website/my-websites"
+                                href="/dashboard/website/all"
                                 onClick={() => setMobileMenuOpen(false)}
                               >
                                 <Button
                                   variant={
-                                    pathname === "/dashboard/website/my-websites"
+                                    pathname === "/dashboard/website/all"
                                       ? "secondary"
                                       : "ghost"
                                   }
@@ -600,7 +611,8 @@ export default function DashboardLayout({
                               >
                                 <Button
                                   variant={
-                                    pathname === "/dashboard/website/integrations"
+                                    pathname ===
+                                    "/dashboard/website/integrations"
                                       ? "secondary"
                                       : "ghost"
                                   }
@@ -629,21 +641,20 @@ export default function DashboardLayout({
                               Analytics
                             </Button>
                           </Link>
-
                           <Link
-                            href="/dashboard/content"
+                            href="/dashboard/media-library"
                             onClick={() => setMobileMenuOpen(false)}
                           >
                             <Button
                               variant={
-                                pathname.includes("/dashboard/content")
+                                pathname.includes("/dashboard/media-library")
                                   ? "secondary"
                                   : "ghost"
                               }
                               className="w-full justify-start h-9 text-sm"
                             >
-                              <PenSquare className="h-4 w-4 mr-3" />
-                              Content
+                              <Image className="h-4 w-4 mr-3" />
+                              Media Library
                             </Button>
                           </Link>
                         </div>

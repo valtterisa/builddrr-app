@@ -70,36 +70,6 @@ export default function DashboardClient({
         <hr className="my-8 border-border" />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Example Quick Action: Create New Post */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => router.push("/dashboard/content?action=createPost")}
-          >
-            <CardHeader className="flex flex-row items-center space-x-3">
-              <FileText className="h-6 w-6 text-primary" />
-              <CardTitle className="text-lg">Create New Post</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Start drafting a new blog or social media post.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          {/* Example Quick Action: Upload Media */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => router.push("/dashboard/content?action=uploadMedia")}
-          >
-            <CardHeader className="flex flex-row items-center space-x-3">
-              <UploadCloud className="h-6 w-6 text-primary" />
-              <CardTitle className="text-lg">Upload Media</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Add new images or videos to your library.
-              </CardDescription>
-            </CardContent>
-          </Card>
           {/* Example Quick Action: Create New Website (Duplicate from header for convenience) */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -116,13 +86,28 @@ export default function DashboardClient({
             </CardContent>
           </Card>
           {/* Add more quick actions as needed */}
+          {/* Example Quick Action: Upload Media */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => router.push("/dashboard/content?action=uploadMedia")}
+          >
+            <CardHeader className="flex flex-row items-center space-x-3">
+              <UploadCloud className="h-6 w-6 text-primary" />
+              <CardTitle className="text-lg">Upload Media</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Add new images or videos to your library.
+              </CardDescription>
+            </CardContent>
+          </Card>
         </div>
       </div>
       <hr className="my-8 border-border" />
 
       {/* Main Navigation Links */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Link href="/dashboard/website" passHref>
+        <Link href="/dashboard/website/all" passHref>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
             <CardHeader>
               <LayoutGrid className="h-10 w-10 mb-3 text-primary" />
@@ -133,17 +118,7 @@ export default function DashboardClient({
             </CardHeader>
           </Card>
         </Link>
-        <Link href="/dashboard/content" passHref>
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
-            <CardHeader>
-              <PenSquare className="h-10 w-10 mb-3 text-primary" />
-              <CardTitle>Content Hub</CardTitle>
-              <CardDescription>
-                Create and manage your content library.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
+
         <Link href="/dashboard/analytics" passHref>
           <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col p-4 min-h-[180px]">
             <CardHeader>
@@ -199,31 +174,6 @@ export default function DashboardClient({
                 No new notifications.
               </p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Scheduled Posts Block */}
-        <Card>
-          <CardHeader className="flex flex-row items-center space-x-2">
-            <CalendarClock className="h-5 w-5" />
-            <CardTitle>Scheduled Posts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {scheduledPosts.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {scheduledPosts.map((post) => (
-                  <li key={post.id}>
-                    <strong>{post.title}</strong> - Scheduled for {post.date}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No posts scheduled.
-              </p>
-            )}
-            {/* Link to full schedule view if available */}
-            {/* <Button variant="link" size="sm" className="mt-2 p-0 h-auto">View full schedule</Button> */}
           </CardContent>
         </Card>
       </div>
@@ -318,7 +268,7 @@ export default function DashboardClient({
                 variant="link"
                 size="sm"
                 className="p-0 h-auto"
-                onClick={() => router.push("/dashboard/website")}
+                onClick={() => router.push("/dashboard/website/all")}
               >
                 Manage all websites
               </Button>

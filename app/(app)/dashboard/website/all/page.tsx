@@ -43,7 +43,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
-import { deployWebsite, deleteProjectById } from "@/lib/website-generator/website-creator";
+import {
+  deployWebsite,
+  deleteProjectById,
+} from "@/lib/website-generator/website-creator";
 
 export type MyWebsite = {
   id: string;
@@ -83,7 +86,11 @@ function slugify(text: string): string {
 
 // Helper to construct unique url
 function constructWebsiteUrl(website: MyWebsite): string {
-  return `https://${website.primary_url}`;
+  if (website.primary_url) {
+    return website.primary_url!;
+  } else {
+    return website.preview_url!;
+  }
 }
 
 export default function WebsitesPage() {
@@ -94,7 +101,9 @@ export default function WebsitesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [websiteToDelete, setWebsiteToDelete] = useState<string | null>(null);
-  const [deployingWebsiteId, setDeployingWebsiteId] = useState<string | null>(null);
+  const [deployingWebsiteId, setDeployingWebsiteId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchWebsites = async () => {
@@ -145,7 +154,8 @@ export default function WebsitesPage() {
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to delete website. Please try again.",
+          description:
+            result.error || "Failed to delete website. Please try again.",
           variant: "destructive",
         });
       }
@@ -186,7 +196,7 @@ export default function WebsitesPage() {
 
       // Update the website status in the local state
       setWebsites(
-        websites.map(website =>
+        websites.map((website) =>
           website.id === websiteId
             ? { ...website, status: "deployed" }
             : website
@@ -195,7 +205,8 @@ export default function WebsitesPage() {
 
       toast({
         title: "Success",
-        description: deployResult.data?.message || "Website deployed successfully.",
+        description:
+          deployResult.data?.message || "Website deployed successfully.",
         variant: "default",
       });
     } catch (error) {
@@ -271,7 +282,8 @@ export default function WebsitesPage() {
               <CardHeader className="pb-2">
                 <CardTitle>{website.name}</CardTitle>
                 <CardDescription>
-                  Created on {format(new Date(website.created_at), "MMMM d, yyyy")}
+                  Created on{" "}
+                  {format(new Date(website.created_at), "MMMM d, yyyy")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -296,7 +308,7 @@ export default function WebsitesPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push(`editor/${website.id}`)}
+                  onClick={() => router.push(`editor/${website.app_name}`)}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
@@ -317,9 +329,13 @@ export default function WebsitesPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDeploy(website.id)}
-                    disabled={deployingWebsiteId === website.id || website.status === "deploying"}
+                    disabled={
+                      deployingWebsiteId === website.id ||
+                      website.status === "deploying"
+                    }
                   >
-                    {deployingWebsiteId === website.id || website.status === "deploying" ? (
+                    {deployingWebsiteId === website.id ||
+                    website.status === "deploying" ? (
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
                       <Rocket className="h-4 w-4 mr-1" />
@@ -337,12 +353,16 @@ export default function WebsitesPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel hidden>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
-                        onClick={() => router.push("/dashboard/website/domains")}
+                        onClick={() =>
+                          router.push("/dashboard/website/domains")
+                        }
                       >
                         Set up custom domain
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => router.push("/dashboard/website/integrations")}
+                        onClick={() =>
+                          router.push("/dashboard/website/integrations")
+                        }
                       >
                         Connect integrations
                       </DropdownMenuItem>
@@ -405,5 +425,3 @@ export default function WebsitesPage() {
     </div>
   );
 }
-
-
