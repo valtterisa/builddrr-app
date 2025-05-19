@@ -84,6 +84,7 @@ export default function DashboardLayout({
         const { data: websitesData, error } = await supabase
           .from("websites")
           .select("*")
+          .is("deleted_at", null)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
