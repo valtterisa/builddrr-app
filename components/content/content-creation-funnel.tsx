@@ -21,7 +21,6 @@ type Platform = {
 
 export type ContentCreationState = {
   contentType: ContentType;
-  content: string;
   media: string[];
   platforms: string[];
   selectedAccounts: Record<string, string[]>; // platform id -> account ids
@@ -93,11 +92,7 @@ export default function ContentCreationFunnel() {
   const isNextDisabled = () => {
     if (currentStep === 0) {
       // Content Input step validation
-      return (
-        state.contentType === "text" &&
-        state.content.trim() === "" &&
-        state.media.length === 0
-      );
+      return state.contentType === "text" && state.media.length === 0;
     } else if (currentStep === 1) {
       // Platform Selection step validation
       return (

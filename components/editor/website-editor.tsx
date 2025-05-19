@@ -1,12 +1,18 @@
 "use client";
 
 import type React from "react";
-import {useEffect, useState} from "react";
-import type {ComponentType} from "@/components/component-library";
-import {ComponentLibrary} from "@/components/component-library";
-import {Button} from "@/components/ui/button";
-import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,} from "@/components/ui/dialog";
-import {Sheet, SheetContent} from "@/components/ui/sheet";
+import { useEffect, useState } from "react";
+import type { ComponentType } from "@/components/component-library";
+import { ComponentLibrary } from "@/components/component-library";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   ChevronLeft,
   Edit,
@@ -26,13 +32,13 @@ import {
   Undo,
   WandSparkles,
 } from "lucide-react";
-import {useMobile} from "@/hooks/use-mobile";
+import { useMobile } from "@/hooks/use-mobile";
 import WebsitePreview from "./website-preview";
-import {VirtualFileSystem} from "@/lib/virtual-fs";
+import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
-import {MediaLibrary} from "../media-library/media-library";
-import {useToast} from "@/hooks/use-toast";
-import {deployWebsite} from "@/lib/website-generator/website-creator";
+import { MediaLibrary } from "../media-library/media-library";
+import { useToast } from "@/hooks/use-toast";
+import { deployWebsite } from "@/lib/fly";
 
 type ViewportSize = "desktop" | "mobile";
 
@@ -149,11 +155,11 @@ export function WebsiteEditor({ id }: { id: string }) {
   };
 
   const handleGoLive = async () => {
-     toast({
-            title: "Deploying website...",
-            description: "Please wait while we deploy your website.",
-            variant: "default",
-    })
+    toast({
+      title: "Deploying website...",
+      description: "Please wait while we deploy your website.",
+      variant: "default",
+    });
     // Call the server action to deploy the website
     const deployResult = await deployWebsite(id);
 
@@ -170,7 +176,8 @@ export function WebsiteEditor({ id }: { id: string }) {
     }
     toast({
       title: "Success",
-      description: deployResult.data?.message || "Website deployed successfully.",
+      description:
+        deployResult.data?.message || "Website deployed successfully.",
       variant: "default",
     });
   };
@@ -438,4 +445,3 @@ export function WebsiteEditor({ id }: { id: string }) {
 }
 
 export default WebsiteEditor;
-

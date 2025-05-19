@@ -14,7 +14,6 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 -- Drop existing functions
 DROP FUNCTION IF EXISTS public.handle_new_user();
-DROP FUNCTION IF EXISTS public.increment_website_visits(website_id UUID);
 
 -- Create profiles table
 CREATE TABLE public.profiles (
@@ -40,7 +39,6 @@ CREATE TABLE public.websites (
     template_id TEXT,
     custom_domain TEXT,
     settings JSONB DEFAULT '{}'::JSONB,
-    visits INTEGER DEFAULT 0,
     machine_id TEXT,
     app_name TEXT,
     status TEXT DEFAULT 'creating',
@@ -120,15 +118,6 @@ CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Create function to increment website visits
-CREATE OR REPLACE FUNCTION public.increment_website_visits(website_id UUID)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE public.websites
-    SET visits = visits + 1
-    WHERE id = website_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Set up Row Level Security (RLS)
 -- Enable RLS on all tables

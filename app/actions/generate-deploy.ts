@@ -1,19 +1,12 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { generateAppName, parseAIResponse } from "@/lib/utils";
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createAppAndAssignMachine } from "@/lib/fly/fly";
-import { createWebsite } from "@/lib/database";
+import { createAppAndAssignMachine } from "@/lib/fly";
 
 type GenerateDeployResult = {
   success: boolean;
-  data?: {
-    websiteId: string;
-    machineId: string;
-    url: string;
-  };
+  machine?: any; // @TODO: Define the type of the machine
   error?: string;
 };
 
@@ -186,27 +179,17 @@ export async function generateAndDeployWebsite(
 
     console.log(`Creating new Fly.io app: ${appName}`);
 
+    // returns machine: {}
     const result = await createAppAndAssignMachine(userId, appName, files);
 
-    if (!result.success || !result.data) {
+    if (!result.success || !result.machine) {
       throw new Error("Failed to create app and assign machine");
     }
 
-    const machineId = result.data.machine_id;
-    const url = result.data.url;
+    const machineId = result.machine.machine_id;
+    const url = result.machine.url;
 
     console.log(`Machine ID: ${machineId}, App: ${appName}`);
-    // Update the website with URL and content
-    const supabase = await createClient();
-    await supabase
-      .from("websites")
-      .update({
-        status: "running",
-        url: url,
-      })
-      .eq("id", appName);
-
-    console.log("Website updated in database");
 
     // 7. Revalidate relevant paths to update UI
     revalidatePath("/dashboard/website/all");
@@ -216,11 +199,7 @@ export async function generateAndDeployWebsite(
 
     return {
       success: true,
-      data: {
-        websiteId: appName,
-        machineId,
-        url,
-      },
+      machine: result.machine,
     };
   } catch (error) {
     console.error("Error in generateAndDeployWebsite:", error);

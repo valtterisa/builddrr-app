@@ -31,8 +31,7 @@ export type Website = {
   published: boolean;
   template_id: string | null;
   primary_url: string | null;
-  settings: any; // JSON settings
-  visits: number;
+  settings?: any; // JSON settings
   machine_id: string | null;
   app_name: string | null;
   status: string;
@@ -271,7 +270,6 @@ export async function createWebsite(
       .insert([
         {
           user_id: userId,
-          visits: 0,
           published: false,
           ...websiteData,
         },
@@ -318,23 +316,6 @@ export async function deleteWebsite(websiteId: string): Promise<boolean> {
     return true;
   } catch (error) {
     return handleError(error, `Failed to delete website ${websiteId}`);
-  }
-}
-
-export async function incrementWebsiteVisits(websiteId: string): Promise<void> {
-  try {
-    const supabase = await createClient();
-    const { error } = await supabase.rpc("increment_website_visits", {
-      website_id: websiteId,
-    });
-
-    if (error) throw error;
-  } catch (error) {
-    console.error(
-      `Failed to increment visits for website ${websiteId}:`,
-      error
-    );
-    // Don't throw here to prevent breaking the application flow for a non-critical operation
   }
 }
 

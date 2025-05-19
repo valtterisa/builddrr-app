@@ -1,14 +1,161 @@
 "use server";
 
 import {
-  createWebsite,
-  updateWebsite,
-  getWebsite,
+  generateAppName,
+  getFlyRegistryUrl,
+  parseAIResponse,
+} from "@/lib/utils";
+import { FileOperation } from "@/lib/types";
+import {
   addWebsiteUser,
-} from "@/lib/database";
-import { parseAIResponse, generateAppName } from "@/lib/utils";
-import { createAppAndAssignMachine } from "@/lib/fly/fly";
+  createWebsite,
+  getWebsite,
+  updateWebsite,
+} from "./database";
 import { revalidatePath } from "next/cache";
+import { toast } from "@/hooks/use-toast";
+
+export type WebsiteCreationData = {
+  name: string;
+  description?: string;
+  prompt?: string;
+  colors?: {
+    primary: string;
+    secondary: string;
+    accent?: string;
+  };
+  industry?: string;
+  components?: string[];
+  template?: string;
+};
+
+export type WebsiteCreationResult = {
+  success: boolean;
+  machine?: any;
+  appName?: string;
+  error?: string;
+};
+
+/**
+ * Here we define all the routes to the backend API. U
+ * 1. Create a new app and assign a machine to it -> createAppAndAssignMachine
+ * 2. Update a machine files -> updateMachineWithFiles
+ * 3. Start a machine -> startMachine
+ * 4. Stop a machine -> stopMachine
+ * 5. Restart a machine -> restartMachine
+ * 6. Delete a machine -> deleteMachine
+ * 7. Get a machine by id -> getMachineById
+ * 8. Get all machines for a user -> getMachinesByUserId
+ * 9. Get all machines for a website -> getMachinesByWebsiteId
+ */
+
+/**
+ * Assign a machine to a user's website
+ * @param userId User ID
+ * @param websiteName Website name
+ * @param files File operations to add to the machine
+ * @returns Machine data
+ */
+export async function createAppAndAssignMachine(
+  userId: string,
+  appName: string,
+  files?: FileOperation[]
+) {
+  try {
+    // Check if FLY_API_TOKEN is set
+    if (!process.env.FLY_API_TOKEN) {
+      console.error("FLY_API_TOKEN environment variable is not set");
+      throw new Error(
+        "FLY_API_TOKEN is not set. Please configure your environment variables."
+      );
+    }
+
+    let imageTag = `${getFlyRegistryUrl(appName)}:latest`;
+
+    // Call to backend to create app and machines
+    const response = await fetch(process.env.PREVIEW_DEPLOY_URL!, {
+      method: "POST",
+      body: JSON.stringify({
+        imageTag: imageTag,
+        appName: appName,
+        websiteName: appName,
+        userId: userId,
+        files: files,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.PREVIEW_DEPLOY_API_KEY!,
+      },
+    });
+
+    const machine = await response.json();
+
+    // Return the machine data that will be used in the website record
+    return { machine: machine, success: true };
+  } catch (error) {
+    console.error("Error assigning machine:", error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Delete a project by its ID (UUID).
+ * This will call the backend /api/delete-project endpoint with the correct parameters.
+ * @param id The website/project UUID
+ * @returns Result of the deletion operation
+ */
+export async function deleteProjectById(id: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  details?: any;
+}> {
+  try {
+    // Get the website/project from Supabase
+    const website = await getWebsite(id);
+    if (!website) {
+      return { success: false, error: "Project not found" };
+    }
+    if (!website.app_name) {
+      return { success: false, error: "Project app_name not found" };
+    }
+
+    // Prepare parameters for the backend API
+    const gitlabRepo = `bittive-group/${website.app_name}`;
+    const cloudflareProject = website.app_name;
+    const slug = website.app_name;
+
+    // Call the backend API endpoint
+    const response = await fetch("http://localhost:3001/api/delete-project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gitlabRepo, cloudflareProject, slug }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return {
+        success: false,
+        error: result.error || "Failed to delete project",
+        details: result.details,
+      };
+    }
+
+    // Mark the website record as deleted in Supabase (set deleted_at to now)
+    await updateWebsite(id, { deleted_at: new Date().toISOString() });
+
+    return {
+      success: true,
+      message: result.message || "Project deleted successfully",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || "Unknown error",
+    };
+  }
+}
 
 /**
  * Mock implementation of AI content generation
@@ -124,30 +271,6 @@ export default Logo;
   return mockResponse;
 }
 
-export type WebsiteCreationData = {
-  name: string;
-  description?: string;
-  prompt?: string;
-  colors?: {
-    primary: string;
-    secondary: string;
-    accent?: string;
-  };
-  industry?: string;
-  components?: string[];
-  template?: string;
-};
-
-export type WebsiteCreationResult = {
-  success: boolean;
-  data?: {
-    websiteId: string;
-    machineId?: string;
-    url?: string;
-  };
-  error?: string;
-};
-
 /**
  * Unified function to handle website creation from any source
  * Works with both guided builder and AI prompt tool
@@ -171,9 +294,7 @@ export async function createAndDeployWebsite(
     const websiteInitialData = {
       name: data.name,
       description: data.description || "",
-      content: {}, // Will be populated after content generation
       published: false,
-      visits: 0,
       app_name: appName,
       status: "creating", // Initial status is "creating"
       settings: {
@@ -322,9 +443,9 @@ export async function createAndDeployWebsite(
               console.log(
                 `Website record updated with custom domain: ${customDomain}`
               );
-              // Revalidate paths to reflect the domain update in the UI
-              revalidatePath("/dashboard/website/all");
-              revalidatePath(`/website/editor/${website.id}`);
+              // // Revalidate paths to reflect the domain update in the UI
+              // revalidatePath("/dashboard/website/all");
+              // revalidatePath(`/website/editor/${website.id}`);
             } catch (error) {
               console.error(
                 "Error updating website with custom domain:",
@@ -406,14 +527,20 @@ export async function createAndDeployWebsite(
       files
     );
 
-    if (!deployResult.success || !deployResult.data) {
+    console.log("deployResult: ", deployResult);
+
+    if (!deployResult.success) {
       await updateWebsite(website.id, { status: "failed" });
-      console.log(`Website status updated to "failed" due to deployment error`);
-      throw new Error("Failed to create app and assign machine");
+      console.error(
+        "Failed to create app and assign machine: ",
+        deployResult.error
+      );
     }
 
-    const machineId = deployResult.data.machine_id;
-    const url = deployResult.data.url;
+    const machine = deployResult.machine.appMachines[0];
+
+    const machineId = machine.id; // There is two machines fields in the response.
+    const url = machine.url;
 
     console.log(`Deployed to Fly.io - Machine ID: ${machineId}, URL: ${url}`);
 
@@ -433,15 +560,12 @@ export async function createAndDeployWebsite(
 
     // Step 7: Revalidate paths
     revalidatePath("/dashboard/website/all");
-    revalidatePath(`/website/editor/${website.id}`);
+    revalidatePath(`/website/editor/${appName}`);
 
     return {
       success: true,
-      data: {
-        websiteId: website.id,
-        machineId,
-        url,
-      },
+      machine: machine,
+      appName,
     };
   } catch (error) {
     console.error("Error in createAndDeployWebsite:", error);
@@ -590,65 +714,6 @@ export async function deployWebsite(websiteId: string): Promise<{
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-/**
- * Delete a project by its ID (UUID).
- * This will call the backend /api/delete-project endpoint with the correct parameters.
- * @param id The website/project UUID
- * @returns Result of the deletion operation
- */
-export async function deleteProjectById(id: string): Promise<{
-  success: boolean;
-  message?: string;
-  error?: string;
-  details?: any;
-}> {
-  try {
-    // Get the website/project from Supabase
-    const website = await getWebsite(id);
-    if (!website) {
-      return { success: false, error: "Project not found" };
-    }
-    if (!website.app_name) {
-      return { success: false, error: "Project app_name not found" };
-    }
-
-    // Prepare parameters for the backend API
-    const gitlabRepo = `bittive-group/${website.app_name}`;
-    const cloudflareProject = website.app_name;
-    const slug = website.app_name;
-
-    // Call the backend API endpoint
-    const response = await fetch("http://localhost:3001/api/delete-project", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gitlabRepo, cloudflareProject, slug }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      return {
-        success: false,
-        error: result.error || "Failed to delete project",
-        details: result.details,
-      };
-    }
-
-    // Mark the website record as deleted in Supabase (set deleted_at to now)
-    await updateWebsite(id, { deleted_at: new Date().toISOString() });
-
-    return {
-      success: true,
-      message: result.message || "Project deleted successfully",
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      error: error?.message || "Unknown error",
     };
   }
 }

@@ -43,10 +43,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
-import {
-  deployWebsite,
-  deleteProjectById,
-} from "@/lib/website-generator/website-creator";
+import { deleteProjectById, deployWebsite } from "@/lib/fly";
 
 export type MyWebsite = {
   id: string;
@@ -56,7 +53,6 @@ export type MyWebsite = {
   template?: string;
   plan?: string;
   created_at: string;
-  visits?: number;
   custom_domain?: string;
   status?: string;
   description?: string; // Added optional description field
@@ -121,7 +117,7 @@ export default function WebsitesPage() {
       const { data, error } = await supabase
         .from("websites")
         .select(
-          "id, name, description, content, published, template_id, primary_url, settings, visits, machine_id, app_name, status, preview_url, last_deployed, repository_url, subdomain, primary_domain, created_at"
+          "id, name, description, published, template_id, primary_url, settings, machine_id, app_name, status, preview_url, last_deployed, repository_url, subdomain, primary_domain, created_at"
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });

@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we should auto-deploy to Fly.io
-    const autoDeploy = requestData.autoDeploy !== false;
+    const autoDeploy = requestData.autoDeploy !== false; // @TODO: Mikähä vittu tää autodeploy on?? :DDD
 
     if (autoDeploy) {
       // Use the server action to generate and deploy in one step
@@ -191,9 +191,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          websiteId: result.data?.websiteId,
-          machineId: result.data?.machineId,
-          url: result.data?.url,
+          websiteId: result.machine.websiteId,
+          machineId: result.machine.machineId,
+          url: result.machine.url,
         },
         userId: user.id,
       });

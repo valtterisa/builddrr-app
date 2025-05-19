@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import { toast } from "@/components/ui/use-toast";
-import { createAndDeployWebsite } from "@/lib/website-generator/website-creator";
+import { createAndDeployWebsite } from "@/lib/fly";
 
 const EXAMPLES = [
   "VitePress docs",
@@ -77,18 +77,28 @@ export default function PromptTool() {
       };
 
       // Call the unified website creation function
-      const result = await createAndDeployWebsite(authData.user.id, websiteData);
+      const result = await createAndDeployWebsite(
+        authData.user.id,
+        websiteData
+      );
 
-      if (!result.success || !result.data) {
+      console.log("createAndDeployWebsite result: ", result);
+
+      if (
+        !result.success ||
+        !result.machine ||
+        result.error ||
+        !result.appName
+      ) {
         throw new Error(
           result.error || "Failed to generate and deploy website"
         );
       }
 
-      const { websiteId } = result.data;
+      const { appName } = result;
 
       // Store the website ID in localStorage for the editor
-      localStorage.setItem("currentWebsiteId", websiteId);
+      localStorage.setItem("currentWebsiteId", appName);
 
       setGenerationStatus("New website deployed successfully!");
       toast({
@@ -98,7 +108,7 @@ export default function PromptTool() {
       });
 
       // Navigate to the editor with the new website ID
-      router.push(`/dashboard/website/editor/${websiteId}`);
+      router.push(`/dashboard/website/editor/${appName}`);
     } catch (error) {
       console.error("Error creating website:", error);
       toast({
@@ -193,4 +203,3 @@ export default function PromptTool() {
     </div>
   );
 }
-
