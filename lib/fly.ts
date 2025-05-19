@@ -13,7 +13,6 @@ import {
   updateWebsite,
 } from "./database";
 import { revalidatePath } from "next/cache";
-import { toast } from "@/hooks/use-toast";
 
 export type WebsiteCreationData = {
   name: string;
@@ -316,7 +315,7 @@ export async function createAndDeployWebsite(
 
     console.log(`Created initial website record with ID: ${website.id}`);
 
-    // Step 1.5: Make API calls to development server
+    //
     try {
       // 1. Fork repository with app name as slug
       console.log(`Calling fork API with slug=${appName}`);
