@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import React from "react";
 import { cva } from "class-variance-authority";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,11 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 
 export function NavMain({
   items,
@@ -37,7 +43,7 @@ export function NavMain({
     }[];
   }[];
 }) {
-  const [openIndex, setOpenIndex] = React.useState<number | null>(null);
+  const pathname = usePathname();
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -46,61 +52,77 @@ export function NavMain({
             <SidebarMenuButton
               tooltip="Quick Create"
               className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
+              aria-label="Quick Create"
             >
               <PlusCircleIcon />
               <span>Quick Create</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SidebarMenu>
-          {items.map((item, idx) => (
-            <SidebarMenuItem key={item.title}>
-              <div className="flex items-center w-full">
+        <SidebarMenu role="menu">
+          {items.map((item, idx) => {
+            const submenuId = `sidebar-submenu-${idx}`;
+            return (
+              <SidebarMenuItem key={item.title} role="none">
                 {item.children ? (
-                  <SidebarMenuButton
-                    tooltip={item.title}
-                    onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-                    className="bg-sidebar hover:bg-sidebar-hover"
-                  >
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    <ChevronDown
-                      className={cn(
-                        "ml-auto transition-transform",
-                        openIndex === idx ? "rotate-180" : ""
-                      )}
-                    />
-                  </SidebarMenuButton>
+                  <Collapsible defaultOpen className="group/collapsible">
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip={item.title}
+                        className="bg-sidebar hover:bg-sidebar-hover"
+                        aria-controls={submenuId}
+                        aria-label={item.title}
+                        role="menuitem"
+                        tabIndex={0}
+                      >
+                        {item.icon && <item.icon />}
+                        <span>{item.title}</span>
+                        <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub id={submenuId} role="menu">
+                        {item.children.map((sub) => (
+                          <SidebarMenuSubItem key={sub.title} role="none">
+                            <SidebarMenuSubButton
+                              href={sub.url}
+                              className="bg-sidebar hover:bg-sidebar-hover"
+                              aria-label={sub.title}
+                              role="menuitem"
+                              tabIndex={0}
+                              aria-current={
+                                pathname === sub.url ? "page" : undefined
+                              }
+                            >
+                              {sub.icon && <sub.icon />}
+                              <span>{sub.title}</span>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
                 ) : (
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
                     className="bg-sidebar hover:bg-sidebar-hover"
+                    aria-label={item.title}
+                    role="menuitem"
+                    tabIndex={0}
                   >
-                    <Link href={item.url}>
+                    <Link
+                      href={item.url}
+                      aria-current={pathname === item.url ? "page" : undefined}
+                    >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 )}
-              </div>
-              {item.children && openIndex === idx && (
-                <SidebarMenuSub>
-                  {item.children.map((sub) => (
-                    <SidebarMenuSubItem key={sub.title}>
-                      <SidebarMenuSubButton
-                        href={sub.url}
-                        className="bg-sidebar hover:bg-sidebar-hover"
-                      >
-                        {sub.icon && <sub.icon />}
-                        <span>{sub.title}</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              )}
-            </SidebarMenuItem>
-          ))}
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
