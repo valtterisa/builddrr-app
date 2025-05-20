@@ -14,6 +14,8 @@ import {
   Globe,
   Globe2,
   HelpCircleIcon,
+  Image,
+  ImageIcon,
   LayoutDashboardIcon,
   ListIcon,
   SearchIcon,
@@ -72,82 +74,35 @@ const data = {
     },
     {
       title: "Analytics",
-      url: "#",
+      url: "/dashboard/analytics",
       icon: BarChartIcon,
     },
     {
-      title: "Projects",
-      url: "#",
-      icon: FolderIcon,
+      title: "Media Library",
+      url: "/dashboard/media-library",
+      icon: ImageIcon,
     },
     {
       title: "Team",
-      url: "#",
+      url: "/dashboard/team",
       icon: UsersIcon,
     },
   ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
+
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
+      url: "/dashboard/settings",
       icon: SettingsIcon,
     },
     {
       title: "Get Help",
-      url: "#",
+      url: "/dashboard/help",
       icon: HelpCircleIcon,
     },
     {
       title: "Search",
-      url: "#",
+      url: "/dashboard/search",
       icon: SearchIcon,
     },
   ],

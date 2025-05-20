@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SiteHeader } from "@/components/site-header";
 // TODO: Import or define useAuth hook
 
 export default function SettingsPage() {
@@ -132,14 +133,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container py-10 px-4 md:px-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your profile, password, and other account details.
-        </p>
-      </div>
-      <div className="space-y-6">
+    <div className="px-4 md:px-6">
+      <SiteHeader title="Account" />
+      <div className="space-y-6 pt-4">
         {/* Profile Settings Card */}
         <Card>
           <CardHeader>

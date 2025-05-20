@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { SiteHeader } from "@/components/site-header";
 
 // Mock billing history data - TODO: Fetch actual billing history from backend/Stripe
 const billingHistory = [
@@ -80,14 +81,9 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="container py-10 px-4 md:px-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription plan and view billing history.
-        </p>
-      </div>
-      <div className="space-y-6">
+    <div className="px-4 md:px-6">
+      <SiteHeader title="Billing" />
+      <div className="space-y-6 pt-4">
         <Card>
           <CardHeader>
             <CardTitle>Current Plan</CardTitle>

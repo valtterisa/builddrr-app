@@ -52,6 +52,7 @@ import {
   updateWebsiteUserRole,
   removeWebsiteUser,
 } from "@/lib/database";
+import { SiteHeader } from "@/components/site-header";
 
 type TeamMemberRole = "owner" | "admin" | "editor" | "viewer";
 
@@ -123,10 +124,12 @@ export default function TeamPage() {
         // Get user websites directly from the client
         const { data, error } = await supabase
           .from("website_users")
-          .select(`
+          .select(
+            `
             *,
             website:website_id (*)
-          `)
+          `
+          )
           .eq("user_id", userId);
 
         if (error) throw error;
@@ -283,7 +286,9 @@ export default function TeamPage() {
 
       // Update local state
       setTeamMembers(
-        teamMembers.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
+        teamMembers.map((m) =>
+          m.id === memberId ? { ...m, role: newRole } : m
+        )
       );
 
       toast({
@@ -329,16 +334,14 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="container py-10 px-4 md:px-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Team Management</h1>
-          <p className="text-muted-foreground">
-            Invite and manage team members for your workspace.
-          </p>
-        </div>
+    <div className="px-4 md:px-6">
+      <SiteHeader title="Team Management" />
+      <div className="space-y-6 pt-4">
         {selectedWebsiteId && (
-          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <Dialog
+            open={isInviteDialogOpen}
+            onOpenChange={setIsInviteDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="mr-2 h-4 w-4" /> Invite Member
@@ -537,7 +540,9 @@ export default function TeamPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
-                                    onClick={() => handleRemoveMember(member.id)}
+                                    onClick={() =>
+                                      handleRemoveMember(member.id)
+                                    }
                                     className="text-red-600"
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -566,5 +571,3 @@ export default function TeamPage() {
     </div>
   );
 }
-
-

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AnalyticsOverview from "@/components/analytics/analytics-overview";
 import AdvancedAnalytics from "@/components/analytics/advanced-analytics";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
   title: "Analytics - Social Media Platform",
@@ -10,12 +11,8 @@ export const metadata: Metadata = {
 
 export default function AnalyticsPage() {
   return (
-    <div className="flex flex-col space-y-6 container py-10 px-4 md:px-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">
-          Analytics Dashboard
-        </h2>
-      </div>
+    <div className="flex flex-col space-y-6 px-4 md:px-6">
+      <SiteHeader title="Analytics" />
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3 mb-4">
