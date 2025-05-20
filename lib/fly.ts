@@ -13,6 +13,7 @@ import {
   updateWebsite,
 } from "./database";
 import { revalidatePath } from "next/cache";
+import { useEffect, useRef } from "react";
 
 export type WebsiteCreationData = {
   name: string;
@@ -716,3 +717,61 @@ export async function deployWebsite(websiteId: string): Promise<{
     };
   }
 }
+
+export function useMachineReadyPoll({
+  id,
+  machineId,
+  isEditorReady,
+  setIsLoading,
+}: {
+  id: string;
+  machineId: string;
+  isEditorReady: boolean;
+  setIsLoading: (isLoading: boolean) => void;
+}) {
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!id || !machineId || !isEditorReady) return;
+
+    const poll = async () => {
+      const response = await fetch("/api/fly/get-machine-state", {
+        method: "GET",
+        body: JSON.stringify({
+          appName: id,
+          machineId: machineId,
+        }),
+      });
+      const data = await response.json();
+
+      if (data.ok && isEditorReady) {
+        setIsLoading(false);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      }
+    };
+
+    intervalRef.current = setInterval(poll, 2000);
+
+    // Clean up on unmount or when dependencies change
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [id, machineId, isEditorReady, setIsLoading]);
+}
+
+export const getMachine = async (id: string) => {
+  const responseMachine = await fetch("/api/fly/get-machine", {
+    method: "POST",
+    body: JSON.stringify({
+      appName: id,
+    }),
+  });
+
+  const machine = await responseMachine.json();
+
+  if (!machine) {
+    return;
+  }
+
+  return machine;
+};

@@ -20,11 +20,13 @@ interface EditorChange {
 interface IframeEditorProps {
   initialUrl?: string;
   isEditMode: boolean;
+  id: string;
 }
 
 export default function WebsitePreview({
   initialUrl,
   isEditMode,
+  id,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
@@ -1422,6 +1424,11 @@ export default function WebsitePreview({
     checkCanMakeStandalone();
   }, [selectedElement, checkCanMakeStandalone]);
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Make a function to fetch machine info and then make request to get machine state
+  // functions in fly.ts
+
   return (
     <div className="flex flex-col h-full w-full gap-4">
       {isEditMode && (
@@ -1445,7 +1452,7 @@ export default function WebsitePreview({
       )}
 
       <div className="relative w-full h-full border rounded-lg overflow-hidden">
-        {!isEditorReady && (
+        {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="text-center">
               <p className="mb-2">Loading editor...</p>

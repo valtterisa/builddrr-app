@@ -418,6 +418,7 @@ export function WebsiteEditor({ id }: { id: string }) {
             <WebsitePreview
               isEditMode={isEditMode}
               initialUrl={websiteUrl || undefined}
+              id={id}
             />
           </div>
         </div>
