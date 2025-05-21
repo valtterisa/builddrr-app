@@ -1,5 +1,5 @@
 import AllWebsitesClient from "./AllWebsitesClient";
 
-export default function WebsitesPageServer() {
+export default async function WebsitesPageServer() {
   return <AllWebsitesClient />;
 }

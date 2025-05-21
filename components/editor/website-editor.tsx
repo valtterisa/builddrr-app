@@ -42,7 +42,7 @@ import { deployWebsite } from "@/lib/fly";
 
 type ViewportSize = "desktop" | "mobile";
 
-export function WebsiteEditor({ id }: { id: string }) {
+export function WebsiteEditor({ id, machine }: { id: string; machine: any }) {
   const [components, setComponents] = useState<any[]>([]);
   const [selectedComponentIndex, setSelectedComponentIndex] = useState<
     number | null
@@ -419,6 +419,7 @@ export function WebsiteEditor({ id }: { id: string }) {
               isEditMode={isEditMode}
               initialUrl={websiteUrl || undefined}
               id={id}
+              machine={machine}
             />
           </div>
         </div>

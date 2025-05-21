@@ -5,14 +5,24 @@ export default async function EditorPage({
 }: {
   params: { id: string };
 }) {
-  // probably fetch the real url here from db based on website id?
-  // Connect website to user id and show all websites on the user id on my websites page.
   const { id } = await params;
-  console.log(id);
+
+  const response = await fetch(
+    `${process.env.FLY_API_BASE}/v1/apps/${id}/machines`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
+      },
+    }
+  );
+
+  const machine = await response.json();
 
   return (
     <div className="flex flex-col h-screen">
-      <WebsiteEditor id={id} />
+      <WebsiteEditor id={id} machine={machine} />
     </div>
   );
 }

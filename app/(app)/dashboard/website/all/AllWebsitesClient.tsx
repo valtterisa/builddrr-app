@@ -91,7 +91,7 @@ function constructWebsiteUrl(website: MyWebsite): string {
   }
 }
 
-export default function AllWebsitesClient() {
+export default function AllWebsitesClient(machine: any) {
   const router = useRouter();
   const { toast } = useToast();
   const [websites, setWebsites] = useState<any[]>([]);

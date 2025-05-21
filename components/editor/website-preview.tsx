@@ -21,12 +21,14 @@ interface IframeEditorProps {
   initialUrl?: string;
   isEditMode: boolean;
   id: string;
+  machine: any;
 }
 
 export default function WebsitePreview({
   initialUrl,
   isEditMode,
   id,
+  machine,
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
@@ -1426,8 +1428,35 @@ export default function WebsitePreview({
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Make a function to fetch machine info and then make request to get machine state
-  // functions in fly.ts
+  const machineId = machine[0].id;
+
+  useEffect(() => {
+    if (!id || !machineId) {
+      return;
+    }
+
+    const checkMachine = async () => {
+      try {
+        const response = await fetch("/api/get-machine-state", {
+          method: "POST",
+          body: JSON.stringify({
+            appName: id,
+            machineId: machineId,
+          }),
+        });
+        const data = await response.json();
+
+        if (data?.machine?.ok) {
+          // Check if the machine is ready and editor is ready
+          setIsLoading(data?.machine?.ok && isEditorReady);
+        }
+      } catch (error) {
+        console.error("[useMachineReadyPoll] Error", error);
+      }
+    };
+
+    checkMachine();
+  }, []);
 
   return (
     <div className="flex flex-col h-full w-full gap-4">
