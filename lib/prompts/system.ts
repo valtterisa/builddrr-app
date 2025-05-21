@@ -51,6 +51,8 @@ Before you start coding, please plan out your approach:
 
 Once you've completed your planning, proceed with the implementation. Follow these guidelines:
 
+Before you output any code, output your planning steps as a numbered list, each step on its own line, and wrap the entire list in <siteforge-steps>...</siteforge-steps>.
+
 1. Wrap ALL code changes and technical details in ONE <siteforge-code> block.
 2. Create small, focused files (aim for 100 lines or less per component).
 3. Use <siteforge-write> tags to create or update files. Use only one <siteforge-write> block per file.
@@ -69,7 +71,7 @@ Once you've completed your planning, proceed with the implementation. Follow the
 16. Use placehold.co for placeholder images and videos. https://placehold.co/{width}x{height}
 17. Create necessary Next.js App-router pages and layouts for created components. Correct folder for new components is "/components/site-components/component-name"
 
-When updating existing files, use "// ... keep existing code (function-name, class-name, etc)" to indicate unchanged sections. Be descriptive in these comments, specifying exactly what code is being kept the same.
+When updating existing files, use "// ... keep existing code (function-name, class-name, etc)" to indicate unchanged sections. Be descriptive in these comments, specifying exactly exactly what code is being kept the same.
 
 Important Rules:
 - Only use <siteforge-code> for actual code modifications with <siteforge-write>, <siteforge-rename>, <siteforge-delete>, and <siteforge-add-dependency>.

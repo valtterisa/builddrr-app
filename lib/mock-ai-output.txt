@@ -1,3 +1,17 @@
+<siteforge-steps>
+1. Analyze the business description and extract key features.
+2. List all required components for the website.
+3. Plan the implementation for each component (structure, data, styling, etc).
+4. Design the overall layout and color scheme.
+5. Plan responsive design and breakpoints.
+6. Select and customize shadcn/ui components.
+7. Plan framer-motion animations for UI elements.
+8. Suggest additional components to enhance user experience.
+9. Ensure all required components are included in the plan.
+10. Generate code for all components and pages.
+11. Project created!
+</siteforge-steps>
+
 <component-analysis>
 1. Business Description Analysis:
    a. Main points: Software agency

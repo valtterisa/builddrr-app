@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Paperclip,
@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import { toast } from "@/components/ui/use-toast";
 import { createAndDeployWebsite } from "@/lib/fly";
+import { generateAppName } from "@/lib/utils";
 
 const EXAMPLES = [
   "VitePress docs",
@@ -25,11 +26,12 @@ export default function PromptTool() {
   const [prompt, setPrompt] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
+  const [generationSteps, setGenerationSteps] = useState<string[]>([]);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const router = useRouter();
+  const generationInProgress = useRef(false);
 
   // Restore prompt from localStorage if present
   useEffect(() => {
@@ -59,83 +61,21 @@ export default function PromptTool() {
       return;
     }
 
-    setLoading(true);
-    setGenerationStatus("Generating website content with AI...");
+    const appName = generateAppName(authData.user.id);
 
-    try {
-      // Use our unified function for website creation
-      const websiteData = {
-        name: `AI Generated Website ${new Date().toLocaleDateString()}`,
-        description: `Website generated from user prompt: ${prompt}`,
-        prompt: prompt,
-        // Optional: Default colors if needed
-        colors: {
-          primary: "#6366F1",
-          secondary: "#8B5CF6",
-          accent: "#EC4899",
-        },
-      };
+    // Store the prompt, appName, and clear steps in localStorage for the editor/chat
+    localStorage.setItem("siteforge_generation_prompt", prompt);
+    localStorage.setItem("siteforge_generation_steps", JSON.stringify([]));
+    localStorage.setItem("siteforge_app_name", appName);
+    localStorage.setItem("currentWebsiteId", appName);
 
-      // Call the unified website creation function
-      const result = await createAndDeployWebsite(
-        authData.user.id,
-        websiteData
-      );
-
-      console.log("createAndDeployWebsite result: ", result);
-
-      if (
-        !result.success ||
-        !result.machine ||
-        result.error ||
-        !result.appName
-      ) {
-        throw new Error(
-          result.error || "Failed to generate and deploy website"
-        );
-      }
-
-      const { appName } = result;
-
-      // Store the website ID in localStorage for the editor
-      localStorage.setItem("currentWebsiteId", appName);
-
-      setGenerationStatus("New website deployed successfully!");
-      toast({
-        title: "New website created!",
-        description:
-          "Your website has been generated and deployed successfully.",
-      });
-
-      // Navigate to the editor with the new website ID
-      router.push(`/dashboard/website/editor/${appName}`);
-    } catch (error) {
-      console.error("Error creating website:", error);
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to create website",
-        variant: "destructive",
-      });
-      setLoading(false);
-      setGenerationStatus(null);
-    }
+    // Instantly redirect to the editor
+    router.push(`/dashboard/website/editor/${appName}`);
   };
 
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center bg-white pb-8 pt-8 px-2 relative">
-      {/* Loading overlay */}
-      {loading && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95">
-          <Loader2 className="h-12 w-12 text-purple-600 animate-spin mb-6" />
-          <div className="text-lg font-semibold text-gray-800">
-            {generationStatus || "Generating your website..."}
-          </div>
-          <div className="text-gray-500 mt-2">
-            This usually takes a few seconds.
-          </div>
-        </div>
-      )}
+      {/* Loading overlay removed; editor/chat will show progress */}
       <h1 className="pt-4 text-2xl md:text-5xl font-bold text-gray-900 text-center mb-2 tracking-tight">
         Build websites with
         <span

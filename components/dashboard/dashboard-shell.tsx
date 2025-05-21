@@ -5,6 +5,7 @@ import { AppSidebar } from "../app-sidebar";
 import { SidebarInset, SidebarProvider } from "../ui/sidebar";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ChatInterface } from "@/components/chat/chat-interface";
 
 // Define website type
 type Website = {
@@ -18,6 +19,7 @@ type Website = {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
   const [isLoadingWebsites, setIsLoadingWebsites] = useState(true);
@@ -73,6 +75,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       }
     }
   }, [websites]);
+
+  // If on editor page, show chat on left instead of sidebar
+  if (pathname?.includes("editor")) {
+    return (
+      <div className="flex h-screen w-full">
+        <div className="w-full md:w-[400px] border-r bg-white h-full flex-shrink-0">
+          <ChatInterface />
+        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

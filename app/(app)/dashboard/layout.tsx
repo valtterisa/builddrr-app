@@ -1,9 +1,10 @@
+import { ReactNode } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return <DashboardShell>{children}</DashboardShell>;
 }

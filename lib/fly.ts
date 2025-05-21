@@ -276,26 +276,27 @@ export default Logo;
  *
  * @param userId The authenticated user ID
  * @param data Website creation data from form or prompt
+ * @param appName The app name (slug) for the website
+ * @param onStep Optional callback to update step status
  * @returns Result with website and deployment information
  */
 export async function createAndDeployWebsite(
   userId: string,
-  data: WebsiteCreationData
+  data: WebsiteCreationData,
+  appName: string,
+  onStep?: (step: string) => void
 ): Promise<WebsiteCreationResult> {
-  // Declare website variable outside try block so it's accessible in catch block
   let website: any = null;
 
   try {
-    console.log(`Starting website creation for user ${userId}`);
-
+    if (onStep) onStep("Creating initial website record...");
     // Step 1: Create initial website record
-    const appName = generateAppName(userId);
     const websiteInitialData = {
       name: data.name,
       description: data.description || "",
       published: false,
       app_name: appName,
-      status: "creating", // Initial status is "creating"
+      status: "creating",
       settings: {
         colors: data.colors,
         components: data.components,
@@ -305,20 +306,15 @@ export async function createAndDeployWebsite(
       subdomain: null,
       primary_domain: null,
     };
-
-    // Create the initial website record
     website = await createWebsite(userId, websiteInitialData);
-
     if (!website) {
       throw new Error("Failed to create initial website record");
     }
+    if (onStep) onStep("Initial website record created.");
 
-    console.log(`Created initial website record with ID: ${website.id}`);
-
-    //
     try {
+      if (onStep) onStep("Forking repository...");
       // 1. Fork repository with app name as slug
-      console.log(`Calling fork API with slug=${appName}`);
       const forkResponse = await fetch(`http://localhost:3001/api/fork`, {
         method: "POST",
         headers: {
@@ -326,50 +322,29 @@ export async function createAndDeployWebsite(
         },
         body: JSON.stringify({ slug: appName }),
       });
-
-      // Save the repository URL
       const repositoryUrl = `https://gitlab.com/bittive-group/${appName}`;
-      console.log(`Setting repository URL: ${repositoryUrl}`);
-
-      // Check if response is OK and contains JSON
       if (!forkResponse.ok) {
-        console.warn(
-          `Fork API returned status ${forkResponse.status}: ${forkResponse.statusText}`
-        );
-        console.warn("Continuing without fork data");
+        if (onStep) onStep("Warning: Fork API failed, continuing...");
       } else {
-        // Check content type to ensure it's JSON
         const contentType = forkResponse.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-          const forkData = await forkResponse.json();
-          console.log("Fork API response:", forkData);
-
-          // Update website with repository URL immediately after successful fork
+          await forkResponse.json();
           try {
-            await updateWebsite(website.id, {
-              repository_url: repositoryUrl,
-            });
-            console.log(
-              `Website record updated with repository URL: ${repositoryUrl}`
-            );
+            await updateWebsite(website.id, { repository_url: repositoryUrl });
+            if (onStep) onStep("Repository URL set.");
           } catch (error) {
-            console.error("Error updating website with repository URL:", error);
+            if (onStep) onStep("Warning: Failed to update repository URL.");
           }
-        } else {
-          console.warn(
-            "Fork API did not return JSON. Content type:",
-            contentType
-          );
-          console.warn("Continuing without fork data");
         }
       }
+      if (onStep) onStep("Repository forked.");
 
       // Generate custom domain
       const customDomain = `${appName}.siteforge.bittive.com`;
-      console.log(`Setting custom domain: ${customDomain}`);
+      if (onStep) onStep("Setting custom domain...");
 
       // 2. Create pages with same slug
-      console.log(`Calling pages-create API with slug=${appName}`);
+      if (onStep) onStep("Creating pages...");
       const pagesResponse = await fetch(
         `http://localhost:3001/api/pages-create`,
         {
@@ -380,29 +355,18 @@ export async function createAndDeployWebsite(
           body: JSON.stringify({ slug: appName }),
         }
       );
-
-      // Check if response is OK before parsing JSON
       if (!pagesResponse.ok) {
-        console.warn(
-          `Pages-create API returned status ${pagesResponse.status}: ${pagesResponse.statusText}`
-        );
-        console.warn("Continuing without pages data");
+        if (onStep) onStep("Warning: Pages-create API failed, continuing...");
       } else {
         const contentType = pagesResponse.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-          const pagesData = await pagesResponse.json();
-          console.log("Pages-create API response:", pagesData);
-        } else {
-          console.warn(
-            "Pages-create API did not return JSON. Content type:",
-            contentType
-          );
-          console.warn("Continuing without pages data");
+          await pagesResponse.json();
         }
       }
+      if (onStep) onStep("Pages created.");
 
       // 3. Start wire-domain process (don't await the response)
-      console.log(`Starting wire-domain process with slug=${appName}`);
+      if (onStep) onStep("Starting wire-domain process...");
       fetch(`http://localhost:3001/api/wire-domain`, {
         method: "POST",
         headers: {
@@ -411,155 +375,103 @@ export async function createAndDeployWebsite(
         body: JSON.stringify({ slug: appName }),
       })
         .then((response) => {
-          if (!response.ok) {
-            throw new Error(
-              `API returned status ${response.status}: ${response.statusText}`
-            );
-          }
+          if (!response.ok) return;
           const contentType = response.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             return response.json();
           }
-          throw new Error(
-            `API did not return JSON. Content type: ${contentType}`
-          );
         })
         .then(async (data) => {
-          console.log("Wire-domain API response (delayed):", data);
-
-          // Update the website with custom domain if successful
-          if (data.success) {
+          if (data && data.success) {
             try {
               const customDomain = `${appName}.siteforge.bittive.com`;
-              console.log(
-                `Updating website with custom domain: ${customDomain}`
-              );
-
-              await updateWebsite(website.id, {
-                primary_url: customDomain,
-              });
-
-              console.log(
-                `Website record updated with custom domain: ${customDomain}`
-              );
-              // // Revalidate paths to reflect the domain update in the UI
-              // revalidatePath("/dashboard/website/all");
-              // revalidatePath(`/website/editor/${website.id}`);
-            } catch (error) {
-              console.error(
-                "Error updating website with custom domain:",
-                error
-              );
-            }
+              await updateWebsite(website.id, { primary_url: customDomain });
+              if (onStep) onStep("Custom domain set.");
+            } catch (error) {}
           }
         })
-        .catch((error) =>
-          console.error("Error in wire-domain API call:", error)
-        );
-
-      console.log("Wire-domain process started (running in background)");
+        .catch(() => {});
+      if (onStep) onStep("Wire-domain process started.");
     } catch (error) {
-      // Don't fail the whole process if API calls fail
-      console.error("Error calling development APIs:", error);
+      if (onStep)
+        onStep("Warning: Error calling development APIs, continuing...");
     }
 
     // Step 1.6: Add the user as the admin in the website_users table
     try {
-      console.log(`Adding user ${userId} as admin for website ${website.id}`);
+      if (onStep) onStep("Adding user as admin...");
       await addWebsiteUser(website.id, userId, "admin");
+      if (onStep) onStep("User added as admin.");
     } catch (error) {
-      console.error(
-        "Error adding user as admin in website_users table:",
-        error
-      );
+      if (onStep) onStep("Warning: Failed to add user as admin.");
       throw new Error("Failed to add user as admin in website_users table");
     }
 
     // Step 2: Generate website content
     let aiResponse;
     if (data.prompt) {
-      // If prompt is provided, use AI to generate content
-      console.log("Generating website content from prompt...");
+      if (onStep) onStep("Generating website content from prompt...");
       aiResponse = await getMockAIResponse(data.prompt);
     } else {
-      // For guided builder, we could use a template-based approach or still use AI
-      // with structured data from the form
-      console.log("Generating website content from structured data...");
-      const structuredPrompt = `Create a website for ${data.name} in the ${data.industry || "business"} industry.
-      ${data.description ? `Description: ${data.description}` : ""}
-      Components: ${data.components?.join(", ") || "standard website components"}`;
-
+      if (onStep) onStep("Generating website content from structured data...");
+      const structuredPrompt = `Create a website for ${data.name} in the ${data.industry || "business"} industry.\n${data.description ? `Description: ${data.description}` : ""}\nComponents: ${data.components?.join(", ") || "standard website components"}`;
       aiResponse = await getMockAIResponse(structuredPrompt);
     }
-
     if (!aiResponse) {
       await updateWebsite(website.id, { status: "failed" });
-      console.log(
-        `Website status updated to "failed" due to content generation error`
-      );
+      if (onStep) onStep("Failed to generate website content.");
       throw new Error("Failed to generate website content");
     }
+    if (onStep) onStep("Website content generated.");
 
     // Step 3: Parse AI response to get file operations
+    if (onStep) onStep("Parsing AI response...");
     const files = await parseAIResponse(aiResponse);
-
     if (files.length === 0) {
       await updateWebsite(website.id, { status: "failed" });
-      console.log(
-        `Website status updated to "failed" due to invalid AI response`
-      );
+      if (onStep) onStep("No valid file operations found in AI response.");
       throw new Error("No valid file operations found in AI response");
     }
-
-    console.log(`Found ${files.length} file operations in AI response`);
+    if (onStep) onStep(`Found ${files.length} file operations in AI response.`);
 
     // Step 4: Update status to "deploying" before starting the deployment process
     await updateWebsite(website.id, { status: "deploying" });
-    console.log(`Website status updated to "deploying"`);
+    if (onStep) onStep("Website status updated to deploying.");
 
     // Step 5: Deploy to Fly.io
-    console.log(`Creating new Fly.io app: ${appName}`);
-
+    if (onStep) onStep("Deploying to Fly.io...");
     const deployResult = await createAppAndAssignMachine(
       userId,
       appName,
       files
     );
-
-    console.log("deployResult: ", deployResult);
-
     if (!deployResult.success) {
       await updateWebsite(website.id, { status: "failed" });
-      console.error(
-        "Failed to create app and assign machine: ",
-        deployResult.error
-      );
+      if (onStep) onStep("Failed to create app and assign machine.");
     }
+    if (onStep) onStep("App and machine created.");
 
     const machine = deployResult.machine.appMachines[0];
-
-    const machineId = machine.id; // There is two machines fields in the response.
+    const machineId = machine.id;
     const url = machine.url;
-
-    console.log(`Deployed to Fly.io - Machine ID: ${machineId}, URL: ${url}`);
+    if (onStep)
+      onStep(`Deployed to Fly.io - Machine ID: ${machineId}, URL: ${url}`);
 
     // Step 6: Update website record with deployment info
     await updateWebsite(website.id, {
-      preview_url: url, // @TODO: Use /api/preview-url endpoint.
+      preview_url: url,
       published: true,
       status: "preview",
       machine_id: machineId,
       last_deployed: new Date().toISOString(),
-      repository_url: `https://gitlab.com/bittive-group/${appName}`, // Save GitLab repository URL
+      repository_url: `https://gitlab.com/bittive-group/${appName}`,
     });
-
-    console.log(
-      "Website record updated with deployment info and repository URL"
-    );
+    if (onStep) onStep("Website record updated with deployment info.");
 
     // Step 7: Revalidate paths
     revalidatePath("/dashboard/website/all");
     revalidatePath(`/website/editor/${appName}`);
+    if (onStep) onStep("Project created!");
 
     return {
       success: true,
@@ -567,23 +479,16 @@ export async function createAndDeployWebsite(
       appName,
     };
   } catch (error) {
-    console.error("Error in createAndDeployWebsite:", error);
-    // Try to update website status to "failed" if we have a website ID
+    if (onStep)
+      onStep(
+        "Error in createAndDeployWebsite: " +
+          (error instanceof Error ? error.message : "Unknown error")
+      );
     try {
-      // This requires checking if 'website' is defined within scope
       if (typeof website !== "undefined" && website && website.id) {
         await updateWebsite(website.id, { status: "failed" });
-        console.log(
-          `Website status updated to "failed" due to unhandled error`
-        );
       }
-    } catch (updateError) {
-      console.error(
-        "Failed to update website status to 'failed':",
-        updateError
-      );
-    }
-
+    } catch {}
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

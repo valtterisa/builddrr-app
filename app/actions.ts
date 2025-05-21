@@ -1,6 +1,7 @@
 "use server";
 
 import { systemPrompt } from "@/lib/prompts/system";
+import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 
@@ -168,4 +169,12 @@ export async function generateAIResponse(prompt: string): Promise<Operation[]> {
     console.error("Error in generateAIResponse:", error);
     return [];
   }
+}
+
+export async function getUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
 }
