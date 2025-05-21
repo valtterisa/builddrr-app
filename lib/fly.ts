@@ -283,13 +283,11 @@ export default Logo;
 export async function createAndDeployWebsite(
   userId: string,
   data: WebsiteCreationData,
-  appName: string,
-  onStep?: (step: string) => void
+  appName: string
 ): Promise<WebsiteCreationResult> {
   let website: any = null;
 
   try {
-    if (onStep) onStep("Creating initial website record...");
     // Step 1: Create initial website record
     const websiteInitialData = {
       name: data.name,
@@ -310,136 +308,105 @@ export async function createAndDeployWebsite(
     if (!website) {
       throw new Error("Failed to create initial website record");
     }
-    if (onStep) onStep("Initial website record created.");
 
-    try {
-      if (onStep) onStep("Forking repository...");
-      // 1. Fork repository with app name as slug
-      const forkResponse = await fetch(`http://localhost:3001/api/fork`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ slug: appName }),
-      });
-      const repositoryUrl = `https://gitlab.com/bittive-group/${appName}`;
-      if (!forkResponse.ok) {
-        if (onStep) onStep("Warning: Fork API failed, continuing...");
-      } else {
-        const contentType = forkResponse.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          await forkResponse.json();
-          try {
-            await updateWebsite(website.id, { repository_url: repositoryUrl });
-            if (onStep) onStep("Repository URL set.");
-          } catch (error) {
-            if (onStep) onStep("Warning: Failed to update repository URL.");
-          }
-        }
+    // 1. Fork repository with app name as slug
+    const forkResponse = await fetch(`http://localhost:3001/api/fork`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ slug: appName }),
+    });
+    const repositoryUrl = `https://gitlab.com/bittive-group/${appName}`;
+    if (!forkResponse.ok) {
+    } else {
+      const contentType = forkResponse.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await forkResponse.json();
+        try {
+          await updateWebsite(website.id, { repository_url: repositoryUrl });
+        } catch (error) {}
       }
-      if (onStep) onStep("Repository forked.");
-
-      // Generate custom domain
-      const customDomain = `${appName}.siteforge.bittive.com`;
-      if (onStep) onStep("Setting custom domain...");
-
-      // 2. Create pages with same slug
-      if (onStep) onStep("Creating pages...");
-      const pagesResponse = await fetch(
-        `http://localhost:3001/api/pages-create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ slug: appName }),
-        }
-      );
-      if (!pagesResponse.ok) {
-        if (onStep) onStep("Warning: Pages-create API failed, continuing...");
-      } else {
-        const contentType = pagesResponse.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          await pagesResponse.json();
-        }
-      }
-      if (onStep) onStep("Pages created.");
-
-      // 3. Start wire-domain process (don't await the response)
-      if (onStep) onStep("Starting wire-domain process...");
-      fetch(`http://localhost:3001/api/wire-domain`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ slug: appName }),
-      })
-        .then((response) => {
-          if (!response.ok) return;
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            return response.json();
-          }
-        })
-        .then(async (data) => {
-          if (data && data.success) {
-            try {
-              const customDomain = `${appName}.siteforge.bittive.com`;
-              await updateWebsite(website.id, { primary_url: customDomain });
-              if (onStep) onStep("Custom domain set.");
-            } catch (error) {}
-          }
-        })
-        .catch(() => {});
-      if (onStep) onStep("Wire-domain process started.");
-    } catch (error) {
-      if (onStep)
-        onStep("Warning: Error calling development APIs, continuing...");
     }
+
+    // Generate custom domain
+    const customDomain = `${appName}.siteforge.bittive.com`;
+
+    // 2. Create pages with same slug
+    const pagesResponse = await fetch(
+      `http://localhost:3001/api/pages-create`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ slug: appName }),
+      }
+    );
+    if (!pagesResponse.ok) {
+    } else {
+      const contentType = pagesResponse.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await pagesResponse.json();
+      }
+    }
+
+    // 3. Start wire-domain process (don't await the response)
+    fetch(`http://localhost:3001/api/wire-domain`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ slug: appName }),
+    })
+      .then((response) => {
+        if (!response.ok) return;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return response.json();
+        }
+      })
+      .then(async (data) => {
+        if (data && data.success) {
+          try {
+            const customDomain = `${appName}.siteforge.bittive.com`;
+            await updateWebsite(website.id, { primary_url: customDomain });
+          } catch (error) {}
+        }
+      })
+      .catch(() => {});
 
     // Step 1.6: Add the user as the admin in the website_users table
     try {
-      if (onStep) onStep("Adding user as admin...");
       await addWebsiteUser(website.id, userId, "admin");
-      if (onStep) onStep("User added as admin.");
     } catch (error) {
-      if (onStep) onStep("Warning: Failed to add user as admin.");
       throw new Error("Failed to add user as admin in website_users table");
     }
 
     // Step 2: Generate website content
     let aiResponse;
     if (data.prompt) {
-      if (onStep) onStep("Generating website content from prompt...");
       aiResponse = await getMockAIResponse(data.prompt);
     } else {
-      if (onStep) onStep("Generating website content from structured data...");
       const structuredPrompt = `Create a website for ${data.name} in the ${data.industry || "business"} industry.\n${data.description ? `Description: ${data.description}` : ""}\nComponents: ${data.components?.join(", ") || "standard website components"}`;
       aiResponse = await getMockAIResponse(structuredPrompt);
     }
     if (!aiResponse) {
       await updateWebsite(website.id, { status: "failed" });
-      if (onStep) onStep("Failed to generate website content.");
       throw new Error("Failed to generate website content");
     }
-    if (onStep) onStep("Website content generated.");
 
     // Step 3: Parse AI response to get file operations
-    if (onStep) onStep("Parsing AI response...");
     const files = await parseAIResponse(aiResponse);
     if (files.length === 0) {
       await updateWebsite(website.id, { status: "failed" });
-      if (onStep) onStep("No valid file operations found in AI response.");
       throw new Error("No valid file operations found in AI response");
     }
-    if (onStep) onStep(`Found ${files.length} file operations in AI response.`);
 
     // Step 4: Update status to "deploying" before starting the deployment process
     await updateWebsite(website.id, { status: "deploying" });
-    if (onStep) onStep("Website status updated to deploying.");
 
     // Step 5: Deploy to Fly.io
-    if (onStep) onStep("Deploying to Fly.io...");
     const deployResult = await createAppAndAssignMachine(
       userId,
       appName,
@@ -447,15 +414,11 @@ export async function createAndDeployWebsite(
     );
     if (!deployResult.success) {
       await updateWebsite(website.id, { status: "failed" });
-      if (onStep) onStep("Failed to create app and assign machine.");
     }
-    if (onStep) onStep("App and machine created.");
 
     const machine = deployResult.machine.appMachines[0];
     const machineId = machine.id;
     const url = machine.url;
-    if (onStep)
-      onStep(`Deployed to Fly.io - Machine ID: ${machineId}, URL: ${url}`);
 
     // Step 6: Update website record with deployment info
     await updateWebsite(website.id, {
@@ -466,12 +429,10 @@ export async function createAndDeployWebsite(
       last_deployed: new Date().toISOString(),
       repository_url: `https://gitlab.com/bittive-group/${appName}`,
     });
-    if (onStep) onStep("Website record updated with deployment info.");
 
     // Step 7: Revalidate paths
     revalidatePath("/dashboard/website/all");
     revalidatePath(`/website/editor/${appName}`);
-    if (onStep) onStep("Project created!");
 
     return {
       success: true,
@@ -479,11 +440,6 @@ export async function createAndDeployWebsite(
       appName,
     };
   } catch (error) {
-    if (onStep)
-      onStep(
-        "Error in createAndDeployWebsite: " +
-          (error instanceof Error ? error.message : "Unknown error")
-      );
     try {
       if (typeof website !== "undefined" && website && website.id) {
         await updateWebsite(website.id, { status: "failed" });
@@ -619,5 +575,57 @@ export async function deployWebsite(websiteId: string): Promise<{
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+/**
+ * Check if an app exists in Fly.io
+ * @param appName The name of the app to check
+ * @returns True if the app exists, false otherwise
+ */
+export async function checkAppExists(appName: string): Promise<boolean> {
+  const response = await fetch(
+    `${process.env.FLY_API_BASE}/v1/apps/${appName}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (data.error === "app not found") {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+/**
+ * Start a machine
+ * @param appName The name of the app
+ * @param machineId The ID of the machine to start
+ * @returns True if the machine was started, false otherwise
+ */
+export async function startMachine(appName: string, machineId: string) {
+  console.log("Starting machine", appName, machineId);
+  try {
+    const response = await fetch(
+      `${process.env.FLY_API_BASE}/v1/apps/${appName}/machines/${machineId}/start`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
+        },
+      }
+    );
+    const data = await response.json();
+    console.log("Machine started", data);
+  } catch (error) {
+    console.error("Error starting machine:", error);
   }
 }

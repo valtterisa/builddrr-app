@@ -38,12 +38,19 @@ import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
 import { MediaLibrary } from "../media-library/media-library";
 import { useToast } from "@/hooks/use-toast";
-import { deployWebsite, createAndDeployWebsite } from "@/lib/fly";
-import { createClient } from "@/lib/supabase/client";
+import { deployWebsite, createAndDeployWebsite, startMachine } from "@/lib/fly";
 
 type ViewportSize = "desktop" | "mobile";
 
-export function WebsiteEditor({ id }: { id: string }) {
+export function WebsiteEditor({
+  id,
+  user,
+  machine,
+}: {
+  id: string;
+  user: any;
+  machine?: any;
+}) {
   const [components, setComponents] = useState<any[]>([]);
   const [selectedComponentIndex, setSelectedComponentIndex] = useState<
     number | null
@@ -63,22 +70,25 @@ export function WebsiteEditor({ id }: { id: string }) {
 
   const [generationSteps, setGenerationSteps] = useState<string[]>([]);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const [machine, setMachine] = useState<any>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [machineData, setMachineData] = useState<any>(machine);
+
+  const [userId] = useState<string | null>(user.id);
 
   useEffect(() => {
-    const getUser = async () => {
-      const user = await getUser();
-      setUserId(user?.id || null);
-    };
-    getUser();
-  }, []);
+    // Check if we have a defined machine
+    if (machine) {
+      // start a machine
+      (async () => {
+        await startMachine(id, machine.id);
+      })();
 
-  useEffect(() => {
+      return;
+    }
+
     // On mount, check for generation steps in localStorage
     const prompt = localStorage.getItem("siteforge_generation_prompt");
     const stepsRaw = localStorage.getItem("siteforge_generation_steps");
-    const appName = localStorage.getItem("siteforge_app_name") || id;
+    const appName = localStorage.getItem("siteforge_app_name");
     if (stepsRaw) {
       try {
         const steps = JSON.parse(stepsRaw);
@@ -89,54 +99,36 @@ export function WebsiteEditor({ id }: { id: string }) {
     }
 
     // If we have a prompt and appName and steps are not complete, start generation
-    if (
-      prompt &&
-      appName &&
-      (!stepsRaw ||
-        (Array.isArray(JSON.parse(stepsRaw)) &&
-          !JSON.parse(stepsRaw).some((s: string) =>
-            s.toLowerCase().includes("project created")
-          )))
-    ) {
-      const websiteData = {
-        name: `AI Generated Website ${new Date().toLocaleDateString()}`,
-        description: `Website generated from user prompt: ${prompt}`,
-        prompt: prompt,
-        colors: {
-          primary: "#6366F1",
-          secondary: "#8B5CF6",
-          accent: "#EC4899",
-        },
-      };
+    (async () => {
+      if (prompt && appName) {
+        const websiteData = {
+          name: `AI Generated Website ${new Date().toLocaleDateString()}`,
+          description: `Website generated from user prompt: ${prompt}`,
+          prompt: prompt,
+          colors: {
+            primary: "#6366F1",
+            secondary: "#8B5CF6",
+            accent: "#EC4899",
+          },
+        };
 
-      if (!userId) {
-        toast({
-          title: "Error",
-          description: "Please login to create a website.",
-          variant: "destructive",
-        });
-        return;
-      }
-      // Call createAndDeployWebsite
-      const result = createAndDeployWebsite(
-        userId,
-        websiteData,
-        appName,
-        (step: string) => {
-          // Append step to localStorage
-          const prev = JSON.parse(
-            localStorage.getItem("siteforge_generation_steps") || "[]"
-          );
-          prev.push(step);
-          localStorage.setItem(
-            "siteforge_generation_steps",
-            JSON.stringify(prev)
-          );
-          setGenerationSteps([...prev]);
+        if (!userId) {
+          toast({
+            title: "Error",
+            description: "Please login to create a website.",
+            variant: "destructive",
+          });
+          return;
         }
-      );
-      setMachine(result.machine);
-    }
+        // Call createAndDeployWebsite
+        const result = await createAndDeployWebsite(
+          userId,
+          websiteData,
+          appName
+        );
+        setMachineData(result.machine);
+      }
+    })();
 
     // Poll localStorage for new steps while generation is in progress
     pollingRef.current = setInterval(() => {
@@ -503,20 +495,18 @@ export function WebsiteEditor({ id }: { id: string }) {
         </div>
       </div>
 
-      {machine && (
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 flex-col md:flex-row h-full w-full">
-            <div className="flex-1 min-w-0 h-full">
-              <WebsitePreview
-                isEditMode={isEditMode}
-                initialUrl={websiteUrl || undefined}
-                id={id}
-                machine={machine}
-              />
-            </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col md:flex-row h-full w-full">
+          <div className="flex-1 min-w-0 h-full">
+            <WebsitePreview
+              isEditMode={isEditMode}
+              initialUrl={websiteUrl || undefined}
+              id={id}
+              machine={machineData}
+            />
           </div>
         </div>
-      )}
+      </div>
 
       {isMobile && (
         <div className="h-14 border-t flex items-center justify-around px-4 bg-background">

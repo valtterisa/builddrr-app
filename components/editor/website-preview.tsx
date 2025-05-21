@@ -62,9 +62,6 @@ export default function WebsitePreview({
 
   const applyStoredChanges = useCallback(() => {
     const iframe = iframeRef.current;
-    console.log(iframe);
-    console.log(iframe?.contentDocument);
-    console.log(isApplyingChanges);
     if (!iframe || !iframe.contentDocument || isApplyingChanges) return;
 
     setIsApplyingChanges(true);
@@ -823,28 +820,8 @@ export default function WebsitePreview({
   }, []);
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    const handleLoad = () => {
-      setDebugInfo("Iframe loaded, initializing editor...");
-      setTimeout(() => {
-        initializeEditor();
-      }, 500);
-    };
-
-    if (iframe) {
-      iframe.addEventListener("load", handleLoad);
-      if (
-        iframe.contentDocument &&
-        iframe.contentDocument.readyState === "complete"
-      ) {
-        handleLoad();
-      }
-    }
-
-    return () => {
-      iframe?.removeEventListener("load", handleLoad);
-    };
-  }, [url]);
+    initializeEditor();
+  }, []);
 
   const makeElementsEditable = () => {
     const iframe = iframeRef.current;
@@ -1426,38 +1403,6 @@ export default function WebsitePreview({
     checkCanMakeStandalone();
   }, [selectedElement, checkCanMakeStandalone]);
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  const machineId = machine[0].id;
-
-  useEffect(() => {
-    if (!id || !machineId) {
-      return;
-    }
-
-    const checkMachine = async () => {
-      try {
-        const response = await fetch("/api/get-machine-state", {
-          method: "POST",
-          body: JSON.stringify({
-            appName: id,
-            machineId: machineId,
-          }),
-        });
-        const data = await response.json();
-
-        if (data?.machine?.ok) {
-          // Check if the machine is ready and editor is ready
-          setIsLoading(data?.machine?.ok && isEditorReady);
-        }
-      } catch (error) {
-        console.error("[useMachineReadyPoll] Error", error);
-      }
-    };
-
-    checkMachine();
-  }, []);
-
   return (
     <div className="flex flex-col h-full w-full gap-4">
       {isEditMode && (
@@ -1481,16 +1426,14 @@ export default function WebsitePreview({
       )}
 
       <div className="relative w-full h-full border rounded-lg overflow-hidden">
-        {isLoading && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-            <div className="text-center">
-              <p className="mb-2">Loading editor...</p>
-              <p className="text-sm text-muted-foreground">
-                Click on any text element to edit it.
-              </p>
+        {!machine ||
+          (!isEditorReady && (
+            <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+              <div className="text-center">
+                <p className="mb-2">Loading editor...</p>
+              </div>
             </div>
-          </div>
-        )}
+          ))}
         <iframe
           ref={iframeRef}
           key={`url-${url}`}
