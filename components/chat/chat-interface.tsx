@@ -1,194 +1,288 @@
-import React, { useRef, useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Paperclip, ArrowUpRight } from "lucide-react";
+"use client";
 
-interface ChatInterfaceProps {
-  projectId?: string;
-  generationSteps?: string[];
+import * as React from "react";
+import { useState, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, Send, Mic, Copy, RefreshCcw } from "lucide-react";
+
+interface Message {
+  id: string;
+  content: string;
+  role: "user" | "assistant";
+  timestamp: Date;
+  isLoading?: boolean;
 }
 
-function parseSiteforgeSteps(response: string): string[] {
-  const match = response.match(
-    /<siteforge-steps>([\s\S]*?)<\/siteforge-steps>/
+interface ChatInterfaceProps {
+  initialMessages?: Message[];
+  className?: string;
+  userAvatar?: string;
+  assistantAvatar?: string;
+}
+
+function MessageLoading() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      className="text-foreground"
+    >
+      <circle cx="4" cy="12" r="2" fill="currentColor">
+        <animate
+          id="spinner_qFRN"
+          begin="0;spinner_OcgL.end+0.25s"
+          attributeName="cy"
+          calcMode="spline"
+          dur="0.6s"
+          values="12;6;12"
+          keySplines=".33,.66,.66,1;.33,0,.66,.33"
+        />
+      </circle>
+      <circle cx="12" cy="12" r="2" fill="currentColor">
+        <animate
+          begin="spinner_qFRN.begin+0.1s"
+          attributeName="cy"
+          calcMode="spline"
+          dur="0.6s"
+          values="12;6;12"
+          keySplines=".33,.66,.66,1;.33,0,.66,.33"
+        />
+      </circle>
+      <circle cx="20" cy="12" r="2" fill="currentColor">
+        <animate
+          id="spinner_OcgL"
+          begin="spinner_qFRN.begin+0.2s"
+          attributeName="cy"
+          calcMode="spline"
+          dur="0.6s"
+          values="12;6;12"
+          keySplines=".33,.66,.66,1;.33,0,.66,.33"
+        />
+      </circle>
+    </svg>
   );
-  if (!match) return [];
-  return match[1]
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !/^<\/?siteforge-steps>/.test(line));
+}
+
+function ChatBubble({
+  message,
+  userAvatar,
+  assistantAvatar,
+}: {
+  message: Message;
+  userAvatar?: string;
+  assistantAvatar?: string;
+}) {
+  const isUser = message.role === "user";
+  return (
+    <div className={cn("flex items-start gap-3 mb-4")}>
+      <Avatar className="h-8 w-8 border border-border">
+        {isUser ? (
+          userAvatar ? (
+            <AvatarImage src={userAvatar} alt="User" />
+          ) : (
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              U
+            </AvatarFallback>
+          )
+        ) : assistantAvatar ? (
+          <AvatarImage src={assistantAvatar} alt="Assistant" />
+        ) : (
+          <AvatarFallback className="bg-secondary text-secondary-foreground">
+            A
+          </AvatarFallback>
+        )}
+      </Avatar>
+      <div
+        className={cn(
+          "px-6 py-4 w-fit max-w-[80%] text-base bg-muted/80 shadow-lg",
+          isUser ? "text-primary" : "text-foreground/90"
+        )}
+        style={{ borderRadius: 18 }}
+      >
+        {message.isLoading ? (
+          <div className="flex items-center h-6">
+            <MessageLoading />
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap leading-relaxed">
+            {message.content}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ChatInterface({
-  projectId,
-  generationSteps,
+  initialMessages = [],
+  className,
+  userAvatar,
+  assistantAvatar,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<
-    { text: string; sender: "user" | "bot"; type?: "normal" | "resource" }[]
-  >([
-    { text: "Welcome to the chat! How can I help you today?", sender: "bot" },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [lastStepIndex, setLastStepIndex] = useState(0);
-  const [localGenerationSteps, setLocalGenerationSteps] = useState<string[]>(
-    []
-  );
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Append new generation steps as bot messages
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    setMessages((prev) => [...prev, { text: input, sender: "user" }]);
-    const userMessage = input;
-    setInput("");
-    setLoading(true);
-
-    if (projectId) {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage, projectId }),
-        });
-        const data = await res.json();
-        // Parse and display <siteforge-steps> if present
-        const steps = parseSiteforgeSteps(data.response);
-        if (steps.length > 0) {
-          setLocalGenerationSteps((prev) => [...prev, ...steps]);
-        }
-        // Show the rest of the response (without <siteforge-steps>)
-        const responseWithoutSteps = data.response
-          .replace(/<siteforge-steps>[\s\S]*?<\/siteforge-steps>/, "")
-          .trim();
-        if (responseWithoutSteps) {
-          setMessages((prev) => [
-            ...prev,
-            { text: responseWithoutSteps, sender: "bot" },
-          ]);
-        }
-      } catch (err) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            text: "Sorry, there was an error contacting the AI.",
-            sender: "bot",
-          },
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Fallback: Simulate bot reply if no projectId
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          { text: "This is a placeholder response.", sender: "bot" },
-        ]);
-        setLoading(false);
-      }, 600);
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
+  }, [inputValue]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isLoading) return;
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: inputValue,
+      role: "user",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue("");
+    setIsLoading(true);
+    setTimeout(() => {
+      const loadingMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "",
+        role: "assistant",
+        timestamp: new Date(),
+        isLoading: true,
+      };
+      setMessages((prev) => [...prev, loadingMessage]);
+      setTimeout(() => {
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          const loadingIndex = newMessages.findIndex((m) => m.isLoading);
+          if (loadingIndex !== -1) {
+            newMessages[loadingIndex] = {
+              id: newMessages[loadingIndex].id,
+              content:
+                "This is a simulated response to your message. In a real implementation, this would be replaced with an actual API call to your backend or AI service.",
+              role: "assistant",
+              timestamp: new Date(),
+            };
+          }
+          return newMessages;
+        });
+        setIsLoading(false);
+      }, 1500);
+    }, 500);
   };
 
-  // Accept both input and textarea keydown events
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSubmit(e as any);
     }
   };
 
-  // Render markdown-style links for resource messages
-  function renderMessage(msg: { text: string; sender: string; type?: string }) {
-    if (msg.type === "resource") {
-      // Simple markdown link rendering
-      return (
-        <span>
-          {msg.text.split(/(\[.*?\]\(.*?\))/g).map((part, i) => {
-            const match = part.match(/\[(.*?)\]\((.*?)\)/);
-            if (match) {
-              return (
-                <a
-                  key={i}
-                  href={match[2]}
-                  className="text-primary underline mx-1"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {match[1]}
-                </a>
-              );
-            }
-            return part;
-          })}
-        </span>
-      );
-    }
-    return msg.text;
-  }
-
   return (
-    <div className="h-full w-full flex flex-col p-4 rounded-3xl">
-      <div className="flex-1 overflow-auto mb-2 rounded p-2 flex flex-col gap-2">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`max-w-[80%] px-3 py-2 rounded-lg text-sm shadow-sm ${
-              msg.sender === "user"
-                ? "bg-primary text-white self-end"
-                : "bg-gray-200 text-gray-800 self-start"
-            }`}
-          >
-            {renderMessage(msg)}
+    <div
+      className={cn(
+        "flex flex-col h-full bg-background rounded-3xl",
+        className
+      )}
+    >
+      <div className="flex-1 overflow-y-auto p-4">
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>No messages yet. Start a conversation!</p>
           </div>
-        ))}
-        {loading && (
-          <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm shadow-sm bg-gray-100 text-gray-400 self-start animate-pulse">
-            AI is typing...
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <ChatBubble
+                key={message.id}
+                message={message}
+                userAvatar={userAvatar}
+                assistantAvatar={assistantAvatar}
+              />
+            ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
-      <div className="flex items-center gap-2 mt-2 w-full">
-        <div className="flex-1 relative">
-          <textarea
-            className="w-full bg-white border rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-primary focus:border-primary min-h-[2.5rem] max-h-32 transition-all placeholder:text-gray-400"
-            placeholder="Type a message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            rows={1}
-            style={{ minHeight: 40, maxHeight: 128 }}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary"
-            type="button"
-            tabIndex={-1}
-            aria-label="Attach file (coming soon)"
-            disabled
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-        </div>
-        <Button
-          className="rounded-full bg-gradient-to-br from-purple-600 to-pink-500 text-white hover:from-purple-700 hover:to-pink-600 shadow h-10 w-10 flex items-center justify-center disabled:opacity-50 transition-all duration-200"
-          size="icon"
-          onClick={handleSend}
-          disabled={!input.trim() || loading}
-          aria-label="Send message"
+      <div className="border-t p-4">
+        <form
+          onSubmit={handleSubmit}
+          className="relative rounded-xl border bg-background"
         >
-          <ArrowUpRight className="h-5 w-5" />
-        </Button>
+          <Textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask a follow up question..."
+            className="min-h-12 max-h-32 resize-none rounded-xl border-0 bg-transparent p-4 pr-16 shadow-none focus:outline-none"
+            disabled={isLoading}
+          />
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="rounded-full h-8 w-8"
+              disabled={isLoading}
+            >
+              <Paperclip className="h-4 w-4" />
+              <span className="sr-only">Attach file</span>
+            </Button>
+
+            <Button
+              type="submit"
+              size="icon"
+              className="rounded-full h-8 w-8"
+              disabled={!inputValue.trim() || isLoading}
+            >
+              <Send className="h-4 w-4" />
+              <span className="sr-only">Send message</span>
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
+
+// Example usage for development preview
+// export default function ChatPage() {
+//   const initialMessages: Message[] = [
+//     {
+//       id: "1",
+//       content: "Hello! How can I help you today?",
+//       role: "assistant",
+//       timestamp: new Date(Date.now() - 100000),
+//     },
+//     {
+//       id: "2",
+//       content: "I'm looking for information about your services.",
+//       role: "user",
+//       timestamp: new Date(Date.now() - 80000),
+//     },
+//     {
+//       id: "3",
+//       content: "Of course! We offer a range of services including web development, mobile app development, and UI/UX design. Is there a specific service you're interested in learning more about?",
+//       role: "assistant",
+//       timestamp: new Date(Date.now() - 60000),
+//     },
+//   ];
+//   return (
+//     <div className="h-[600px] w-full max-w-3xl mx-auto border rounded-xl overflow-hidden shadow-lg">
+//       <ChatInterface initialMessages={initialMessages} />
+//     </div>
+//   );
+// }
