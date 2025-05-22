@@ -204,7 +204,7 @@ const Logo = () => {
 export default Logo;
 </siteforge-write>
 
-<siteforge-write file="/app/components/site-components/header/nav-links.tsx">        
+<siteforge-write file="/components/site-components/header/nav-links.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -219,5 +219,114 @@ const navItems = [
   { name: "Services", href: "/services" },
   { name: "About", href: "/about" },
   { name: "Projects", href: "/projects" },
+  { name: "Contact", href: "/contact" },
+];
 
-why isnt this program finding anything from this?
+const NavLinks: React.FC<NavLinksProps> = ({ className }) => (
+  <nav className={cn(className)} aria-label="Main navigation">
+    {navItems.map((item) => (
+      <motion.div
+        key={item.name}
+        whileHover={{ scale: 1.08 }}
+        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+      >
+        <Link
+          href={item.href}
+          className="text-base font-medium text-gray-700 hover:text-primary transition-colors"
+        >
+          {item.name}
+        </Link>
+      </motion.div>
+    ))}
+  </nav>
+);
+
+export default NavLinks;
+</siteforge-write>
+
+<siteforge-write file="/app/services/page.tsx">
+import React from "react";
+
+const ServicesPage = () => (
+  <main className="container mx-auto py-16">
+    <h1 className="text-4xl font-bold mb-6">Our Services</h1>
+    <p className="text-lg text-gray-700 mb-4">
+      We offer a range of software development and consulting services to help your business grow.
+    </p>
+    <ul className="list-disc pl-6 space-y-2">
+      <li>Custom Web Application Development</li>
+      <li>UI/UX Design</li>
+      <li>Cloud & DevOps Consulting</li>
+      <li>Mobile App Development</li>
+      <li>Technical Support & Maintenance</li>
+    </ul>
+  </main>
+);
+
+export default ServicesPage;
+</siteforge-write>
+
+<siteforge-write file="/app/about/page.tsx">
+import React from "react";
+
+const AboutPage = () => (
+  <main className="container mx-auto py-16">
+    <h1 className="text-4xl font-bold mb-6">About Us</h1>
+    <p className="text-lg text-gray-700 mb-4">
+      Bittive Oy is a software agency focused on delivering high-quality, innovative solutions for businesses of all sizes.
+    </p>
+    <p className="text-lg text-gray-700">
+      Our team combines technical expertise with a passion for problem-solving, ensuring every project is a success.
+    </p>
+  </main>
+);
+
+export default AboutPage;
+</siteforge-write>
+
+<siteforge-write file="/app/projects/page.tsx">
+import React from "react";
+
+const ProjectsPage = () => (
+  <main className="container mx-auto py-16">
+    <h1 className="text-4xl font-bold mb-6">Our Projects</h1>
+    <p className="text-lg text-gray-700 mb-4">
+      Explore some of the projects we have delivered for our clients.
+    </p>
+    <ul className="list-disc pl-6 space-y-2">
+      <li>Project Alpha - SaaS Platform for Retail</li>
+      <li>Beta CRM - Customer Relationship Management Tool</li>
+      <li>Gamma Analytics - Data Visualization Suite</li>
+    </ul>
+  </main>
+);
+
+export default ProjectsPage;
+</siteforge-write>
+
+<siteforge-write file="/app/page.tsx">
+import React from "react";
+import dynamic from "next/dynamic";
+
+const Header = dynamic(() => import("@/components/site-components/header/header"), { ssr: false });
+
+const HomePage = () => (
+  <>
+    <Header />
+    <main className="pt-32 container mx-auto text-center">
+      <section className="py-20">
+        <h1 className="text-5xl font-bold mb-6">Welcome to Bittive Oy</h1>
+        <p className="text-xl text-gray-700 mb-8">
+          We build modern, scalable, and beautiful web solutions for your business.
+        </p>
+        <div className="flex justify-center gap-4">
+          <a href="/services" className="bg-primary text-white px-6 py-3 rounded hover:bg-primary/90 transition">Our Services</a>
+          <a href="/contact" className="bg-secondary text-white px-6 py-3 rounded hover:bg-secondary/90 transition">Contact Us</a>
+        </div>
+      </section>
+    </main>
+  </>
+);
+
+export default HomePage;
+</siteforge-write>

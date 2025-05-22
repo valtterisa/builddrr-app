@@ -20,11 +20,11 @@ export function AnimatedLayout() {
       <main>
         <PromptTool />
         <DemoVideo />
-        <ValueProposition />
+        {/* <ValueProposition />
         <StepsSection />
         <TemplatesCTA />
         <PricingSection />
-        <FinalCTA />
+        <FinalCTA /> */}
       </main>
     </div>
   );

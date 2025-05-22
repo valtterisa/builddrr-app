@@ -19,7 +19,6 @@ export async function GET(
   request: NextRequest,
   ctx: { params: { id: string | string[] } }
 ) {
-  console.log(`[PREVIEW PROXY] ${request.method} ${request.url}`);
   const params = await ctx.params;
   const target = getTargetUrl(params.id, request);
 

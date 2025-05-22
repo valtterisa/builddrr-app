@@ -1,4 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Paperclip, ArrowUpRight } from "lucide-react";
 
 interface ChatInterfaceProps {
   projectId?: string;
@@ -34,38 +36,6 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Append new generation steps as bot messages
-  useEffect(() => {
-    const steps = generationSteps || localGenerationSteps;
-    if (steps && steps.length > lastStepIndex) {
-      const newSteps = steps.slice(lastStepIndex);
-      setMessages((prev) => [
-        ...prev,
-        ...newSteps.map((step) => ({ text: step, sender: "bot" })),
-      ]);
-      setLastStepIndex(steps.length);
-    }
-    // After generation, show resource links and invite questions
-    if (
-      steps &&
-      steps.length > 0 &&
-      steps[steps.length - 1].toLowerCase().includes("project created")
-    ) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "Next steps:\n- [View your project files](#)\n- [How to deploy](#)\n- [Learn more about this service](#)",
-          sender: "bot",
-          type: "resource",
-        },
-        {
-          text: "You can now ask me how to deploy your site, or anything about this service!",
-          sender: "bot",
-        },
-      ]);
-      setLastStepIndex(steps.length + 2); // Prevent duplicate appends
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generationSteps, localGenerationSteps]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -124,8 +94,12 @@ export function ChatInterface({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+  // Accept both input and textarea keydown events
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSend();
     }
   };
@@ -181,22 +155,39 @@ export function ChatInterface({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="flex items-center gap-2 mt-2">
-        <input
-          className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring focus:border-primary"
-          placeholder="Type a message..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-        />
-        <button
-          className="bg-primary text-white px-4 py-2 rounded disabled:opacity-50"
+      <div className="flex items-center gap-2 mt-2 w-full">
+        <div className="flex-1 relative">
+          <textarea
+            className="w-full bg-white border rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-primary focus:border-primary min-h-[2.5rem] max-h-32 transition-all placeholder:text-gray-400"
+            placeholder="Type a message..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+            rows={1}
+            style={{ minHeight: 40, maxHeight: 128 }}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary"
+            type="button"
+            tabIndex={-1}
+            aria-label="Attach file (coming soon)"
+            disabled
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
+        </div>
+        <Button
+          className="rounded-full bg-gradient-to-br from-purple-600 to-pink-500 text-white hover:from-purple-700 hover:to-pink-600 shadow h-10 w-10 flex items-center justify-center disabled:opacity-50 transition-all duration-200"
+          size="icon"
           onClick={handleSend}
           disabled={!input.trim() || loading}
+          aria-label="Send message"
         >
-          Send
-        </button>
+          <ArrowUpRight className="h-5 w-5" />
+        </Button>
       </div>
     </div>
   );

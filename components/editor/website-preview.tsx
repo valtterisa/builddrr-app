@@ -1403,6 +1403,9 @@ export default function WebsitePreview({
     checkCanMakeStandalone();
   }, [selectedElement, checkCanMakeStandalone]);
 
+  console.log("machine", machine);
+  console.log("isEditorReady", isEditorReady);
+
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
       {isEditMode && (
@@ -1426,14 +1429,14 @@ export default function WebsitePreview({
       )}
 
       <div className="relative w-full h-full overflow-hidden">
-        {!machine ||
-          (!isEditorReady && (
-            <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-              <div className="text-center">
-                <p className="mb-2">Loading editor...</p>
-              </div>
+        {!isEditorReady && (
+          <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="text-center">
+              <p className="mb-2">Loading editor...</p>
             </div>
-          ))}
+          </div>
+        )}
+        isEditorReady: {isEditorReady.toString()}
         <iframe
           ref={iframeRef}
           key={`url-${url}`}

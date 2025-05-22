@@ -31,7 +31,7 @@ export default async function EditorPage({
 
   return (
     <div className="flex flex-col h-full rounded-3xl">
-      <WebsiteEditor id={id} user={user.user} machine={machine[0]} />
+      <WebsiteEditor id={id} user={user.user} machine={machine?.[0] || null} />
     </div>
   );
 }

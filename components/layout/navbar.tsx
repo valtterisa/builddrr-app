@@ -21,29 +21,6 @@ export default function Navbar({ user }: any) {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold text-purple-600">SiteForge</span>
-          <nav className="hidden md:flex items-center gap-6">
-            <Button
-              href="/features"
-              variant="ghost"
-              className="text-gray-600 hover:text-purple-600"
-            >
-              Features
-            </Button>
-            <Button
-              href="/pricing"
-              variant="ghost"
-              className="text-gray-600 hover:text-purple-600"
-            >
-              Pricing
-            </Button>
-            <Button
-              href="/templates"
-              variant="ghost"
-              className="text-gray-600 hover:text-purple-600"
-            >
-              Templates
-            </Button>
-          </nav>
         </div>
         {/* Desktop */}
         <div className="flex items-center gap-4">
@@ -90,27 +67,6 @@ export default function Navbar({ user }: any) {
       {isMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-100">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-            <Button
-              href="/features"
-              variant="ghost"
-              className="w-full justify-start text-gray-600 hover:text-purple-600"
-            >
-              Features
-            </Button>
-            <Button
-              href="/pricing"
-              variant="ghost"
-              className="w-full justify-start text-gray-600 hover:text-purple-600"
-            >
-              Pricing
-            </Button>
-            <Button
-              href="/templates"
-              variant="ghost"
-              className="w-full justify-start text-gray-600 hover:text-purple-600"
-            >
-              Templates
-            </Button>
             <div className="flex flex-col gap-2 pt-4 border-t border-gray-100">
               {user ? (
                 <div className="flex items-center gap-4">

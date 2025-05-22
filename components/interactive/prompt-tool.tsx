@@ -73,6 +73,56 @@ export default function PromptTool() {
     router.push(`/dashboard/website/editor/${appName}`);
   };
 
+  const promptPlaceholders = [
+    "Make a landing page for my new product",
+    "I need a website for my cafeteria",
+    "Create a landing page for my software startup",
+    "Make a cool portfolio for my photography business",
+  ];
+
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState("");
+  const [isErasing, setIsErasing] = useState(false);
+
+  useEffect(() => {
+    const currentPrompt = promptPlaceholders[currentPromptIndex];
+    let timeout: NodeJS.Timeout;
+
+    if (!isErasing && displayedPlaceholder.length < currentPrompt.length) {
+      // Typing
+      timeout = setTimeout(() => {
+        setDisplayedPlaceholder(
+          currentPrompt.slice(0, displayedPlaceholder.length + 1)
+        );
+      }, 20);
+    } else if (
+      !isErasing &&
+      displayedPlaceholder.length === currentPrompt.length
+    ) {
+      // Wait before erasing
+      timeout = setTimeout(() => {
+        setIsErasing(true);
+      }, 2000);
+    } else if (isErasing && displayedPlaceholder.length > 0) {
+      // Erasing
+      timeout = setTimeout(() => {
+        setDisplayedPlaceholder(
+          currentPrompt.slice(0, displayedPlaceholder.length - 1)
+        );
+      }, 10);
+    } else if (isErasing && displayedPlaceholder.length === 0) {
+      // Move to next prompt
+      timeout = setTimeout(() => {
+        setIsErasing(false);
+        setCurrentPromptIndex(
+          (prevIndex) => (prevIndex + 1) % promptPlaceholders.length
+        );
+      }, 100);
+    }
+
+    return () => clearTimeout(timeout);
+  }, [displayedPlaceholder, isErasing, currentPromptIndex, promptPlaceholders]);
+
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center bg-white pb-8 pt-8 px-2 relative">
       {/* Loading overlay removed; editor/chat will show progress */}
@@ -91,7 +141,7 @@ export default function PromptTool() {
       <div className="w-full max-w-xl bg-gray-100 rounded-xl shadow p-4 flex flex-col gap-2">
         <textarea
           className="w-full bg-transparent text-gray-900 text-sm md:text-base resize-none outline-none border-none min-h-[5rem] placeholder:text-gray-400"
-          placeholder="Describe the website you want to create..."
+          placeholder={displayedPlaceholder}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />

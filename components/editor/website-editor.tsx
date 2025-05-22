@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { useMobile } from "@/hooks/use-mobile";
 import WebsitePreview from "./website-preview";
-import { VirtualFileSystem } from "@/lib/virtual-fs";
 import Link from "next/link";
 import { MediaLibrary } from "../media-library/media-library";
 import { useToast } from "@/hooks/use-toast";
@@ -62,41 +61,28 @@ export function WebsiteEditor({
   const [isEditMode, setIsEditMode] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState<string | null>(id);
   const [isLoading, setIsLoading] = useState(false);
-  const [website, setWebsite] = useState<any>(null);
-  const vfs = VirtualFileSystem.getInstance();
 
   const isMobile = useMobile();
   const { toast } = useToast();
 
-  const [generationSteps, setGenerationSteps] = useState<string[]>([]);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const [machineData, setMachineData] = useState<any>(machine);
 
   const [userId] = useState<string | null>(user.id);
 
+  // Guard to prevent double execution in Strict Mode
+  const hasRun = useRef(false);
+
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
     // Check if we have a defined machine
     if (machine) {
-      // start a machine
-      (async () => {
-        await startMachine(id, machine.id);
-      })();
-
       return;
     }
 
     // On mount, check for generation steps in localStorage
     const prompt = localStorage.getItem("siteforge_generation_prompt");
-    const stepsRaw = localStorage.getItem("siteforge_generation_steps");
     const appName = localStorage.getItem("siteforge_app_name");
-    if (stepsRaw) {
-      try {
-        const steps = JSON.parse(stepsRaw);
-        setGenerationSteps(Array.isArray(steps) ? steps : []);
-      } catch {
-        setGenerationSteps([]);
-      }
-    }
 
     // If we have a prompt and appName and steps are not complete, start generation
     (async () => {
@@ -121,6 +107,12 @@ export function WebsiteEditor({
           return;
         }
         // Call createAndDeployWebsite
+        console.log(
+          "Creating and deploying website...",
+          userId,
+          websiteData,
+          appName
+        );
         const result = await createAndDeployWebsite(
           userId,
           websiteData,
@@ -129,35 +121,6 @@ export function WebsiteEditor({
         setMachineData(result.machine);
       }
     })();
-
-    // Poll localStorage for new steps while generation is in progress
-    pollingRef.current = setInterval(() => {
-      const stepsRaw = localStorage.getItem("siteforge_generation_steps");
-      if (stepsRaw) {
-        try {
-          const steps = JSON.parse(stepsRaw);
-          if (Array.isArray(steps)) {
-            setGenerationSteps(steps);
-            // Stop polling if last step is 'Project created!'
-            if (
-              steps.length > 0 &&
-              steps[steps.length - 1].toLowerCase().includes("project created")
-            ) {
-              clearInterval(pollingRef.current!);
-              pollingRef.current = null;
-              // Clean up localStorage
-              localStorage.removeItem("siteforge_generation_prompt");
-              localStorage.removeItem("siteforge_generation_steps");
-              localStorage.removeItem("siteforge_app_name");
-            }
-          }
-        } catch {}
-      }
-    }, 1000);
-
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
   }, []);
 
   const addComponent = (component: ComponentType) => {

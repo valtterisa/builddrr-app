@@ -27,6 +27,11 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Website } from "@/lib/database";
 import { SiteHeader } from "../site-header";
+import { useState } from "react";
+import { QuickActions } from "./quick-actions";
+import { MetricsCards } from "./metrics-cards";
+import { RecentActivity } from "./recent-activity";
+import { WebsitesList } from "./websites-list";
 
 // Mock data for notifications and scheduled posts (replace with actual data fetching)
 const notifications = [
@@ -51,174 +56,11 @@ export default function DashboardClient({
       <div className="flex-1 min-w-0">
         {/* Header */}
         <SiteHeader title="Dashboard" />
-        <div className="space-y-8 pt-4">
-          {/* Quick Actions Section */}
-          <div>
-            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {/* Example Quick Action: Create New Website (Duplicate from header for convenience) */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer w-full"
-                onClick={() => router.push("/")}
-              >
-                <CardHeader className="flex flex-row items-center space-x-3">
-                  <Plus className="h-6 w-6 text-primary" />
-                  <CardTitle className="text-lg">Create New Website</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    Start building a new website project.
-                  </CardDescription>
-                </CardContent>
-              </Card>
-              {/* Add more quick actions as needed */}
-              {/* Example Quick Action: Upload Media */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer w-full"
-                onClick={() =>
-                  router.push("/dashboard/content?action=uploadMedia")
-                }
-              >
-                <CardHeader className="flex flex-row items-center space-x-3">
-                  <UploadCloud className="h-6 w-6 text-primary" />
-                  <CardTitle className="text-lg">Upload Media</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    Add new images or videos to your library.
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Notifications and Scheduled Posts */}
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 min-w-0">
-            {/* Notifications Block */}
-            <Card className="w-full">
-              <CardHeader className="flex flex-row items-center space-x-2">
-                <Bell className="h-5 w-5" />
-                <CardTitle>Notifications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {notifications.length > 0 ? (
-                  <ul className="space-y-2 text-sm">
-                    {notifications.map((notification) => (
-                      <li
-                        key={notification.id}
-                        className="flex items-start space-x-2"
-                      >
-                        <span
-                          className="mt-1 block h-2 w-2 flex-shrink-0 rounded-full bg-sky-500"
-                          aria-hidden="true"
-                        />
-                        <span>{notification.message}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No new notifications.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Domains Section */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Your Domains</h2>
-            <Card className="w-full">
-              <CardHeader className="flex flex-row items-center space-x-2">
-                <Globe className="h-5 w-5" />
-                <CardTitle>Custom Domains</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Loading websites...</span>
-                  </div>
-                ) : error ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-5 w-5" />
-                    <AlertDescription>
-                      Error loading websites: {error}
-                    </AlertDescription>
-                  </Alert>
-                ) : websites.filter((site) => site.published).length > 0 ? (
-                  <div className="space-y-4">
-                    {websites
-                      .filter((site) => site.published)
-                      .map((website) => (
-                        <div key={website.id} className="border rounded-md p-4">
-                          <div className="flex flex-col gap-2 md:flex-row justify-between items-start min-w-0">
-                            <div className="min-w-0">
-                              <h3 className="font-medium">{website.name}</h3>
-                              <div className="text-sm mt-1">
-                                <p>
-                                  Default URL:{" "}
-                                  <a
-                                    href={website.primary_url ?? "#"}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-primary hover:underline"
-                                  >
-                                    {website.primary_url}
-                                  </a>
-                                </p>
-                                {website.primary_url ? (
-                                  <p className="text-green-600 mt-1">
-                                    Custom Domain:{" "}
-                                    <a
-                                      href={`https://${website.primary_url}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      {website.primary_url}
-                                    </a>
-                                  </p>
-                                ) : (
-                                  <p className="text-muted-foreground mt-1">
-                                    No custom domain configured
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                router.push(
-                                  `/dashboard/website/${website.id}/settings`
-                                )
-                              }
-                            >
-                              Configure
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No published websites found. Publish a website to configure
-                    a custom domain.
-                  </p>
-                )}
-                <div className="mt-4">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="p-0 h-auto"
-                    onClick={() => router.push("/dashboard/website/all")}
-                  >
-                    Manage all websites
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <div className="space-y-8 py-4">
+          <MetricsCards />
+          <QuickActions />
+          <RecentActivity />
+          <WebsitesList websites={websites} />
         </div>
       </div>
     </div>

@@ -290,7 +290,7 @@ export default function AllWebsitesClient(machine: any) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push(`editor/${website.app_name}`)}
+                  href={`/dashboard/website/editor/${website.app_name}`}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit

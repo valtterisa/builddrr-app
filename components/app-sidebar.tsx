@@ -60,17 +60,14 @@ const data = {
         {
           title: "All Websites",
           url: "/dashboard/website/all",
-          icon: Globe2,
         },
         {
           title: "Integrations",
-          url: "/dashboard/website/integration",
-          icon: Zap,
+          url: "/dashboard/website/integrations",
         },
         {
           title: "Domains",
           url: "/dashboard/website/domains",
-          icon: Globe,
         },
       ],
     },
