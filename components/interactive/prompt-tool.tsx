@@ -16,25 +16,8 @@ const EXAMPLES = [
 
 export default function PromptTool() {
   const [prompt, setPrompt] = useState("");
-  const [authChecked, setAuthChecked] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const router = useRouter();
-
-  // Restore prompt from localStorage if present
-  useEffect(() => {
-    const savedPrompt = localStorage.getItem("siteforge_prompt");
-    if (savedPrompt) {
-      setPrompt(savedPrompt);
-      localStorage.removeItem("siteforge_prompt");
-    }
-    // Check auth
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      setAuthChecked(true);
-    };
-    checkAuth();
-  }, []);
 
   const handleSend = async () => {
     if (!prompt.trim()) return;
@@ -52,10 +35,8 @@ export default function PromptTool() {
     console.log("appName", appName);
 
     // Store the prompt, appName, and clear steps in localStorage for the editor/chat
-    localStorage.setItem("siteforge_generation_prompt", prompt);
-    localStorage.setItem("siteforge_generation_steps", JSON.stringify([]));
-    localStorage.setItem("siteforge_app_name", appName);
-    localStorage.setItem("currentWebsiteId", appName);
+    sessionStorage.setItem("siteforge_generation_prompt", prompt);
+    sessionStorage.setItem("siteforge_app_name", appName);
 
     // Instantly redirect to the editor
     router.push(`/dashboard/website/editor/${appName}`);
@@ -148,7 +129,7 @@ export default function PromptTool() {
             <Button
               size="icon"
               className="rounded-full bg-gradient-to-br from-purple-600 to-pink-500 text-white hover:from-purple-700 hover:to-pink-600 shadow h-7 w-7"
-              disabled={!prompt.trim() || !authChecked}
+              disabled={!prompt.trim()}
               onClick={handleSend}
             >
               <ArrowUpRight className="h-5 w-5" />

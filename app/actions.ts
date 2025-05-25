@@ -4,6 +4,7 @@ import { systemPrompt } from "@/lib/prompts/system";
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
+import { redis } from "@/lib/redis";
 
 interface Operation {
   operation: "write" | "update" | "delete" | "code" | "dependency";
@@ -177,4 +178,117 @@ export async function getUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
+}
+
+// Chat message functions
+export async function getChatMessages(userId: string, appName: string) {
+  if (!userId || !appName) {
+    return [];
+  }
+
+  try {
+    const chatKey = `chat:${userId}:${appName}`;
+    const messages = await redis.lrange(chatKey, 0, -1);
+
+    if (!messages || messages.length === 0) {
+      return [];
+    }
+
+    return messages.map((msg) => {
+      const parsed = JSON.parse(msg.toString());
+      return {
+        id: parsed.id || Date.now().toString(),
+        content: parsed.content,
+        isUser: parsed.isUser,
+        timestamp: new Date(parsed.timestamp),
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching chat messages from Redis:", error);
+    return [];
+  }
+}
+
+export async function sendChatMessage(
+  userId: string,
+  appName: string,
+  message: string,
+  isUser: boolean = true
+) {
+  if (!userId || !appName || !message) {
+    return { success: false, error: "Missing required parameters" };
+  }
+
+  try {
+    const chatKey = `chat:${userId}:${appName}`;
+    const timestamp = new Date().toISOString();
+
+    const messageObj = {
+      id: Date.now().toString(),
+      content: message,
+      isUser,
+      timestamp,
+    };
+
+    await redis.rpush(chatKey, JSON.stringify(messageObj));
+    return { success: true, message: messageObj };
+  } catch (error) {
+    console.error("Error saving chat message to Redis:", error);
+    return { success: false, error: "Failed to save message" };
+  }
+}
+
+export async function processChatMessage(
+  userId: string,
+  appName: string,
+  message: string
+) {
+  // Save the user message
+  await sendChatMessage(userId, appName, message, true);
+
+  // Process the message (in a real app, this would involve AI/LLM processing)
+  // Here we're just sending back a simple response
+  const response = `I've received your message: "${message}". What would you like to do next?`;
+
+  // Save the assistant's response
+  return await sendChatMessage(userId, appName, response, false);
+}
+
+export async function getVirtualFileSystem(userId: string, appName: string) {
+  if (!userId || !appName) {
+    return null;
+  }
+
+  try {
+    const vfsKey = `vfs:${userId}:${appName}`;
+    const vfsData = await redis.get(vfsKey);
+
+    if (!vfsData) {
+      return null;
+    }
+
+    return JSON.parse(vfsData.toString());
+  } catch (error) {
+    console.error("Error fetching VFS from Redis:", error);
+    return null;
+  }
+}
+
+export async function updateVirtualFileSystem(
+  userId: string,
+  appName: string,
+  files: any
+) {
+  if (!userId || !appName || !files) {
+    return { success: false, error: "Missing required parameters" };
+  }
+
+  try {
+    const vfsKey = `vfs:${userId}:${appName}`;
+    await redis.set(vfsKey, JSON.stringify(files));
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating VFS in Redis:", error);
+    return { success: false, error: "Failed to update virtual file system" };
+  }
 }

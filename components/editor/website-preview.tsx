@@ -57,8 +57,11 @@ export default function WebsitePreview({
   const [iframeError, setIframeError] = useState<string | null>(null);
 
   const closeToolbar = useCallback(() => {
-    setShowToolbar(false);
-  }, []);
+    // Only close the toolbar if we're not in edit mode
+    if (!isEditMode) {
+      setShowToolbar(false);
+    }
+  }, [isEditMode]);
 
   const getStorageKey = useCallback(() => `editorChanges-${url}`, [url]);
 
@@ -821,10 +824,7 @@ export default function WebsitePreview({
     setDebugInfo("");
   }, []);
 
-  useEffect(() => {
-    initializeEditor();
-  }, []);
-
+  // Add back the makeElementsEditable function that was accidentally removed
   const makeElementsEditable = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentDocument) return;
@@ -1118,7 +1118,6 @@ export default function WebsitePreview({
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
       setCanMakeStandalone(false);
       setCanRemoveStandalone(isStandaloneSpanFocused);
-      console.log("setCanRemoveStandalone 1:", isStandaloneSpanFocused);
       return;
     }
     const range = sel.getRangeAt(0);
@@ -1142,14 +1141,9 @@ export default function WebsitePreview({
       }
       setCanMakeStandalone(!isInsideStandalone);
       setCanRemoveStandalone(isInsideStandalone || isStandaloneSpanFocused);
-      console.log(
-        "setCanRemoveStandalone 2:",
-        isStandaloneSpanFocused || isInsideStandalone
-      );
     } else {
       setCanMakeStandalone(false);
       setCanRemoveStandalone(isStandaloneSpanFocused);
-      console.log("setCanRemoveStandalone 3:", isStandaloneSpanFocused);
     }
   }, [selectedElement]);
 
@@ -1328,7 +1322,7 @@ export default function WebsitePreview({
         checkCanMakeStandalone();
       }
     }
-  }, [checkCanMakeStandalone, selectedElement]);
+  }, [checkCanMakeStandalone, selectedElement, handleElementSelection]);
 
   // Listen for selection changes to update canMakeStandalone
   useEffect(() => {
@@ -1415,7 +1409,13 @@ export default function WebsitePreview({
       try {
         const res = await fetch(`/api/preview/${url}/`, { method: "GET" });
         if (res.status === 200) {
-          if (!cancelled) setIframeReady(true);
+          if (!cancelled) {
+            setIframeReady(true);
+            // Initialize editor after iframe is ready
+            setTimeout(() => {
+              if (!cancelled) initializeEditor();
+            }, 500);
+          }
         } else if (res.status === 202) {
           // Not ready, poll again
           setTimeout(checkReady, 1500);
@@ -1432,6 +1432,25 @@ export default function WebsitePreview({
       cancelled = true;
     };
   }, [url]);
+
+  // Add event listener for iframe load
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const handleIframeLoad = () => {
+      // Initialize editor when iframe loads
+      if (iframeReady) {
+        initializeEditor();
+      }
+    };
+
+    iframe.addEventListener("load", handleIframeLoad);
+
+    return () => {
+      iframe.removeEventListener("load", handleIframeLoad);
+    };
+  }, [iframeReady]);
 
   console.log("machine", machine);
   console.log("isEditorReady", isEditorReady);

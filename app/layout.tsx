@@ -2,10 +2,8 @@ import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { Suspense } from "react";
-import { Loading } from "./loading";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -13,7 +11,7 @@ export const metadata: Metadata = {
   title: "SiteForge - Create Your Business Website in Minutes",
   description:
     "Generate a professional one-page website with AI or customize a template. No coding required.",
-  generator: "v0.dev",
+  generator: "SiteForge",
 };
 
 export default function RootLayout({
@@ -24,10 +22,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange> */}
-        <Suspense fallback={<Loading />}>{children}</Suspense>
+        <Suspense fallback={null}>{children}</Suspense>
         <Toaster />
-        {/* </ThemeProvider> */}
       </body>
     </html>
   );

@@ -17,10 +17,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+// Define User type
+export type User = {
+  id: string;
+  [key: string]: any;
+};
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (user: User) => void;
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
@@ -38,7 +44,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase!.auth.signInWithPassword({
+      const { data, error } = await supabase!.auth.signInWithPassword({
         email,
         password,
       });
@@ -50,7 +56,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       // Store session info in localStorage
       localStorage.setItem("user_session", "true");
 
-      onSuccess();
+      if (data.user) {
+        onSuccess(data.user as User);
+      } else {
+        throw new Error("No user data returned");
+      }
     } catch (error: any) {
       setError(error.message || "Failed to sign in");
     } finally {
@@ -64,7 +74,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase!.auth.signUp({
+      const { data, error } = await supabase!.auth.signUp({
         email,
         password,
         options: {
@@ -79,7 +89,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       // Store session info in localStorage
       localStorage.setItem("user_session", "true");
 
-      onSuccess();
+      if (data.user) {
+        onSuccess(data.user as User);
+      } else {
+        throw new Error("No user data returned");
+      }
     } catch (error: any) {
       setError(error.message || "Failed to sign up");
     } finally {

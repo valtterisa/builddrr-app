@@ -1,6 +1,6 @@
-import WebsiteEditor from "@/components/editor/website-editor";
 import { checkAppExists } from "@/lib/fly";
 import { createClient } from "@/lib/supabase/server";
+import EditorPageClient from "./editor-page-client";
 
 export default async function EditorPage({
   params,
@@ -14,7 +14,6 @@ export default async function EditorPage({
 
   let machine: any;
   const appExists = await checkAppExists(id);
-
 
   if (appExists === true) {
     const response = await fetch(
@@ -33,9 +32,5 @@ export default async function EditorPage({
 
   console.log(machine);
 
-  return (
-    <div className="flex flex-col h-full rounded-3xl">
-      <WebsiteEditor id={id} user={user.user} machine={machine} />
-    </div>
-  );
+  return <EditorPageClient id={id} user={user} machine={machine} />;
 }

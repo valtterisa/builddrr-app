@@ -3,137 +3,176 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Mic, Copy, RefreshCcw } from "lucide-react";
-
-interface Message {
-  id: string;
-  content: string;
-  role: "user" | "assistant";
-  timestamp: Date;
-  isLoading?: boolean;
-}
+import { ArrowUp, Sparkles, LoaderCircle } from "lucide-react";
+import { getChatMessages } from "@/app/actions";
 
 interface ChatInterfaceProps {
-  initialMessages?: Message[];
   className?: string;
-  userAvatar?: string;
-  assistantAvatar?: string;
+  status: string;
+  onSendMessage?: (message: string) => Promise<any>;
+  appName?: string;
+  userId?: string;
 }
 
-function MessageLoading() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      className="text-foreground"
-    >
-      <circle cx="4" cy="12" r="2" fill="currentColor">
-        <animate
-          id="spinner_qFRN"
-          begin="0;spinner_OcgL.end+0.25s"
-          attributeName="cy"
-          calcMode="spline"
-          dur="0.6s"
-          values="12;6;12"
-          keySplines=".33,.66,.66,1;.33,0,.66,.33"
-        />
-      </circle>
-      <circle cx="12" cy="12" r="2" fill="currentColor">
-        <animate
-          begin="spinner_qFRN.begin+0.1s"
-          attributeName="cy"
-          calcMode="spline"
-          dur="0.6s"
-          values="12;6;12"
-          keySplines=".33,.66,.66,1;.33,0,.66,.33"
-        />
-      </circle>
-      <circle cx="20" cy="12" r="2" fill="currentColor">
-        <animate
-          id="spinner_OcgL"
-          begin="spinner_qFRN.begin+0.2s"
-          attributeName="cy"
-          calcMode="spline"
-          dur="0.6s"
-          values="12;6;12"
-          keySplines=".33,.66,.66,1;.33,0,.66,.33"
-        />
-      </circle>
-    </svg>
-  );
-}
+type Message = {
+  id: string;
+  content: string;
+  isUser: boolean;
+  timestamp: Date;
+};
 
-function ChatBubble({
-  message,
-  userAvatar,
-  assistantAvatar,
-}: {
-  message: Message;
-  userAvatar?: string;
-  assistantAvatar?: string;
-}) {
-  const isUser = message.role === "user";
-  return (
-    <div className={cn("flex items-start gap-3 mb-4")}>
-      <Avatar className="h-8 w-8 border border-border">
-        {isUser ? (
-          userAvatar ? (
-            <AvatarImage src={userAvatar} alt="User" />
-          ) : (
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              U
-            </AvatarFallback>
-          )
-        ) : assistantAvatar ? (
-          <AvatarImage src={assistantAvatar} alt="Assistant" />
-        ) : (
-          <AvatarFallback className="bg-secondary text-secondary-foreground">
-            A
-          </AvatarFallback>
-        )}
-      </Avatar>
-      <div
-        className={cn(
-          "px-6 py-4 w-fit max-w-[80%] text-base bg-muted/80 shadow-lg",
-          isUser ? "text-primary" : "text-foreground/90"
-        )}
-        style={{ borderRadius: 18 }}
-      >
-        {message.isLoading ? (
-          <div className="flex items-center h-6">
-            <MessageLoading />
-          </div>
-        ) : (
-          <div className="whitespace-pre-wrap leading-relaxed">
-            {message.content}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+const statusMessages: Record<string, string> = {
+  idle: "What changes would you like to make to your website?",
+  thinking: "Thinking about how to build your website...",
+  generating: "Generating your website code...",
+  deploying: "Deploying your website to the cloud...",
+  polling: "Setting up your website environment...",
+  ready: "Your website is ready! What would you like to modify next?",
+};
 
-export function ChatInterface({
-  initialMessages = [],
+// Function to fetch messages from localStorage as a fallback
+const getMessagesFromLocalStorage = (userId?: string, appName?: string) => {
+  if (!userId || !appName) return [];
+
+  const storageKey = `chat:${userId}:${appName}`;
+  const storedMessages = localStorage.getItem(storageKey);
+
+  if (storedMessages) {
+    try {
+      return JSON.parse(storedMessages);
+    } catch (error) {
+      console.error("Error parsing stored messages:", error);
+      return [];
+    }
+  }
+
+  return [];
+};
+
+export default function ChatInterface({
   className,
-  userAvatar,
-  assistantAvatar,
+  status,
+  onSendMessage,
+  appName,
+  userId,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Load messages when component mounts
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!userId || !appName) {
+        // No user or website ID, just show status message
+        setMessages([
+          {
+            id: `status-${Date.now()}-${Math.random().toString(12).substring(2, 8)}`,
+            content: statusMessages[status] || status,
+            isUser: false,
+            timestamp: new Date(),
+          },
+        ]);
+        return;
+      }
+
+      try {
+        // Try to load messages from Redis using server action
+        const redisMessages = await getChatMessages(userId, appName);
+
+        if (redisMessages && redisMessages.length > 0) {
+          setMessages(redisMessages);
+        } else {
+          // Try to load messages from localStorage as a fallback
+          const localMessages = getMessagesFromLocalStorage(userId, appName);
+
+          if (localMessages.length > 0) {
+            setMessages(localMessages);
+          } else {
+            // Initialize with status message
+            setMessages([
+              {
+                id: `status-${Date.now()}-${Math.random().toString(12).substring(2, 8)}`,
+                content: statusMessages[status] || status,
+                isUser: false,
+                timestamp: new Date(),
+              },
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        // Initialize with status message if there's an error
+        setMessages([
+          {
+            id: `status-${Date.now()}-${Math.random().toString(12).substring(2, 8)}`,
+            content: statusMessages[status] || status,
+            isUser: false,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    };
+
+    fetchMessages();
+  }, [userId, appName, status]);
+
+  // Update status message when status changes
+  useEffect(() => {
+    // Skip if we don't have any messages yet (the first effect will handle it)
+    if (messages.length === 0) return;
+
+    const statusMessage = statusMessages[status];
+    const statusId = `status-${Date.now()}`;
+
+    const hasStatusMessage = messages.some((m) => m.id.startsWith("status-"));
+    const lastMessageIsStatus =
+      messages.length > 0 &&
+      messages[messages.length - 1].id.startsWith("status-");
+
+    if (lastMessageIsStatus) {
+      // Update the last message if it's a status message
+      setMessages((prev) => [
+        ...prev.slice(0, -1),
+        {
+          id: statusId,
+          content: statusMessage,
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+    } else if (!hasStatusMessage) {
+      // Add a new status message if there isn't one
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: statusId,
+          content: statusMessage,
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, [status, messages.length]);
+
+  // Save messages to localStorage as a fallback
+  useEffect(() => {
+    if (appName && userId && messages.length > 0) {
+      const storageKey = `chat:${userId}:${appName}`;
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, appName, userId]);
+
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -142,45 +181,52 @@ export function ChatInterface({
     }
   }, [inputValue]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
-    const userMessage: Message = {
+
+    const userMessage = {
       id: Date.now().toString(),
       content: inputValue,
-      role: "user",
+      isUser: true,
       timestamp: new Date(),
     };
+
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
-    setTimeout(() => {
-      const loadingMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "",
-        role: "assistant",
+
+    try {
+      if (onSendMessage) {
+        await onSendMessage(userMessage.content);
+
+        // Add system message showing we're processing
+        const processingMessage = {
+          id: "processing",
+          content: "Processing your request...",
+          isUser: false,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, processingMessage]);
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error sending message:", error);
+
+      // Add error message
+      const errorMessage = {
+        id: Date.now().toString(),
+        content:
+          "Sorry, there was an error processing your request. Please try again.",
+        isUser: false,
         timestamp: new Date(),
-        isLoading: true,
       };
-      setMessages((prev) => [...prev, loadingMessage]);
-      setTimeout(() => {
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const loadingIndex = newMessages.findIndex((m) => m.isLoading);
-          if (loadingIndex !== -1) {
-            newMessages[loadingIndex] = {
-              id: newMessages[loadingIndex].id,
-              content:
-                "This is a simulated response to your message. In a real implementation, this would be replaced with an actual API call to your backend or AI service.",
-              role: "assistant",
-              timestamp: new Date(),
-            };
-          }
-          return newMessages;
-        });
-        setIsLoading(false);
-      }, 1500);
-    }, 500);
+
+      setMessages((prev) => [...prev, errorMessage]);
+      setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -190,33 +236,87 @@ export function ChatInterface({
     }
   };
 
+  // Get status indicator
+  const getStatusIndicator = () => {
+    if (
+      status === "thinking" ||
+      status === "generating" ||
+      status === "deploying" ||
+      status === "polling"
+    ) {
+      return (
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2">
+          <LoaderCircle className="h-4 w-4 animate-spin" />
+          <span>{statusMessages[status]}</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-background rounded-3xl",
+        "flex flex-col h-full bg-background rounded-3xl overflow-hidden",
         className
       )}
     >
+      {status !== "idle" && status !== "ready" && (
+        <div className="bg-muted/30 border-b px-4 py-2">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+            <p className="text-sm font-medium">
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>No messages yet. Start a conversation!</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <Sparkles className="h-10 w-10 mb-4 text-primary" />
+            <p className="text-center max-w-sm">Ask a follow up...</p>
           </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
-              <ChatBubble
+              <div
                 key={message.id}
-                message={message}
-                userAvatar={userAvatar}
-                assistantAvatar={assistantAvatar}
-              />
+                className={cn(
+                  "flex items-start gap-3 mb-4",
+                  message.isUser ? "justify-end" : "justify-start"
+                )}
+              >
+                {!message.isUser && (
+                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center mt-1">
+                    <Sparkles size={14} className="text-primary-foreground" />
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    "px-4 py-3 w-fit max-w-[85%] text-base shadow-sm",
+                    message.isUser
+                      ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
+                      : "bg-muted/80 text-foreground/90 rounded-2xl rounded-tl-sm"
+                  )}
+                >
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {message.content}
+                  </div>
+                </div>
+                {message.isUser && (
+                  <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center mt-1">
+                    <span className="text-secondary-foreground text-sm">U</span>
+                  </div>
+                )}
+              </div>
             ))}
+            {getStatusIndicator()}
             <div ref={messagesEndRef} />
           </div>
         )}
       </div>
-      <div className="border-t p-4">
+      <div className="border-t p-4 bg-background/80 backdrop-blur-sm">
         <form
           onSubmit={handleSubmit}
           className="relative rounded-xl border bg-background"
@@ -226,29 +326,31 @@ export function ChatInterface({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a follow up question..."
+            placeholder="Ask me about your website..."
             className="min-h-12 max-h-32 resize-none rounded-xl border-0 bg-transparent p-4 pr-16 shadow-none focus:outline-none"
-            disabled={isLoading}
+            disabled={
+              isLoading ||
+              status === "thinking" ||
+              status === "generating" ||
+              status === "deploying" ||
+              status === "polling"
+            }
           />
           <div className="absolute right-2 bottom-2 flex items-center gap-1">
             <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-8 w-8"
-              disabled={isLoading}
-            >
-              <Paperclip className="h-4 w-4" />
-              <span className="sr-only">Attach file</span>
-            </Button>
-
-            <Button
               type="submit"
               size="icon"
-              className="rounded-full h-8 w-8"
-              disabled={!inputValue.trim() || isLoading}
+              className="rounded-full h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={
+                !inputValue.trim() ||
+                isLoading ||
+                status === "thinking" ||
+                status === "generating" ||
+                status === "deploying" ||
+                status === "polling"
+              }
             >
-              <Send className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
               <span className="sr-only">Send message</span>
             </Button>
           </div>
@@ -257,32 +359,3 @@ export function ChatInterface({
     </div>
   );
 }
-
-// Example usage for development preview
-// export default function ChatPage() {
-//   const initialMessages: Message[] = [
-//     {
-//       id: "1",
-//       content: "Hello! How can I help you today?",
-//       role: "assistant",
-//       timestamp: new Date(Date.now() - 100000),
-//     },
-//     {
-//       id: "2",
-//       content: "I'm looking for information about your services.",
-//       role: "user",
-//       timestamp: new Date(Date.now() - 80000),
-//     },
-//     {
-//       id: "3",
-//       content: "Of course! We offer a range of services including web development, mobile app development, and UI/UX design. Is there a specific service you're interested in learning more about?",
-//       role: "assistant",
-//       timestamp: new Date(Date.now() - 60000),
-//     },
-//   ];
-//   return (
-//     <div className="h-[600px] w-full max-w-3xl mx-auto border rounded-xl overflow-hidden shadow-lg">
-//       <ChatInterface initialMessages={initialMessages} />
-//     </div>
-//   );
-// }
