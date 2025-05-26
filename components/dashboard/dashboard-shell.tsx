@@ -79,11 +79,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (pathname?.includes("editor")) {
     return (
       <SidebarProvider>
-        <div className="flex min-h-screen h-full w-full p-2 md:p-4 w-full">
-          <SidebarInset className="rounded-3xl min-w-0 flex-1">
-            {children}
-          </SidebarInset>
-        </div>
+        <SidebarInset className="rounded-3xl min-w-0 flex-1">
+          {children}
+        </SidebarInset>
       </SidebarProvider>
     );
   }

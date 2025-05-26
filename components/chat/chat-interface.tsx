@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowUp, Sparkles, LoaderCircle } from "lucide-react";
+import { ArrowUp, LoaderCircle, Sparkles } from "lucide-react";
 import { getChatMessages } from "@/app/actions";
 
 interface ChatInterfaceProps {
@@ -257,12 +257,12 @@ export default function ChatInterface({
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-background rounded-3xl overflow-hidden",
+        "flex flex-col h-full bg-[#faefff] text-foreground overflow-hidden",
         className
       )}
     >
       {status !== "idle" && status !== "ready" && (
-        <div className="bg-muted/30 border-b px-4 py-2">
+        <div className="border-b border-muted/30 px-4 py-2">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
             <p className="text-sm font-medium">
@@ -274,41 +274,25 @@ export default function ChatInterface({
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Sparkles className="h-10 w-10 mb-4 text-primary" />
             <p className="text-center max-w-sm">Ask a follow up...</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex items-start gap-3 mb-4",
-                  message.isUser ? "justify-end" : "justify-start"
-                )}
-              >
-                {!message.isUser && (
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center mt-1">
-                    <Sparkles size={14} className="text-primary-foreground" />
+              <div key={message.id} className="flex items-center gap-4">
+                {message.isUser ? (
+                  <div className="h-7 w-7 rounded-md bg-purple-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-medium">who</span>
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-md border border-primary/20 bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-4 w-4 text-primary" />
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "px-4 py-3 w-fit max-w-[85%] text-base shadow-sm",
-                    message.isUser
-                      ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
-                      : "bg-muted/80 text-foreground/90 rounded-2xl rounded-tl-sm"
-                  )}
-                >
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {message.content}
-                  </div>
+
+                <div className="text-sm text-foreground leading-relaxed max-w-[90%]">
+                  {message.content}
                 </div>
-                {message.isUser && (
-                  <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center mt-1">
-                    <span className="text-secondary-foreground text-sm">U</span>
-                  </div>
-                )}
               </div>
             ))}
             {getStatusIndicator()}
@@ -316,18 +300,15 @@ export default function ChatInterface({
           </div>
         )}
       </div>
-      <div className="border-t p-4 bg-background/80 backdrop-blur-sm">
-        <form
-          onSubmit={handleSubmit}
-          className="relative rounded-xl border bg-background"
-        >
+      <div className="border-t border-muted/30 px-4">
+        <form onSubmit={handleSubmit} className="relative h-full">
           <Textarea
             ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me about your website..."
-            className="min-h-12 max-h-32 resize-none rounded-xl border-0 bg-transparent p-4 pr-16 shadow-none focus:outline-none"
+            placeholder="Ask a follow up..."
+            className="min-h-24 max-h-32 resize-none bg-background border border-muted rounded-md p-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             disabled={
               isLoading ||
               status === "thinking" ||
@@ -336,11 +317,11 @@ export default function ChatInterface({
               status === "polling"
             }
           />
-          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+          <div className="absolute right-2 bottom-12 flex items-center gap-1">
             <Button
               type="submit"
               size="icon"
-              className="rounded-full h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="rounded-md h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none"
               disabled={
                 !inputValue.trim() ||
                 isLoading ||
@@ -354,6 +335,9 @@ export default function ChatInterface({
               <span className="sr-only">Send message</span>
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground text-center py-3">
+            SiteForge may make mistakes. Please use with discretion.
+          </p>
         </form>
       </div>
     </div>

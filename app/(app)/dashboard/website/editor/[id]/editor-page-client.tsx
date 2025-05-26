@@ -113,8 +113,8 @@ export default function EditorPageClient({
   };
 
   return (
-    <div className="flex flex-row h-full rounded-3xl">
-      <div className="md:w-[450px] border-r bg-muted/20 flex flex-col md:rounded-none rounded-t-lg h-full">
+    <div className="flex flex-row gap-4 h-full rounded-3xl">
+      <div className="md:w-[500px] flex flex-col h-full">
         <ChatInterface
           status={status}
           onSendMessage={handleSendMessage}
