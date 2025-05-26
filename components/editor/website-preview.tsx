@@ -56,6 +56,41 @@ export default function WebsitePreview({
   const [iframeReady, setIframeReady] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
 
+  // Get a preview URL - use real machine URL, mock URL, or API preview endpoint
+  const getPreviewUrl = useCallback(() => {
+    // If we have a machine with a URL property, use it
+    if (machine && machine.ipv4) {
+      return `http://${machine.ipv4}`;
+    }
+
+    // If we have an initial URL that's not "new", use the preview endpoint
+    if (initialUrl && initialUrl !== "new") {
+      return `/api/preview/${initialUrl}`;
+    }
+
+    // Return null if no valid URL can be determined
+    return null;
+  }, [machine, initialUrl]);
+
+  const previewUrl = getPreviewUrl();
+
+  // Render fallback content when no URL is available
+  if (!previewUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
+        <div className="text-center max-w-md">
+          <h3 className="text-xl font-medium mb-2">Website Preview</h3>
+          <p className="text-gray-500 mb-4">
+            {iframeError
+              ? `Error loading preview: ${iframeError}`
+              : "Your website is being generated. The preview will appear here once it's ready."}
+          </p>
+          <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
+
   const closeToolbar = useCallback(() => {
     // Only close the toolbar if we're not in edit mode
     if (!isEditMode) {

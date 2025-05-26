@@ -23,13 +23,38 @@ type Message = {
   timestamp: Date;
 };
 
+// Update status messages to be more detailed
 const statusMessages: Record<string, string> = {
   idle: "What changes would you like to make to your website?",
-  thinking: "Thinking about how to build your website...",
-  generating: "Generating your website code...",
-  deploying: "Deploying your website to the cloud...",
-  polling: "Setting up your website environment...",
+  thinking: "Analyzing your request and planning required changes...",
+  generating: "Generating code for your website updates...",
+  deploying: "Deploying your changes to the preview environment...",
+  polling: "Setting up your website environment and preparing services...",
   ready: "Your website is ready! What would you like to modify next?",
+};
+
+// Add detailed process steps for each status
+const statusDetails: Record<string, string[]> = {
+  thinking: [
+    "Understanding your requirements",
+    "Analyzing existing codebase",
+    "Planning necessary changes",
+  ],
+  generating: [
+    "Creating component structure",
+    "Writing code implementation",
+    "Ensuring proper styling",
+  ],
+  deploying: [
+    "Preparing deployment package",
+    "Uploading files to server",
+    "Configuring runtime environment",
+  ],
+  polling: [
+    "Starting server instances",
+    "Initializing database connections",
+    "Verifying all services",
+  ],
 };
 
 // Function to fetch messages from localStorage as a fallback
@@ -63,6 +88,7 @@ export default function ChatInterface({
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
 
   // Load messages when component mounts
   useEffect(() => {
@@ -181,6 +207,32 @@ export default function ChatInterface({
     }
   }, [inputValue]);
 
+  // Progress animation effect for active processing states
+  useEffect(() => {
+    if (
+      status === "thinking" ||
+      status === "generating" ||
+      status === "deploying" ||
+      status === "polling"
+    ) {
+      const steps = statusDetails[status] || [];
+      if (steps.length === 0) return;
+
+      // Move through steps with a delay
+      const interval = setInterval(() => {
+        setActiveStepIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          // If we reached the end, start from beginning to show continuous progress
+          return nextIndex >= steps.length ? 0 : nextIndex;
+        });
+      }, 3000); // Update every 3 seconds
+
+      return () => clearInterval(interval);
+    } else {
+      setActiveStepIndex(0); // Reset when not in a processing state
+    }
+  }, [status]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
@@ -198,8 +250,6 @@ export default function ChatInterface({
 
     try {
       if (onSendMessage) {
-        await onSendMessage(userMessage.content);
-
         // Add system message showing we're processing
         const processingMessage = {
           id: "processing",
@@ -207,8 +257,23 @@ export default function ChatInterface({
           isUser: false,
           timestamp: new Date(),
         };
-
         setMessages((prev) => [...prev, processingMessage]);
+
+        // Call the onSendMessage handler and await result
+        await onSendMessage(userMessage.content);
+
+        // Update the processing message with success info
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === "processing"
+              ? {
+                  ...msg,
+                  id: Date.now().toString(), // Change ID so it doesn't get updated again
+                  content: "Request processed successfully. Changes applied.",
+                }
+              : msg
+          )
+        );
       }
 
       setIsLoading(false);
@@ -244,10 +309,50 @@ export default function ChatInterface({
       status === "deploying" ||
       status === "polling"
     ) {
+      // Get the detailed steps for current status
+      const steps = statusDetails[status] || [];
+
       return (
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2">
-          <LoaderCircle className="h-4 w-4 animate-spin" />
-          <span>{statusMessages[status]}</span>
+        <div className="bg-muted/30 rounded-lg p-4 my-4">
+          <div className="flex items-center gap-2 mb-2">
+            <LoaderCircle className="h-5 w-5 text-primary animate-spin" />
+            <span className="font-medium">{statusMessages[status]}</span>
+          </div>
+
+          {steps.length > 0 && (
+            <div className="pl-7 mt-2 space-y-2">
+              {steps.map((step, index) => {
+                // Use the activeStepIndex to determine which steps are active
+                // Current step and previous steps are shown as active
+                const isActive = index <= activeStepIndex;
+                const isCurrent = index === activeStepIndex;
+
+                return (
+                  <div key={index} className="flex items-center gap-2">
+                    <div
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isCurrent
+                          ? "bg-primary animate-pulse"
+                          : isActive
+                            ? "bg-primary"
+                            : "bg-muted"
+                      }`}
+                    />
+                    <span
+                      className={`text-sm ${
+                        isActive
+                          ? "text-foreground"
+                          : "text-muted-foreground/60"
+                      }`}
+                    >
+                      {step}
+                      {isCurrent && "..."}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       );
     }
@@ -255,11 +360,10 @@ export default function ChatInterface({
   };
 
   return (
-    <div className="md:w-[500px] flex flex-col h-full">
+    <div className={cn("md:w-[500px] flex flex-col h-full", className)}>
       <div
         className={cn(
-          "flex flex-col h-full bg-[#faefff] text-foreground overflow-hidden",
-          className
+          "flex-1 flex flex-col h-full bg-[#faefff] text-foreground overflow-hidden"
         )}
       >
         {status !== "idle" && status !== "ready" && (
@@ -272,6 +376,7 @@ export default function ChatInterface({
             </div>
           </div>
         )}
+
         <div className="flex-1 overflow-y-auto p-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -292,7 +397,6 @@ export default function ChatInterface({
                       <Sparkles className="h-4 w-4 text-primary" />
                     </div>
                   )}
-
                   <div className="text-sm text-foreground leading-relaxed max-w-[90%]">
                     {message.content}
                   </div>
@@ -303,6 +407,7 @@ export default function ChatInterface({
             </div>
           )}
         </div>
+
         <div className="border-t border-muted/30 px-4">
           <form onSubmit={handleSubmit} className="relative h-full">
             <Textarea
