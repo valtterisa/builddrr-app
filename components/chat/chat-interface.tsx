@@ -255,90 +255,94 @@ export default function ChatInterface({
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full bg-[#faefff] text-foreground overflow-hidden",
-        className
-      )}
-    >
-      {status !== "idle" && status !== "ready" && (
-        <div className="border-b border-muted/30 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
-            <p className="text-sm font-medium">
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </p>
-          </div>
-        </div>
-      )}
-      <div className="flex-1 overflow-y-auto p-4">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <p className="text-center max-w-sm">Ask a follow up...</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {messages.map((message) => (
-              <div key={message.id} className="flex items-center gap-4">
-                {message.isUser ? (
-                  <div className="h-7 w-7 rounded-md bg-purple-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-medium">who</span>
-                  </div>
-                ) : (
-                  <div className="h-8 w-8 rounded-md border border-primary/20 bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                )}
-
-                <div className="text-sm text-foreground leading-relaxed max-w-[90%]">
-                  {message.content}
-                </div>
-              </div>
-            ))}
-            {getStatusIndicator()}
-            <div ref={messagesEndRef} />
+    <div className="md:w-[500px] flex flex-col h-full">
+      <div
+        className={cn(
+          "flex flex-col h-full bg-[#faefff] text-foreground overflow-hidden",
+          className
+        )}
+      >
+        {status !== "idle" && status !== "ready" && (
+          <div className="border-b border-muted/30 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+              <p className="text-sm font-medium">
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </p>
+            </div>
           </div>
         )}
-      </div>
-      <div className="border-t border-muted/30 px-4">
-        <form onSubmit={handleSubmit} className="relative h-full">
-          <Textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a follow up..."
-            className="min-h-24 max-h-32 resize-none bg-background border border-muted rounded-md p-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            disabled={
-              isLoading ||
-              status === "thinking" ||
-              status === "generating" ||
-              status === "deploying" ||
-              status === "polling"
-            }
-          />
-          <div className="absolute right-2 bottom-12 flex items-center gap-1">
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-md h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none"
+        <div className="flex-1 overflow-y-auto p-4">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <p className="text-center max-w-sm">Ask a follow up...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((message) => (
+                <div key={message.id} className="flex items-center gap-4">
+                  {message.isUser ? (
+                    <div className="h-7 w-7 rounded-md bg-purple-600 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-medium">
+                        who
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="h-8 w-8 rounded-md border border-primary/20 bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+
+                  <div className="text-sm text-foreground leading-relaxed max-w-[90%]">
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+              {getStatusIndicator()}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+        <div className="border-t border-muted/30 px-4">
+          <form onSubmit={handleSubmit} className="relative h-full">
+            <Textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask a follow up..."
+              className="min-h-24 max-h-32 resize-none bg-background border border-muted rounded-md p-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={
-                !inputValue.trim() ||
                 isLoading ||
                 status === "thinking" ||
                 status === "generating" ||
                 status === "deploying" ||
                 status === "polling"
               }
-            >
-              <ArrowUp className="h-4 w-4" />
-              <span className="sr-only">Send message</span>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground text-center py-3">
-            SiteForge may make mistakes. Please use with discretion.
-          </p>
-        </form>
+            />
+            <div className="absolute right-2 bottom-12 flex items-center gap-1">
+              <Button
+                type="submit"
+                size="icon"
+                className="rounded-md h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none"
+                disabled={
+                  !inputValue.trim() ||
+                  isLoading ||
+                  status === "thinking" ||
+                  status === "generating" ||
+                  status === "deploying" ||
+                  status === "polling"
+                }
+              >
+                <ArrowUp className="h-4 w-4" />
+                <span className="sr-only">Send message</span>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center py-3">
+              SiteForge may make mistakes. Please use with discretion.
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );

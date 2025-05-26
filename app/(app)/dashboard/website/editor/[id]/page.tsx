@@ -1,6 +1,6 @@
 import { checkAppExists } from "@/lib/fly";
 import { createClient } from "@/lib/supabase/server";
-import EditorPageClient from "./editor-page-client";
+import EditorPageClient from "../../../../../../components/editor/editor-page-client";
 
 export default async function EditorPage({
   params,
@@ -29,8 +29,6 @@ export default async function EditorPage({
 
     machine = await response.json();
   }
-
-  console.log(machine);
 
   return <EditorPageClient id={id} user={user} machine={machine} />;
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { AppSidebar } from "../app-sidebar";
-import { SidebarInset, SidebarProvider } from "../ui/sidebar";
+import { AppSidebar } from "../../app-sidebar";
+import { SidebarInset, SidebarProvider } from "../../ui/sidebar";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 

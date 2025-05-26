@@ -141,19 +141,13 @@ export default function EditorPageClient({
             userId={user.user.id}
           />
         </div>
-        <div className="flex-1">
-          <div className="flex flex-col h-full bg-background rounded-3xl">
-            <div className="flex flex-1 h-full">
-              <div className="flex-1 min-w-0 h-full">
-                <WebsitePreview
-                  isEditMode={isEditMode}
-                  initialUrl={websiteUrl || undefined}
-                  id={id}
-                  machine={machineData}
-                />
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-col flex-1 min-w-0 h-full bg-background rounded-3xl">
+          <WebsitePreview
+            isEditMode={isEditMode}
+            initialUrl={websiteUrl || undefined}
+            id={id}
+            machine={machineData}
+          />
         </div>
       </div>
     </div>

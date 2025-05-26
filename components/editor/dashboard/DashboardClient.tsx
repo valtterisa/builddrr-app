@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Website } from "@/lib/database";
-import { SiteHeader } from "../site-header";
+import { SiteHeader } from "../../site-header";
 import { useState } from "react";
 import { QuickActions } from "./quick-actions";
 import { MetricsCards } from "./metrics-cards";
