@@ -306,69 +306,136 @@ Respond ONLY with the <siteforge-code> block and file operations.
   }
 }
 
-// Initial website generation
+export type SiteforgeOperation =
+  | { type: "write"; path: string; content: string }
+  | { type: "delete"; path: string }
+  | { type: "rename"; oldPath: string; newPath: string }
+  | { type: "dependency"; dependency: string };
+
 export async function generateAIResponse(
-  prompt: string
-): Promise<Record<string, string>> {
-  try {
-    const fileUpdates: Record<string, string> = {};
-    const operations: Operation[] = [];
+  prompt: string,
+  onOperationParsed?: (op: SiteforgeOperation) => void
+): Promise<{
+  files: Record<string, string>;
+  deletes: string[];
+  renames: { oldPath: string; newPath: string }[];
+  dependencies: string[];
+  operations: SiteforgeOperation[];
+}> {
+  const files: Record<string, string> = {};
+  const deletes: string[] = [];
+  const renames: { oldPath: string; newPath: string }[] = [];
+  const dependencies: string[] = [];
+  const operations: SiteforgeOperation[] = [];
 
-    const result = streamText({
-      system: systemPrompt,
-      prompt: prompt,
-      temperature: 0,
-      model: anthropic("claude-sonnet-4-20250514"),
-      maxTokens: 64000,
-      onError: ({ error }) => {
-        console.error("AI Stream Error:", error);
-      },
-      onFinish: ({ finishReason, usage }) => {
-        console.log("AI Stream Finished:", { finishReason, usage });
-      },
-    });
+  const result = streamText({
+    system: systemPrompt,
+    prompt: prompt,
+    temperature: 0,
+    model: anthropic("claude-sonnet-4-20250514"),
+    maxTokens: 16000,
+    onError: ({ error }) => {
+      console.error("AI Stream Error:", error);
+    },
+    onFinish: ({ finishReason, usage }) => {
+      console.log("AI Stream Finished:", { finishReason, usage });
+    },
+  });
 
-    const reader = result.textStream.getReader();
-    let buffer = "";
+  const reader = result.textStream.getReader();
+  let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += value;
-    }
+  // Regexes for all operation types
+  const writeRegex =
+    /<siteforge-write file="([^"]+)">([\s\S]*?)<\/siteforge-write>/;
+  const deleteRegex = /<siteforge-delete file="([^"]+)"\s*\/>/;
+  const renameRegex =
+    /<siteforge-rename file="([^"]+)" newPath="([^"]+)"\s*\/>/;
+  const depRegex =
+    /<siteforge-add-dependency>([\s\S]*?)<\/siteforge-add-dependency>/;
 
-    console.log("🔄 Generated buffer:", buffer);
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
 
-    // Extract the <siteforge-code> block
-    const codeMatch = buffer.match(
-      /<siteforge-code>([\s\S]*?)<\/siteforge-code>/
-    );
-    if (codeMatch && codeMatch[1]) {
-      const codeBlock = codeMatch[1].trim();
+    // Keep extracting as long as we find any operation
+    let matched = true;
+    while (matched) {
+      matched = false;
 
-      // Extract write operations
-      const writeMatches = [
-        ...codeBlock.matchAll(
-          /<siteforge-write file="([^"]+)">([\s\S]*?)<\/siteforge-write>/g
-        ),
-      ];
-      for (const match of writeMatches) {
-        const path = match[1].startsWith("/")
-          ? match[1].substring(1)
-          : match[1];
-        fileUpdates[path] = match[2].trim();
+      // Write
+      const writeMatch = writeRegex.exec(buffer);
+      if (writeMatch) {
+        const path = writeMatch[1].startsWith("/")
+          ? writeMatch[1].substring(1)
+          : writeMatch[1];
+        const content = writeMatch[2].trim();
+        files[path] = content;
+        const op: SiteforgeOperation = { type: "write", path, content };
+        operations.push(op);
+        if (onOperationParsed) onOperationParsed(op);
+        buffer = buffer.slice(writeMatch.index + writeMatch[0].length);
+        matched = true;
+        continue;
       }
 
-      // For initial generation, we ignore delete, rename, and dependency operations
+      // Delete
+      const deleteMatch = deleteRegex.exec(buffer);
+      if (deleteMatch) {
+        const path = deleteMatch[1].startsWith("/")
+          ? deleteMatch[1].substring(1)
+          : deleteMatch[1];
+        deletes.push(path);
+        const op: SiteforgeOperation = { type: "delete", path };
+        operations.push(op);
+        if (onOperationParsed) onOperationParsed(op);
+        buffer = buffer.slice(deleteMatch.index + deleteMatch[0].length);
+        matched = true;
+        continue;
+      }
+
+      // Rename
+      const renameMatch = renameRegex.exec(buffer);
+      if (renameMatch) {
+        const oldPath = renameMatch[1].startsWith("/")
+          ? renameMatch[1].substring(1)
+          : renameMatch[1];
+        const newPath = renameMatch[2].startsWith("/")
+          ? renameMatch[2].substring(1)
+          : renameMatch[2];
+        renames.push({ oldPath, newPath });
+        const op: SiteforgeOperation = { type: "rename", oldPath, newPath };
+        operations.push(op);
+        if (onOperationParsed) onOperationParsed(op);
+        buffer = buffer.slice(renameMatch.index + renameMatch[0].length);
+        matched = true;
+        continue;
+      }
+
+      // Dependency (can be multiline)
+      const depMatch = depRegex.exec(buffer);
+      if (depMatch) {
+        const deps = depMatch[1]
+          .split("\n")
+          .map((d) => d.trim())
+          .filter(Boolean);
+        for (const dependency of deps) {
+          dependencies.push(dependency);
+          const op: SiteforgeOperation = { type: "dependency", dependency };
+          operations.push(op);
+          if (onOperationParsed) onOperationParsed(op);
+        }
+        buffer = buffer.slice(depMatch.index + depMatch[0].length);
+        matched = true;
+        continue;
+      }
     }
-
-    console.log("🔄 Generated file updates:", fileUpdates);
-
-    return fileUpdates;
-  } catch (error) {
-    console.error("Error in generateAIResponse:", error);
-    return {};
   }
+
+  // Optionally, handle any remaining partial blocks in buffer here (rare, unless AI output is malformed)
+
+  return { files, deletes, renames, dependencies, operations };
 }
 
 export async function processChatMessage(
@@ -377,25 +444,25 @@ export async function processChatMessage(
   message: string
 ): Promise<{ success: boolean; operations?: string[]; error?: string }> {
   try {
-    console.log(`🔄 Processing chat message for ${userId}:${appName}`);
+    // Save the user message and get current VFS in parallel
+    const [savedMessage, currentVFSRaw] = await Promise.all([
+      sendChatMessage(userId, appName, message, true),
+      getVirtualFileSystem(userId, appName),
+    ]);
+    const currentVFS = currentVFSRaw || {};
 
-    // Save the user message
-    const savedMessage = await sendChatMessage(userId, appName, message, true);
     if (!savedMessage.success) {
       console.error("❌ Failed to save user message:", savedMessage.error);
-    } else {
-      console.log("✅ User message saved successfully");
     }
 
-    // Get current VFS
-    console.log("📂 Getting current virtual file system");
-    const currentVFS = (await getVirtualFileSystem(userId, appName)) || {};
-    console.log(`📄 Found ${Object.keys(currentVFS).length} files in VFS`);
-
     // Run AI to generate file updates
-    console.log("🧠 Generating file updates with AI");
-    const operations = await generateFileUpdates(message, currentVFS);
-    console.log(`✅ Generated ${operations.length} operations`);
+    const {
+      files: updatedVFS,
+      deletes,
+      renames,
+      dependencies,
+      operations,
+    } = await generateAIResponse(message);
 
     // Apply operations to VFS
     const updatedFiles = [];
@@ -405,10 +472,8 @@ export async function processChatMessage(
 
     console.log("📝 Applying operations to VFS");
     for (const op of operations) {
-      switch (op.operation) {
+      switch (op.type) {
         case "write":
-        case "update":
-        case "code":
           if (op.path && op.content) {
             const path = op.path.startsWith("/")
               ? op.path.substring(1)
@@ -427,14 +492,13 @@ export async function processChatMessage(
           }
           break;
         case "rename":
-          if (op.path && op.newPath) {
-            const oldPath = op.path.startsWith("/")
-              ? op.path.substring(1)
-              : op.path;
+          if (op.oldPath && op.newPath) {
+            const oldPath = op.oldPath.startsWith("/")
+              ? op.oldPath.substring(1)
+              : op.oldPath;
             const newPath = op.newPath.startsWith("/")
               ? op.newPath.substring(1)
               : op.newPath;
-
             if (currentVFS[oldPath]) {
               currentVFS[newPath] = currentVFS[oldPath];
               delete currentVFS[oldPath];
@@ -449,7 +513,6 @@ export async function processChatMessage(
               dependencies?: Record<string, string>;
               [key: string]: any;
             } = {};
-
             if (currentVFS[pkgJsonPath]) {
               try {
                 pkgJson = JSON.parse(currentVFS[pkgJsonPath]);
@@ -457,7 +520,6 @@ export async function processChatMessage(
                 console.error("Error parsing package.json:", e);
               }
             }
-
             pkgJson.dependencies = pkgJson.dependencies || {};
             pkgJson.dependencies[op.dependency] = "*";
             currentVFS[pkgJsonPath] = JSON.stringify(pkgJson, null, 2);
@@ -477,83 +539,43 @@ export async function processChatMessage(
     console.log("💾 Saving updated VFS");
     await updateVirtualFileSystem(userId, appName, currentVFS);
 
-    // Create a meaningful response message based on operations
-    let responseMessage = "";
+    // Save assistant response (no need to await, can be fire-and-forget)
+    const responseMessage =
+      operations.length === 0
+        ? "No changes were made to your website."
+        : [
+            operations.filter((op) => op.type === "write").length > 0
+              ? `Updated ${operations.filter((op) => op.type === "write").length} file(s)`
+              : "",
+            operations.filter((op) => op.type === "delete").length > 0
+              ? `Deleted ${operations.filter((op) => op.type === "delete").length} file(s)`
+              : "",
+            operations.filter((op) => op.type === "rename").length > 0
+              ? `Renamed ${operations.filter((op) => op.type === "rename").length} file(s)`
+              : "",
+            operations.filter((op) => op.type === "dependency").length > 0
+              ? `Added ${operations.filter((op) => op.type === "dependency").length} dependenc${operations.filter((op) => op.type === "dependency").length > 1 ? "ies" : "y"}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(", ") + ".";
 
-    if (operations.length === 0) {
-      responseMessage = "No changes were made to your website.";
-    } else {
-      const writeOps = operations.filter(
-        (op) =>
-          op.operation === "write" ||
-          op.operation === "update" ||
-          op.operation === "code"
-      );
-      const deleteOps = operations.filter((op) => op.operation === "delete");
-      const renameOps = operations.filter((op) => op.operation === "rename");
-      const depOps = operations.filter((op) => op.operation === "dependency");
+    sendChatMessage(userId, appName, responseMessage, false); // fire-and-forget
 
-      const parts = [];
-
-      if (writeOps.length > 0) {
-        parts.push(
-          `Updated ${writeOps.length} file${writeOps.length > 1 ? "s" : ""}`
-        );
-      }
-
-      if (deleteOps.length > 0) {
-        parts.push(
-          `Deleted ${deleteOps.length} file${deleteOps.length > 1 ? "s" : ""}`
-        );
-      }
-
-      if (renameOps.length > 0) {
-        parts.push(
-          `Renamed ${renameOps.length} file${renameOps.length > 1 ? "s" : ""}`
-        );
-      }
-
-      if (depOps.length > 0) {
-        parts.push(
-          `Added ${depOps.length} dependenc${depOps.length > 1 ? "ies" : "y"}`
-        );
-      }
-
-      responseMessage = `${parts.join(", ")}.`;
-    }
-
-    // Save assistant response
-    console.log("💬 Saving assistant response");
-    const assistantResponse = await sendChatMessage(
-      userId,
-      appName,
-      responseMessage,
-      false
-    );
-    if (!assistantResponse.success) {
-      console.error(
-        "❌ Failed to save assistant response:",
-        assistantResponse.error
-      );
-    }
-
-    console.log("✅ Chat message processed successfully");
     return {
       success: true,
-      operations: operations.map((op) => op.operation),
+      operations: operations.map((op) => op.type),
     };
   } catch (error) {
-    console.error("processChatMessage error:", error);
-
-    // Send error message to chat
+    // Only catch actionable errors
     try {
-      const errorMsg = "Sorry, I encountered an error processing your request.";
-      console.log("⚠️ Saving error message to chat");
-      await sendChatMessage(userId, appName, errorMsg, false);
-    } catch (chatError) {
-      console.error("Failed to save error message to chat:", chatError);
-    }
-
+      await sendChatMessage(
+        userId,
+        appName,
+        "Sorry, I encountered an error processing your request.",
+        false
+      );
+    } catch {}
     return {
       success: false,
       error:

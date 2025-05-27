@@ -42,6 +42,25 @@ export default function PromptTool() {
     router.push(`/dashboard/website/editor/${appName}`);
   };
 
+  const examples = [
+    {
+      name: "Cafe website",
+      prompt: "Make a simple website for my cafe",
+    },
+    {
+      name: "Landing page for a software startup",
+      prompt: "Make a landing page for my software startup",
+    },
+    {
+      name: "Portfolio website for a photographer",
+      prompt: "Make a portfolio website for my photography business",
+    },
+    {
+      name: "Blog website",
+      prompt: "Make a blog website for my blog",
+    },
+  ];
+
   const promptPlaceholders = [
     "Make a landing page for my new product",
     "I need a website for my cafeteria",
@@ -147,6 +166,18 @@ export default function PromptTool() {
           setTimeout(() => handleSend(), 100); // Try again after auth
         }}
       />
+      <div className="flex flex-wrap gap-2 pt-4">
+        {examples.map((example, index) => (
+          <Button
+            key={index}
+            variant="outline"
+            size="sm"
+            onClick={() => setPrompt(example.prompt)}
+          >
+            {example.name}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
