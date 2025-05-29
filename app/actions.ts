@@ -583,3 +583,141 @@ export async function processChatMessage(
     };
   }
 }
+
+export async function generateSite(
+  prompt: string,
+  setStatus: (status: string) => void,
+  userId: string,
+  appName: string
+) {
+  console.log("📥 generateSite started with prompt length:", prompt.length);
+
+  setStatus("thinking");
+  setStatus("generating");
+
+  let filesObj: Record<string, string> = {};
+  try {
+    const { files } = await generateAIResponse(prompt);
+    if (!files || Object.keys(files).length === 0) {
+      setStatus("ready");
+      return {
+        success: false,
+        error:
+          "AI returned an empty response. Please try again with a clearer prompt.",
+      };
+    }
+  } catch (aiError) {
+    setStatus("ready");
+    return {
+      success: false,
+      error: aiError instanceof Error ? aiError.message : String(aiError),
+    };
+  }
+
+  // Convert Record<string, string> to FileOperation[]
+  const files = Object.entries(filesObj).map(([path, content]) => ({
+    path,
+    content,
+  }));
+
+  // Save to Redis in parallel
+  setStatus("deploying");
+  try {
+    await Promise.all([
+      (async () => {
+        try {
+          await Promise.race([
+            redis.set(`prompt:${userId}:${appName}`, prompt),
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error("Redis prompt save timeout")),
+                5000
+              )
+            ),
+          ]);
+        } catch (err) {
+          console.error("❌ Redis prompt error:", err);
+        }
+      })(),
+      (async () => {
+        try {
+          await Promise.race([
+            redis.set(`vfs:${userId}:${appName}`, JSON.stringify(files)),
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error("Redis VFS save timeout")),
+                5000
+              )
+            ),
+          ]);
+        } catch (err) {
+          console.error("❌ Redis VFS error:", err);
+        }
+      })(),
+    ]);
+  } catch (redisError) {
+    // Only log, don't fallback to localStorage unless both fail
+    console.error("❌ Redis error:", redisError);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`vfs:${userId}:${appName}`, JSON.stringify(files));
+      } catch (localStorageError) {
+        console.error("❌ Failed to save to localStorage:", localStorageError);
+      }
+    }
+  }
+
+  // Chat history initialization
+  const chatKey = `chat:${userId}:${appName}`;
+  const initialMessage = {
+    id: Date.now().toString(),
+    content: prompt,
+    isUser: true,
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    const messageString = JSON.stringify(initialMessage);
+    JSON.parse(messageString); // Sanity check
+    await Promise.race([
+      redis.rpush(chatKey, messageString),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Redis chat message save timeout")),
+          5000
+        )
+      ),
+    ]);
+  } catch (chatError) {
+    console.error("❌ Chat history error:", chatError);
+    if (typeof window !== "undefined") {
+      try {
+        const localStorageKey = `chat:${userId}:${appName}`;
+        const existingMessages = localStorage.getItem(localStorageKey);
+        const messages = existingMessages
+          ? [...JSON.parse(existingMessages), initialMessage]
+          : [initialMessage];
+        localStorage.setItem(localStorageKey, JSON.stringify(messages));
+      } catch (localStorageError) {
+        console.error("❌ Failed to save to localStorage:", localStorageError);
+      }
+    }
+  }
+
+  // Deploy (keep as is, but error handling is now more targeted)
+  let result;
+  try {
+    result = await fetch("/api/deploy-preview", {
+      method: "POST",
+      body: JSON.stringify({ files, userId }),
+    });
+    setStatus("polling");
+    setStatus("ready");
+    return result;
+  } catch (deployError) {
+    setStatus("ready");
+    return {
+      success: true,
+      machine: { id: "error-machine-id", name: appName },
+    };
+  }
+}

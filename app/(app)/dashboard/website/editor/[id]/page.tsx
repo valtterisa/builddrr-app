@@ -1,4 +1,4 @@
-import { checkAppExists } from "@/lib/fly";
+import { checkAppAvailability } from "@/lib/fly";
 import { createClient } from "@/lib/supabase/server";
 import EditorPageClient from "../../../../../../components/editor/editor-page-client";
 
@@ -13,7 +13,7 @@ export default async function EditorPage({
   const { data: user } = await supabase.auth.getUser();
 
   let machine: any;
-  const appExists = await checkAppExists(id);
+  const appExists = await checkAppAvailability(id);
 
   if (appExists === true) {
     const response = await fetch(
@@ -30,5 +30,12 @@ export default async function EditorPage({
     machine = await response.json();
   }
 
-  return <EditorPageClient id={id} user={user} machine={machine} />;
+  return (
+    <EditorPageClient
+      id={id}
+      user={user}
+      machine={machine}
+      appExists={appExists}
+    />
+  );
 }

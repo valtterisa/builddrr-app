@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse, NextFetchEvent } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/ratelimit";
-
+import { createClient } from "@/lib/supabase/server";
 export async function POST(req: NextRequest, context: NextFetchEvent) {
-  // @TODO: slow
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const reqBody = await req.json();
 
-  if (!user) {
-    return NextResponse.json(
-      { ok: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
-
-  const userId = user.id;
+  const userId = reqBody.userId;
 
   const success = await rateLimit(userId, 10, "10 s", context);
 
@@ -90,6 +79,32 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
     );
 
     const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
+
+    // Get specific machine, copy config, update config, continue
+    const machine = await fetch(
+      `https://api.machines.dev/v1/apps/${appName}/machines`,
+      {
+        headers: {
+          Authorization: `Bearer ${FLY_API_TOKEN}`,
+        },
+      }
+    );
+
+    const machineData = await machine.json();
+    const machineConfig = machineData.find(
+      (m: any) => m.id === machineId
+    )?.config;
+
+    if (!machineConfig) {
+      return NextResponse.json(
+        { ok: false, error: "Machine not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update config
+    machineConfig.files = filesPayload;
+
     const updateRes = await fetch(
       `https://api.machines.dev/v1/apps/${appName}/machines/${machineId}`,
       {
@@ -99,8 +114,7 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          files: filesPayload,
-          strategy: "immediate",
+          config: machineConfig,
         }),
       }
     );
