@@ -2,7 +2,7 @@ import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-gradient-to-b from-white to-purple-50">
+    <footer className="w-full bg-gradient-to-b from-white to-purple-50 border-t border-gray-200">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
