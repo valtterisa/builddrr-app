@@ -100,7 +100,7 @@ export default function PromptTool({ user }: { user: any }) {
   }, [displayedPlaceholder, isErasing, currentPromptIndex, promptPlaceholders]);
 
   return (
-    <div className="min-h-[70vh] w-full flex flex-col items-center justify-center pb-8 pt-8 px-2 relative overflow-hidden">
+    <div className="min-h-[70vh] w-full flex flex-col items-center justify-center pb-8 pt-12 md:pt-8 px-2 relative overflow-hidden">
       <div className="relative z-10 w-full flex flex-col items-center">
         {/* Loading overlay removed; editor/chat will show progress */}
         <h1 className="pt-4 flex items-center text-2xl md:text-5xl font-bold text-gray-900 text-center ">

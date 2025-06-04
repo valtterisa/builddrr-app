@@ -62,10 +62,8 @@ export default async function LandingPage() {
             }
           }
         `}</style>
-        <div className="relative z-10">
-          <Navbar user={safeUser} />
-          <PromptTool user={safeUser} />
-        </div>
+        <Navbar user={safeUser} />
+        <PromptTool user={safeUser} />
       </div>
 
       <DemoVideo />
