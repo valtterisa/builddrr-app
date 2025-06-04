@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
             <div className="bg-primary/10 p-1 rounded-md">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <span className="font-bold text-2xl tracking-tight">SiteForge</span>
+            <span className="font-bold text-2xl tracking-tight">builddrr</span>
           </div>
         </div>
         <Card className="border-purple-100 shadow-lg">

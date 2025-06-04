@@ -7,13 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import { generateAppName } from "@/lib/utils";
 
-const EXAMPLES = [
-  "VitePress docs",
-  "Crypto portfolio tracker",
-  "Kanban board",
-  "Weather dashboard",
-];
-
 export default function PromptTool() {
   const [prompt, setPrompt] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -25,7 +18,7 @@ export default function PromptTool() {
     const supabase = createClient();
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) {
-      localStorage.setItem("siteforge_prompt", prompt);
+      localStorage.setItem("builddrr_prompt", prompt);
       setShowAuthModal(true);
       return;
     }
@@ -35,8 +28,8 @@ export default function PromptTool() {
     console.log("appName", appName);
 
     // Store the prompt, appName, and clear steps in localStorage for the editor/chat
-    sessionStorage.setItem("siteforge_generation_prompt", prompt);
-    sessionStorage.setItem("siteforge_app_name", appName);
+    sessionStorage.setItem("builddrr_generation_prompt", prompt);
+    sessionStorage.setItem("builddrr_app_name", appName);
 
     // Instantly redirect to the editor
     router.push(`/dashboard/website/editor/${appName}`);
@@ -120,7 +113,7 @@ export default function PromptTool() {
           className="ml-2 bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent blur-[16px] select-none pointer-events-none"
           aria-hidden="true"
         >
-          Siteforge
+          builddrr
         </span>
       </h1>
       <p className="py-2 text-base md:text-lg text-gray-500 text-center mb-4 max-w-xl">

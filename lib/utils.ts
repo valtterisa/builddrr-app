@@ -49,9 +49,9 @@ export async function parseAIResponse(
 ): Promise<FileOperation[]> {
   const fileOperations: FileOperation[] = [];
 
-  // Extract <siteforge-write> blocks
+  // Extract <builddrr-write> blocks
   const fileBlockRegex =
-    /<siteforge-write file="([^"]+)">([\s\S]*?)<\/siteforge-write>/g;
+    /<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g;
   let match;
 
   while ((match = fileBlockRegex.exec(aiResponse)) !== null) {
@@ -72,7 +72,7 @@ export async function parseAIResponse(
 
   // Extract dependencies if present
   const dependencyRegex =
-    /<siteforge-add-dependency>([\s\S]*?)<\/siteforge-add-dependency>/g;
+    /<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/g;
   let depMatch;
 
   if ((depMatch = dependencyRegex.exec(aiResponse)) !== null) {
@@ -107,10 +107,10 @@ export async function getMockAIResponse(): Promise<string> {
     // Using a hardcoded mock response for now
     const mockResponse = `
 
-<siteforge-code>
+<builddrr-code>
 
 
-<siteforge-write file="/components/site-components/header/header.tsx">
+<builddrr-write file="/components/site-components/header/header.tsx">
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -185,9 +185,9 @@ const Header = () => {
 
 export default Header;
 
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/components/site-components/header/logo.tsx">
+<builddrr-write file="/components/site-components/header/logo.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -208,8 +208,8 @@ const Logo = () => {
 };
 
 export default Logo;
-</siteforge-write>
-</siteforge-code>`;
+</builddrr-write>
+</builddrr-code>`;
 
     console.log("Using mock AI response");
     return mockResponse;

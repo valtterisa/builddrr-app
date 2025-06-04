@@ -1,4 +1,4 @@
-<siteforge-steps>
+<builddrr-steps>
 1. Analyze the business description and extract key features.
 2. List all required components for the website.
 3. Plan the implementation for each component (structure, data, styling, etc).
@@ -10,7 +10,7 @@
 9. Ensure all required components are included in the plan.
 10. Generate code for all components and pages.
 11. Project created!
-</siteforge-steps>
+</builddrr-steps>
 
 <component-analysis>
 1. Business Description Analysis:
@@ -95,12 +95,12 @@
 10. All required components are accounted for in this plan.
 </component-analysis>
 
-<siteforge-code>
-<siteforge-add-dependency>
+<builddrr-code>
+<builddrr-add-dependency>
 framer-motion
-</siteforge-add-dependency>
+</builddrr-add-dependency>
 
-<siteforge-write file="/components/site-components/header/header.tsx">
+<builddrr-write file="/components/site-components/header/header.tsx">
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -179,9 +179,9 @@ const Header = () => {
 };
 
 export default Header;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/components/site-components/header/logo.tsx">
+<builddrr-write file="/components/site-components/header/logo.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -202,9 +202,9 @@ const Logo = () => {
 };
 
 export default Logo;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/components/site-components/header/nav-links.tsx">
+<builddrr-write file="/components/site-components/header/nav-links.tsx">
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -242,9 +242,9 @@ const NavLinks: React.FC<NavLinksProps> = ({ className }) => (
 );
 
 export default NavLinks;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/app/services/page.tsx">
+<builddrr-write file="/app/services/page.tsx">
 import React from "react";
 
 const ServicesPage = () => (
@@ -264,9 +264,9 @@ const ServicesPage = () => (
 );
 
 export default ServicesPage;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/app/about/page.tsx">
+<builddrr-write file="/app/about/page.tsx">
 import React from "react";
 
 const AboutPage = () => (
@@ -282,9 +282,9 @@ const AboutPage = () => (
 );
 
 export default AboutPage;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/app/projects/page.tsx">
+<builddrr-write file="/app/projects/page.tsx">
 import React from "react";
 
 const ProjectsPage = () => (
@@ -302,9 +302,9 @@ const ProjectsPage = () => (
 );
 
 export default ProjectsPage;
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-write file="/app/page.tsx">
+<builddrr-write file="/app/page.tsx">
 import React from "react";
 import dynamic from "next/dynamic";
 
@@ -329,4 +329,4 @@ const HomePage = () => (
 );
 
 export default HomePage;
-</siteforge-write>
+</builddrr-write>

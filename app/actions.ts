@@ -181,7 +181,7 @@ export async function generateFileUpdates(
   try {
     // Create a system prompt that enhances the original one but focuses on updates
     const fileUpdatePrompt = `
-You are SiteForge, a professional AI frontend engineer. A user is asking to update their website code.
+You are builddrr, a professional AI frontend engineer. A user is asking to update their website code.
 
 Current project files:
 ${Object.keys(currentFiles)
@@ -191,22 +191,22 @@ ${Object.keys(currentFiles)
 Based on the user's request, determine which files need to be updated, created, renamed, or deleted.
 When responding, use the format:
 
-<siteforge-code>
-<siteforge-write file="/path/to/file.tsx">
+<builddrr-code>
+<builddrr-write file="/path/to/file.tsx">
 // Complete file content here
-</siteforge-write>
+</builddrr-write>
 
-<siteforge-delete file="/path/to/delete.tsx"/>
+<builddrr-delete file="/path/to/delete.tsx"/>
 
-<siteforge-rename file="/path/to/old.tsx" newPath="/path/to/new.tsx"/>
+<builddrr-rename file="/path/to/old.tsx" newPath="/path/to/new.tsx"/>
 
-<siteforge-add-dependency>
+<builddrr-add-dependency>
 package-name
-</siteforge-add-dependency>
-</siteforge-code>
+</builddrr-add-dependency>
+</builddrr-code>
 
 Always provide complete file content for written or updated files, not just changes.
-Respond ONLY with the <siteforge-code> block and file operations.
+Respond ONLY with the <builddrr-code> block and file operations.
 `;
 
     const result = streamText({
@@ -233,9 +233,9 @@ Respond ONLY with the <siteforge-code> block and file operations.
       buffer += value;
     }
 
-    // Extract the <siteforge-code> block
+    // Extract the <builddrr-code> block
     const codeMatch = buffer.match(
-      /<siteforge-code>([\s\S]*?)<\/siteforge-code>/
+      /<builddrr-code>([\s\S]*?)<\/builddrr-code>/
     );
     if (codeMatch && codeMatch[1]) {
       const codeBlock = codeMatch[1].trim();
@@ -243,7 +243,7 @@ Respond ONLY with the <siteforge-code> block and file operations.
       // Extract write operations
       const writeMatches = [
         ...codeBlock.matchAll(
-          /<siteforge-write file="([^"]+)">([\s\S]*?)<\/siteforge-write>/g
+          /<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g
         ),
       ];
       for (const match of writeMatches) {
@@ -256,7 +256,7 @@ Respond ONLY with the <siteforge-code> block and file operations.
 
       // Extract delete operations
       const deleteMatches = [
-        ...codeBlock.matchAll(/<siteforge-delete file="([^"]+)"\/>/g),
+        ...codeBlock.matchAll(/<builddrr-delete file="([^"]+)"\/>/g),
       ];
       for (const match of deleteMatches) {
         operations.push({
@@ -268,7 +268,7 @@ Respond ONLY with the <siteforge-code> block and file operations.
       // Extract rename operations
       const renameMatches = [
         ...codeBlock.matchAll(
-          /<siteforge-rename file="([^"]+)" newPath="([^"]+)"\/>/g
+          /<builddrr-rename file="([^"]+)" newPath="([^"]+)"\/>/g
         ),
       ];
       for (const match of renameMatches) {
@@ -282,7 +282,7 @@ Respond ONLY with the <siteforge-code> block and file operations.
       // Extract dependency operations
       const depMatches = [
         ...codeBlock.matchAll(
-          /<siteforge-add-dependency>([\s\S]*?)<\/siteforge-add-dependency>/g
+          /<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/g
         ),
       ];
       for (const match of depMatches) {
@@ -306,7 +306,7 @@ Respond ONLY with the <siteforge-code> block and file operations.
   }
 }
 
-export type SiteforgeOperation =
+export type builddrrOperation =
   | { type: "write"; path: string; content: string }
   | { type: "delete"; path: string }
   | { type: "rename"; oldPath: string; newPath: string }
@@ -314,19 +314,19 @@ export type SiteforgeOperation =
 
 export async function generateAIResponse(
   prompt: string,
-  onOperationParsed?: (op: SiteforgeOperation) => void
+  onOperationParsed?: (op: builddrrOperation) => void
 ): Promise<{
   files: Record<string, string>;
   deletes: string[];
   renames: { oldPath: string; newPath: string }[];
   dependencies: string[];
-  operations: SiteforgeOperation[];
+  operations: builddrrOperation[];
 }> {
   const files: Record<string, string> = {};
   const deletes: string[] = [];
   const renames: { oldPath: string; newPath: string }[] = [];
   const dependencies: string[] = [];
-  const operations: SiteforgeOperation[] = [];
+  const operations: builddrrOperation[] = [];
 
   const result = streamText({
     system: systemPrompt,
@@ -347,12 +347,11 @@ export async function generateAIResponse(
 
   // Regexes for all operation types
   const writeRegex =
-    /<siteforge-write file="([^"]+)">([\s\S]*?)<\/siteforge-write>/;
-  const deleteRegex = /<siteforge-delete file="([^"]+)"\s*\/>/;
-  const renameRegex =
-    /<siteforge-rename file="([^"]+)" newPath="([^"]+)"\s*\/>/;
+    /<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/;
+  const deleteRegex = /<builddrr-delete file="([^"]+)"\s*\/>/;
+  const renameRegex = /<builddrr-rename file="([^"]+)" newPath="([^"]+)"\s*\/>/;
   const depRegex =
-    /<siteforge-add-dependency>([\s\S]*?)<\/siteforge-add-dependency>/;
+    /<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -372,7 +371,7 @@ export async function generateAIResponse(
           : writeMatch[1];
         const content = writeMatch[2].trim();
         files[path] = content;
-        const op: SiteforgeOperation = { type: "write", path, content };
+        const op: builddrrOperation = { type: "write", path, content };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
         buffer = buffer.slice(writeMatch.index + writeMatch[0].length);
@@ -387,7 +386,7 @@ export async function generateAIResponse(
           ? deleteMatch[1].substring(1)
           : deleteMatch[1];
         deletes.push(path);
-        const op: SiteforgeOperation = { type: "delete", path };
+        const op: builddrrOperation = { type: "delete", path };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
         buffer = buffer.slice(deleteMatch.index + deleteMatch[0].length);
@@ -405,7 +404,7 @@ export async function generateAIResponse(
           ? renameMatch[2].substring(1)
           : renameMatch[2];
         renames.push({ oldPath, newPath });
-        const op: SiteforgeOperation = { type: "rename", oldPath, newPath };
+        const op: builddrrOperation = { type: "rename", oldPath, newPath };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
         buffer = buffer.slice(renameMatch.index + renameMatch[0].length);
@@ -422,7 +421,7 @@ export async function generateAIResponse(
           .filter(Boolean);
         for (const dependency of deps) {
           dependencies.push(dependency);
-          const op: SiteforgeOperation = { type: "dependency", dependency };
+          const op: builddrrOperation = { type: "dependency", dependency };
           operations.push(op);
           if (onOperationParsed) onOperationParsed(op);
         }

@@ -62,17 +62,17 @@ export default function DomainsPage() {
       {
         id: "1",
         name: "Bittive Oy",
-        url: `https://siteforge.app/bittive-oy`,
+        url: `https://builddrr.app/bittive-oy`,
       },
       {
         id: "2",
         name: "Tech Solutions Inc",
-        url: `https://siteforge.app/tech-solutions`,
+        url: `https://builddrr.app/tech-solutions`,
       },
       {
         id: "3",
         name: "Coffee Shop",
-        url: `https://siteforge.app/coffee-shop`,
+        url: `https://builddrr.app/coffee-shop`,
       },
     ]);
 

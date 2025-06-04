@@ -43,7 +43,7 @@ export default function EditorPageClient({
   }, [machine]);
 
   useEffect(() => {
-    const prompt = sessionStorage.getItem("siteforge_generation_prompt");
+    const prompt = sessionStorage.getItem("builddrr_generation_prompt");
 
     if (!prompt) {
       console.error("❌ No prompt found");

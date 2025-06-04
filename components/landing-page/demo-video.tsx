@@ -18,7 +18,7 @@ export function DemoVideo() {
           className="max-w-3xl mx-auto text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            See SiteForge in Action
+            See builddrr in Action
           </h2>
           <p className="text-xl text-gray-600">
             Watch how easy it is to create a professional website in minutes
@@ -37,7 +37,7 @@ export function DemoVideo() {
               <iframe
                 className="w-full h-full"
                 src="https://www.youtube.com/embed/your-video-id?autoplay=1"
-                title="SiteForge Demo"
+                title="builddrr Demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />

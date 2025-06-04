@@ -18,7 +18,7 @@ ${projectContext}
 When the user asks for changes, generate code in the correct format for this project. 
 For every user request:
 1. Explain in plain language the steps you will take.
-2. Output the code or operations in the required format (e.g., <siteforge-write file="...">...</siteforge-write>).
+2. Output the code or operations in the required format (e.g., <builddrr-write file="...">...</builddrr-write>).
 `;
 
   // Call Claude via Vercel AI SDK

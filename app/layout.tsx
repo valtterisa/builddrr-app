@@ -8,10 +8,10 @@ import { Suspense } from "react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SiteForge - Create Your Business Website in Minutes",
+  title: "builddrr - Create Your Business Website in Minutes",
   description:
     "Generate a professional one-page website with AI or customize a template. No coding required.",
-  generator: "SiteForge",
+  generator: "builddrr",
 };
 
 export default function RootLayout({

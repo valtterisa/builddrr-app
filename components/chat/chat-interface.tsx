@@ -444,7 +444,7 @@ export default function ChatInterface({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center py-3">
-              SiteForge may make mistakes. Please use with discretion.
+              builddrr may make mistakes. Please use with discretion.
             </p>
           </form>
         </div>

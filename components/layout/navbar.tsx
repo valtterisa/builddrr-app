@@ -20,7 +20,7 @@ export default function Navbar({ user }: any) {
     <motion.header className="sticky top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <span className="text-xl font-bold text-purple-600">SiteForge</span>
+          <span className="text-xl font-bold text-purple-600">builddrr</span>
         </div>
         {/* Desktop */}
         <div className="flex items-center gap-4">

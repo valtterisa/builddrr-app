@@ -142,7 +142,7 @@ export function AppSidebar({
             >
               <Link href="/">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">SiteForge</span>
+                <span className="text-base font-semibold">builddrr</span>
               </Link>
             </SidebarMenuButton>
             <SidebarCloseButton />
