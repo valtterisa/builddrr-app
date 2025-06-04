@@ -8,7 +8,7 @@ export function DemoVideo() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   return (
-    <section className="py-8 bg-gradient-to-b from-purple-50 to-white">
+    <section className="py-12 bg-gradient-to-b from-purple-50 to-white">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -17,12 +17,20 @@ export function DemoVideo() {
           viewport={{ once: true }}
           className="max-w-3xl mx-auto text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            See builddrr in Action
+          <h2 className="pt-4 text-2xl md:text-5xl font-bold text-gray-900 text-center mb-2 tracking-tight">
+            See what
+            <span
+              className="mx-3  font-extrabold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent select-none pointer-events-none relative"
+              aria-hidden="true"
+            >
+              Builddrr
+              <span
+                className="absolute left-0 right-0 -bottom-0 h-2 bg-gradient-to-r from-purple-600 to-pink-500 opacity-80 pointer-events-none"
+                aria-hidden="true"
+              />
+            </span>
+            can do.
           </h2>
-          <p className="text-xl text-gray-600">
-            Watch how easy it is to create a professional website in minutes
-          </p>
         </motion.div>
 
         <motion.div

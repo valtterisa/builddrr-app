@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import { generateAppName } from "@/lib/utils";
+import Logo from "../logo";
 
 export default function PromptTool() {
   const [prompt, setPrompt] = useState("");
@@ -107,17 +108,15 @@ export default function PromptTool() {
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center bg-white pb-8 pt-8 px-2 relative">
       {/* Loading overlay removed; editor/chat will show progress */}
-      <h1 className="pt-4 text-2xl md:text-5xl font-bold text-gray-900 text-center mb-2 tracking-tight">
-        Build websites with
-        <span
-          className="ml-2 bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent blur-[16px] select-none pointer-events-none"
-          aria-hidden="true"
-        >
-          builddrr
+      <h1 className="pt-4 flex items-center text-2xl md:text-5xl font-bold text-gray-900 text-center ">
+        Build websites
+        <span className="flex items-center">
+          <Logo width={60} height={60} className="mx-3" />
+          Builddrr
         </span>
       </h1>
       <p className="py-2 text-base md:text-lg text-gray-500 text-center mb-4 max-w-xl">
-        Idea to website in seconds, with your personal website designer
+        Chat to website in minutes.
       </p>
       <div className="w-full max-w-xl bg-gray-100 rounded-xl shadow p-4 flex flex-col gap-2">
         <textarea

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { SignOutButton } from "../auth/sign-out-button";
 import { usePathname } from "next/navigation";
+import Logo from "../logo";
 
 export default function Navbar({ user }: any) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,10 +20,11 @@ export default function Navbar({ user }: any) {
   return (
     <motion.header className="sticky top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <span className="text-xl font-bold text-purple-600">builddrr</span>
-        </div>
         {/* Desktop */}
+        <div className="flex items-center gap-1">
+          <Logo width={30} height={30} />
+          <span className="text-2xl font-bold">Builddrr</span>
+        </div>
         <div className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-4">

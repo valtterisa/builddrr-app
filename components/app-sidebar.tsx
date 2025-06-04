@@ -39,6 +39,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
+import Logo from "./logo";
 
 const data = {
   user: {
@@ -135,16 +136,11 @@ export function AppSidebar({
     <Sidebar collapsible="offcanvas" className={className} {...props}>
       <SidebarHeader className="bg-sidebar">
         <SidebarMenu className="bg-sidebar">
-          <SidebarMenuItem className="bg-sidebar flex items-center justify-center">
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <Link href="/">
-                <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">builddrr</span>
-              </Link>
-            </SidebarMenuButton>
+          <SidebarMenuItem className="bg-sidebar flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-1 py-2 md:py-0">
+              <Logo width={30} height={30} />
+              <span className="font-bold text-2xl">Builddrr</span>
+            </Link>
             <SidebarCloseButton />
           </SidebarMenuItem>
         </SidebarMenu>
