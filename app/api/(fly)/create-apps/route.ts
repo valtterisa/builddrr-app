@@ -2,12 +2,6 @@ import { createApps } from "@/lib/fly";
 import { NextResponse } from "next/server";
 import { getUser } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
-import { headers } from "next/headers";
-
-type Machine = {
-  id: string;
-  name: string;
-};
 
 export async function POST() {
   //   Only allow admin to make this request

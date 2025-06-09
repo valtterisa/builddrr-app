@@ -10,14 +10,6 @@ export default async function LandingPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  // Only pass serializable user info (not the whole user object)
-  const safeUser = user
-    ? {
-        name: user.user_metadata?.name || user.email || "User",
-        email: user.email,
-        avatar: user.user_metadata?.avatar_url || undefined,
-      }
-    : null;
 
   return (
     <>
@@ -63,8 +55,8 @@ export default async function LandingPage() {
             }
           }
         `}</style>
-        <Navbar user={safeUser} />
-        <PromptTool user={safeUser} />
+        <Navbar user={user?.user_metadata} />
+        <PromptTool user={user} />
       </div>
 
       <DemoVideo />

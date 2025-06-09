@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse, NextFetchEvent } from "next/server";
 import { rateLimit } from "@/lib/ratelimit";
-import { createClient } from "@/lib/supabase/server";
 export async function POST(req: NextRequest, context: NextFetchEvent) {
-  const supabase = await createClient();
   const reqBody = await req.json();
 
   const userId = reqBody.userId;
@@ -36,40 +34,6 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
     );
   }
 
-  const { data: env, error: envError } = await supabase
-    .from("preview_environments")
-    .select("*")
-    .eq("app_name", appName)
-    .eq("machine_id", machineId)
-    .eq("status", "available")
-    .limit(1)
-    .maybeSingle();
-
-  if (envError || !env) {
-    return NextResponse.json(
-      { ok: false, error: "No available preview environment in pool" },
-      { status: 404 }
-    );
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from("preview_environments")
-    .update({
-      assigned_to: userId,
-      assigned_at: now,
-      status: "assigned",
-      updated_at: now,
-    })
-    .eq("id", env.id);
-
-  if (updateError) {
-    return NextResponse.json(
-      { ok: false, error: updateError.message },
-      { status: 500 }
-    );
-  }
-
   try {
     const filesPayload = normalizedFiles.map(
       (file: { path: string; content: string }) => ({
@@ -81,6 +45,7 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
     const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
 
     // Get specific machine, copy config, update config, continue
+    // This should be correct only thing is can this be called from the action? answer is no i think
     const machine = await fetch(
       `https://api.machines.dev/v1/apps/${appName}/machines`,
       {

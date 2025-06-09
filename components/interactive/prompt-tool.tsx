@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
 import Logo from "../logo";
 import { motion } from "framer-motion";
+import { toast } from "@/hooks/use-toast";
 
 export default function PromptTool({ user }: { user: any }) {
   const [prompt, setPrompt] = useState("");
@@ -14,6 +15,7 @@ export default function PromptTool({ user }: { user: any }) {
   const router = useRouter();
 
   const handleSend = async () => {
+    console.log("user:", user.id);
     if (!prompt.trim()) return;
     // Check auth before proceeding
     if (!user) {
@@ -25,30 +27,52 @@ export default function PromptTool({ user }: { user: any }) {
     // Store the prompt, appName, and clear steps in localStorage for the editor/chat
     sessionStorage.setItem("builddrr_generation_prompt", prompt);
 
-    // Instantly redirect to the editor
-    // @TODO: get app name that is generated from the prompt
-    // Supabase call
     const supabase = createClient();
-    const data = await supabase
-      .from("preview_environments")
-      .select("*")
-      .eq("status", "inactive")
-      .limit(1);
+    try {
+      // Get available preview environment
+      const { data: previewData, error: previewError } = await supabase
+        .from("preview_environments")
+        .select("*")
+        .eq("status", "non-active")
+        .limit(1);
 
-    // If no app is found, create a pool of 20 new apps
-    if (!data.data || data.data.length === 0) {
-      // Create a new app
-      const response = await fetch("/api/create-apps", {
-        method: "POST",
-      });
-      if (response.ok) {
-        throw new Error("No app found");
+      if (previewError) throw previewError;
+      if (!previewData || previewData.length === 0) {
+        throw new Error("No available preview environments");
       }
+
+      const app_name = previewData[0].app_name;
+      const preview_id = previewData[0].preview_id;
+
+      // Update both tables in parallel
+      const [websiteUpdate, previewUpdate] = await Promise.all([
+        supabase
+          .from("websites")
+          .update({ preview_id: preview_id })
+          .eq("user_id", user.id),
+        supabase
+          .from("preview_environments")
+          .update({
+            status: "active",
+            assigned_at: new Date().toISOString(),
+            id: user.id,
+          })
+          .eq("app_name", app_name),
+      ]);
+
+      if (websiteUpdate.error) throw websiteUpdate.error;
+      if (previewUpdate.error) throw previewUpdate.error;
+
+      console.log("redirecting to editor:", app_name);
+      router.push(`/dashboard/website/editor/${app_name}`);
+    } catch (error) {
+      console.error("Error in handleSend:", error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
     }
-
-    
-
-    // router.push(`/dashboard/website/editor/${data.data[0].app_name}`);
   };
 
   const examples = [

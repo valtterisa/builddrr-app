@@ -703,6 +703,7 @@ export async function generateSite(
   }
 
   // Deploy (keep as is, but error handling is now more targeted)
+  // MOve the deploy-preview api route here? We just need to pass update machine with the files
   let result;
   try {
     result = await fetch("/api/deploy-preview", {
