@@ -356,7 +356,7 @@ export default function DevMode({
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white dark:bg-gray-900 p-8 flex flex-col gap-8 border border-muted h-screen overflow-y-auto">
+    <div className="w-full max-w-2xl mx-auto bg-white dark:bg-gray-900 p-4 flex flex-col gap-8 border border-muted h-full overflow-y-auto">
       {tagName && (
         <div className="border-alpha-200 flex w-min items-center justify-center gap-1.5 whitespace-nowrap rounded-md border bg-blue-100 px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
           {tagName}
