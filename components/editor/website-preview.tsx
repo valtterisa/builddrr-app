@@ -3,10 +3,8 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
-import FloatingToolbar, {
-  ActiveFormats,
-  ToolbarPosition,
-} from "./floating-toolbar";
+import { useEditorStore, addEditorElement } from "@/lib/editor-store";
+import type { EditorState, EditorElement } from "@/lib/editor-store";
 
 interface EditorChange {
   targetId: string;
@@ -33,15 +31,6 @@ export default function WebsitePreview({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
   const [showToolbar, setShowToolbar] = useState(false);
-  const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition>({
-    top: 0,
-    left: 0,
-  });
-  const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
-    bold: false,
-    italic: false,
-    underline: false,
-  });
   const [activeTextColor, setActiveTextColor] = useState<string | null>(null); // State for active text color
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
@@ -55,6 +44,12 @@ export default function WebsitePreview({
   const [canRemoveStandalone, setCanRemoveStandalone] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
+
+  const selectElement = useEditorStore((s: EditorState) => s.selectElement);
+  const selectedElementId = useEditorStore(
+    (s: EditorState) => s.selectedElementId
+  );
+  const elements = useEditorStore((s: EditorState) => s.elements);
 
   // Get a preview URL - use real machine URL, mock URL, or API preview endpoint
   const getPreviewUrl = useCallback(() => {
@@ -152,6 +147,11 @@ export default function WebsitePreview({
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
       console.log("Iframe or contentDocument not available");
+      return;
+    }
+
+    if (!iframe.contentDocument.body) {
+      console.warn("iframe.contentDocument.body is null");
       return;
     }
 
@@ -284,7 +284,6 @@ export default function WebsitePreview({
       (htmlElement as any).__clickListenerAttached = false;
       if (htmlElement.hasAttribute("data-editable-text")) {
         htmlElement.contentEditable = "false";
-        htmlElement.removeEventListener("input", handleElementInput);
       }
       htmlElement.removeEventListener("mouseenter", handleMouseEnter);
       htmlElement.removeEventListener("mouseleave", handleMouseLeave);
@@ -302,10 +301,10 @@ export default function WebsitePreview({
   const handleElementClick = (e: Event) => {
     if (!isEditMode) return;
     const element = e.currentTarget as HTMLElement;
-    e.preventDefault();
-    e.stopPropagation();
-    // Always select the clicked element, even if it's a span inside another element
-    handleElementSelection(element);
+    const editorId = element.getAttribute("data-editor-id");
+    if (editorId) {
+      selectElement(editorId);
+    }
   };
 
   const handleDocumentClick = (e: Event) => {
@@ -464,37 +463,7 @@ export default function WebsitePreview({
     ) {
       // Add focus-active to the selected editable element
       element.classList.add("focus-active");
-      // Update activeFormats state based on the element's styles
-      setActiveFormats({
-        bold:
-          element.style.fontWeight === "700" ||
-          element.style.fontWeight === "bold",
-        italic: element.style.fontStyle === "italic",
-        underline: element.style.textDecoration.includes("underline"),
-      });
-      setActiveTextColor(element.style.color || null);
     }
-
-    const iframeRect = iframe?.getBoundingClientRect();
-    const elementRect = element.getBoundingClientRect();
-
-    const toolbarHeight = 40;
-
-    setToolbarPosition({
-      top: elementRect.top + (iframeRect?.top ?? 0) - toolbarHeight - 10,
-      left:
-        elementRect.left +
-        elementRect.width / 2 +
-        (iframeRect?.left ?? 0) -
-        150,
-    });
-
-    setShowToolbar(true);
-    setDebugInfo(
-      (prev) =>
-        prev +
-        ` | Toolbar shown at (${toolbarPosition.top}, ${toolbarPosition.left})`
-    );
 
     if (element.tagName !== "IMG") {
       if (element.hasAttribute("data-editable-text")) {
@@ -517,9 +486,6 @@ export default function WebsitePreview({
       }
     } else {
       element.contentEditable = "false";
-      // Reset formats if image is selected
-      setActiveFormats({ bold: false, italic: false, underline: false });
-      setActiveTextColor(null);
     }
   };
 
@@ -568,7 +534,6 @@ export default function WebsitePreview({
       const selection = win.getSelection();
       if (!selection || selection.rangeCount === 0) {
         // If no selection, maybe reset or use element's style? For now, reset.
-        setActiveFormats({ bold: false, italic: false, underline: false });
         setActiveTextColor(null);
         return;
       }
@@ -577,12 +542,6 @@ export default function WebsitePreview({
       const isBold = doc.queryCommandState("bold");
       const isItalic = doc.queryCommandState("italic");
       const isUnderline = doc.queryCommandState("underline");
-
-      setActiveFormats({
-        bold: isBold,
-        italic: isItalic,
-        underline: isUnderline,
-      });
 
       // Check text color - try first with queryCommandValue for more accurate results
       let color: string | null = null;
@@ -618,7 +577,6 @@ export default function WebsitePreview({
       console.error("Error checking active formats:", error);
       setDebugInfo(`Error checking formats: ${error}`);
       // Reset on error
-      setActiveFormats({ bold: false, italic: false, underline: false });
       setActiveTextColor(null);
     }
   }, [rgbToHex]); // Added rgbToHex as dependency
@@ -805,6 +763,9 @@ export default function WebsitePreview({
         removeEditModeListeners(); // This already removes the selectionchange listener
       }
     } else {
+      if (iframe && iframe.contentDocument && !iframe.contentDocument.body) {
+        console.warn("iframe.contentDocument.body is null in useEffect");
+      }
       // Log if conditions aren't met
       // console.log("useEffect [isEditMode, isEditorReady]: Conditions not met", { isEditorReady, iframeExists: !!iframe, docExists: !!iframe?.contentDocument, bodyExists: !!iframe?.contentDocument?.body });
     }
@@ -879,7 +840,7 @@ export default function WebsitePreview({
       "a",
     ]);
     const selectableElementsSelector =
-      "h1, h2, h3, h4, h5, h6, p, span, section, header, nav, footer, li, div, button, a, img";
+      "h1, h2, h3, h4, h5, h6, p, span, li, button, a, img";
     const selectableElements = doc.querySelectorAll(selectableElementsSelector);
     let elementCounter = 0;
 
@@ -889,8 +850,16 @@ export default function WebsitePreview({
       const htmlEl = el as HTMLElement;
       const tagNameLower = htmlEl.tagName.toLowerCase();
 
-      const editorId = `editor-${Date.now()}-${elementCounter++}`;
-      htmlEl.setAttribute("data-editor-id", editorId);
+      // Only assign a new editorId if not already present
+      let editorId = htmlEl.getAttribute("data-editor-id");
+      if (!editorId) {
+        editorId = `editor-${tagNameLower}-${elementCounter++}`;
+        htmlEl.setAttribute("data-editor-id", editorId);
+        // Store tagName in Zustand elements map
+        if (textEditableTags.has(tagNameLower)) {
+          addEditorElement(editorId, tagNameLower);
+        }
+      }
 
       htmlEl.setAttribute("data-editable", "true");
       htmlEl.setAttribute("data-editable-tag", tagNameLower);
@@ -1487,31 +1456,26 @@ export default function WebsitePreview({
     };
   }, [iframeReady]);
 
+  // Sync className from store to DOM
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+    const els = elements as Record<string, EditorElement>;
+    Object.entries(els).forEach(([id, { className }]) => {
+      const el = iframe.contentDocument!.querySelector(
+        `[data-editor-id='${id}']`
+      );
+      if (el) {
+        el.className = className;
+      }
+    });
+  }, [elements, iframeReady]);
+
   console.log("machine", machine);
   console.log("isEditorReady", isEditorReady);
 
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
-      {isEditMode && (
-        <FloatingToolbar
-          show={showToolbar}
-          position={toolbarPosition}
-          activeFormats={activeFormats}
-          activeTextColor={activeTextColor}
-          setActiveTextColor={setActiveTextColor}
-          elementType={elementType}
-          selectedElement={selectedElement}
-          onFormatText={formatText}
-          onSetBackgroundColor={setBackgroundColor}
-          onSetBackgroundImage={setBackgroundImage}
-          onSetLink={setLink}
-          onSetAltTag={setAltTag}
-          onClose={closeToolbar}
-          onRemoveStandalone={removeStandaloneSpan}
-          canRemoveStandalone={canRemoveStandalone}
-        />
-      )}
-
       <div className="relative w-full h-full overflow-hidden">
         {iframeError && (
           <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
