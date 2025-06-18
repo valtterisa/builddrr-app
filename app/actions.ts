@@ -185,8 +185,8 @@ You are builddrr, a professional AI frontend engineer. A user is asking to updat
 
 Current project files:
 ${Object.keys(currentFiles)
-  .map((path) => `- ${path}`)
-  .join("\n")}
+        .map((path) => `- ${path}`)
+        .join("\n")}
 
 Based on the user's request, determine which files need to be updated, created, renamed, or deleted.
 When responding, use the format:
@@ -543,21 +543,21 @@ export async function processChatMessage(
       operations.length === 0
         ? "No changes were made to your website."
         : [
-            operations.filter((op) => op.type === "write").length > 0
-              ? `Updated ${operations.filter((op) => op.type === "write").length} file(s)`
-              : "",
-            operations.filter((op) => op.type === "delete").length > 0
-              ? `Deleted ${operations.filter((op) => op.type === "delete").length} file(s)`
-              : "",
-            operations.filter((op) => op.type === "rename").length > 0
-              ? `Renamed ${operations.filter((op) => op.type === "rename").length} file(s)`
-              : "",
-            operations.filter((op) => op.type === "dependency").length > 0
-              ? `Added ${operations.filter((op) => op.type === "dependency").length} dependenc${operations.filter((op) => op.type === "dependency").length > 1 ? "ies" : "y"}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join(", ") + ".";
+          operations.filter((op) => op.type === "write").length > 0
+            ? `Updated ${operations.filter((op) => op.type === "write").length} file(s)`
+            : "",
+          operations.filter((op) => op.type === "delete").length > 0
+            ? `Deleted ${operations.filter((op) => op.type === "delete").length} file(s)`
+            : "",
+          operations.filter((op) => op.type === "rename").length > 0
+            ? `Renamed ${operations.filter((op) => op.type === "rename").length} file(s)`
+            : "",
+          operations.filter((op) => op.type === "dependency").length > 0
+            ? `Added ${operations.filter((op) => op.type === "dependency").length} dependenc${operations.filter((op) => op.type === "dependency").length > 1 ? "ies" : "y"}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(", ") + ".";
 
     sendChatMessage(userId, appName, responseMessage, false); // fire-and-forget
 
@@ -574,7 +574,7 @@ export async function processChatMessage(
         "Sorry, I encountered an error processing your request.",
         false
       );
-    } catch {}
+    } catch { }
     return {
       success: false,
       error:

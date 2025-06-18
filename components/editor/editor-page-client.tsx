@@ -52,7 +52,6 @@ export default function EditorPageClient({
     const prompt = sessionStorage.getItem("builddrr_generation_prompt");
 
     if (!prompt) {
-      console.error("❌ No prompt found");
       toast({
         title: "Error Creating Website",
         description: "Please try again.",
@@ -141,7 +140,7 @@ export default function EditorPageClient({
             defaultValue="chat"
             orientation="vertical"
           >
-            <TabsList>
+            <TabsList className="items-start justify-start">
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="dev">Design</TabsTrigger>
             </TabsList>
@@ -168,15 +167,15 @@ export default function EditorPageClient({
                 activeFormats={{ bold: false, italic: false, underline: false }}
                 elementType={"div"}
                 selectedElement={null}
-                onFormatText={() => {}}
-                onSetBackgroundColor={() => {}}
-                onSetBackgroundImage={() => {}}
-                onSetLink={() => {}}
-                onSetAltTag={() => {}}
+                onFormatText={() => { }}
+                onSetBackgroundColor={() => { }}
+                onSetBackgroundImage={() => { }}
+                onSetLink={() => { }}
+                onSetAltTag={() => { }}
                 onClose={() => setEditMode(false)}
                 activeTextColor={null}
-                setActiveTextColor={() => {}}
-                onRemoveStandalone={() => {}}
+                setActiveTextColor={() => { }}
+                onRemoveStandalone={() => { }}
                 canRemoveStandalone={false}
               />
             </TabsContent>

@@ -12,6 +12,11 @@ import {
   FileImage,
   Eraser,
   X,
+  Strikethrough,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -303,8 +308,8 @@ export default function DevMode({
     }
   }, [selectedElement]);
 
-  const handleTextSizeChange = (size: string) => {
-    setTextSize(size);
+  const handleTextSizeChange = (size: string | undefined) => {
+    setTextSize(size || "");
     if (!selectedElementId) return;
     updateElement(selectedElementId, (el) => ({
       ...el,
@@ -364,297 +369,531 @@ export default function DevMode({
       )}
       {selectedElementId && tagName ? (
         <>
-          <Accordion type="multiple" className="w-full space-y-2">
-            <AccordionItem value="text">
-              <AccordionTrigger>Text</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Font Size"
-                  options={TAILWIND_TEXT_SIZES}
-                  value={elements[selectedElementId || ""]?.fontSize || ""}
-                  onChange={(size) => handleTextSizeChange(size)}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_TEXT_SIZES}
-                />
-                <StyleSelect
-                  label="Font Weight"
-                  options={TAILWIND_FONT_WEIGHTS}
-                  value={elements[selectedElementId || ""]?.fontWeight || ""}
-                  onChange={(fw) => {
+          {/* --- DESIGN SECTIONS ALWAYS VISIBLE --- */}
+          <div className="flex flex-col gap-4 h-full overflow-y-auto">
+            {/* Typography Section (already refactored) */}
+            {/* --- TYPOGRAPHY SECTION --- */}
+            <div className="mb-6">
+              <div className="text-base font-bold mb-2">Typography</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                {/* Font Family */}
+                <div>
+                  <Label className="text-xs mb-1 block">Font Family</Label>
+                  <Select value={elements[selectedElementId || ""]?.fontFamily || "default"} onValueChange={(ff) => {
                     if (!selectedElementId) return;
                     updateElement(selectedElementId, (el) => ({
                       ...el,
-                      fontWeight: fw,
-                      className: buildClassName({ ...el, fontWeight: fw }),
+                      fontFamily: ff === "default" ? undefined : ff,
+                      className: buildClassName({ ...el, fontFamily: ff === "default" ? undefined : ff }),
                     }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_FONT_WEIGHTS}
-                />
-                <StyleSelect
-                  label="Text Align"
-                  options={TAILWIND_TEXT_ALIGN}
-                  value={elements[selectedElementId || ""]?.textAlign || ""}
-                  onChange={(align) => {
+                  }} disabled={!selectedElementId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="font-sans">Sans</SelectItem>
+                      <SelectItem value="font-serif">Serif</SelectItem>
+                      <SelectItem value="font-mono">Mono</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Font Weight & Size */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Weight</Label>
+                    <Select value={elements[selectedElementId || ""]?.fontWeight || "default"} onValueChange={(fw) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        fontWeight: fw === "default" ? undefined : fw,
+                        className: buildClassName({ ...el, fontWeight: fw === "default" ? undefined : fw }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Regular" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Regular</SelectItem>
+                        {TAILWIND_FONT_WEIGHTS.map((fw) => (
+                          <SelectItem key={fw} value={fw}>{fw.replace("font-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Size</Label>
+                    <Select value={elements[selectedElementId || ""]?.fontSize || "default"} onValueChange={(size) => handleTextSizeChange(size === "default" ? undefined : size)} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_TEXT_SIZES.map((sz) => (
+                          <SelectItem key={sz} value={sz}>{sz.replace("text-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {/* Line Height & Letter Spacing */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Line Height</Label>
+                    <Select value={elements[selectedElementId || ""]?.lineHeight || "default"} onValueChange={(lh) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        lineHeight: lh === "default" ? undefined : lh,
+                        className: buildClassName({ ...el, lineHeight: lh === "default" ? undefined : lh }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_LINE_HEIGHTS.map((lh) => (
+                          <SelectItem key={lh} value={lh}>{lh.replace("leading-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Letter Spacing</Label>
+                    <Select value={elements[selectedElementId || ""]?.letterSpacing || "default"} onValueChange={(ls) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        letterSpacing: ls === "default" ? undefined : ls,
+                        className: buildClassName({ ...el, letterSpacing: ls === "default" ? undefined : ls }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_LETTER_SPACING.map((ls) => (
+                          <SelectItem key={ls} value={ls}>{ls.replace("tracking-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {/* Alignment & Decoration */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Alignment</Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textAlign === "text-left" ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            textAlign: "text-left",
+                            className: buildClassName({ ...el, textAlign: "text-left" }),
+                          }));
+                        }}
+                        aria-label="Align Left"
+                      >
+                        <AlignLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textAlign === "text-center" ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            textAlign: "text-center",
+                            className: buildClassName({ ...el, textAlign: "text-center" }),
+                          }));
+                        }}
+                        aria-label="Align Center"
+                      >
+                        <AlignCenter className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textAlign === "text-right" ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            textAlign: "text-right",
+                            className: buildClassName({ ...el, textAlign: "text-right" }),
+                          }));
+                        }}
+                        aria-label="Align Right"
+                      >
+                        <AlignRight className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textAlign === "text-justify" ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            textAlign: "text-justify",
+                            className: buildClassName({ ...el, textAlign: "text-justify" }),
+                          }));
+                        }}
+                        aria-label="Align Justify"
+                      >
+                        <AlignJustify className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Decoration</Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textDecoration?.includes("underline") ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => {
+                            let newDecoration = el.textDecoration || "";
+                            if (newDecoration.includes("underline")) {
+                              newDecoration = newDecoration.replace("underline", "").replace(/\s+/g, " ").trim();
+                            } else {
+                              newDecoration = ((newDecoration + " underline").trim()).replace(/\s+/g, " ");
+                            }
+                            newDecoration = newDecoration || "";
+                            return {
+                              ...el,
+                              textDecoration: newDecoration,
+                              className: buildClassName({ ...el, textDecoration: newDecoration }),
+                            };
+                          });
+                        }}
+                        aria-label="Underline"
+                      >
+                        <Underline className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.textDecoration?.includes("line-through") ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => {
+                            let newDecoration = el.textDecoration || "";
+                            if (newDecoration.includes("line-through")) {
+                              newDecoration = newDecoration.replace("line-through", "").replace(/\s+/g, " ").trim();
+                            } else {
+                              newDecoration = ((newDecoration + " line-through").trim()).replace(/\s+/g, " ");
+                            }
+                            newDecoration = newDecoration || "";
+                            return {
+                              ...el,
+                              textDecoration: newDecoration,
+                              className: buildClassName({ ...el, textDecoration: newDecoration }),
+                            };
+                          });
+                        }}
+                        aria-label="Strikethrough"
+                      >
+                        <Strikethrough className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={elements[selectedElementId || ""]?.fontStyle === "italic" ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            fontStyle: el.fontStyle === "italic" ? undefined : "italic",
+                            className: buildClassName({ ...el, fontStyle: el.fontStyle === "italic" ? undefined : "italic" }),
+                          }));
+                        }}
+                        aria-label="Italic"
+                      >
+                        <Italic className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={(!elements[selectedElementId || ""]?.textDecoration && !elements[selectedElementId || ""]?.fontStyle) ? "default" : "ghost"}
+                        className="h-8 w-8"
+                        onClick={() => {
+                          if (!selectedElementId) return;
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            textDecoration: undefined,
+                            fontStyle: undefined,
+                            className: buildClassName({ ...el, textDecoration: undefined, fontStyle: undefined }),
+                          }));
+                        }}
+                        aria-label="Clear Decoration"
+                      >
+                        <Eraser className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* --- END TYPOGRAPHY SECTION --- */}
+            {/* --- BACKGROUND SECTION --- */}
+            <div className="">
+              <div className="text-base font-bold mb-2">Background</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                <div>
+                  <Label className="text-xs mb-1 block">Gradient</Label>
+                  <Select value={elements[selectedElementId || ""]?.bgGradient || "default"} onValueChange={(g) => {
                     if (!selectedElementId) return;
                     updateElement(selectedElementId, (el) => ({
                       ...el,
-                      textAlign: align,
-                      className: buildClassName({ ...el, textAlign: align }),
+                      bgGradient: g === "default" ? undefined : g,
+                      className: buildClassName({ ...el, bgGradient: g === "default" ? undefined : g }),
                     }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_TEXT_ALIGN}
-                />
-                <StyleSelect
-                  label="Line Height"
-                  options={TAILWIND_LINE_HEIGHTS}
-                  value={elements[selectedElementId || ""]?.lineHeight || ""}
-                  onChange={(lh) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      lineHeight: lh,
-                      className: buildClassName({ ...el, lineHeight: lh }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_LINE_HEIGHTS}
-                />
-                <StyleSelect
-                  label="Letter Spacing"
-                  options={TAILWIND_LETTER_SPACING}
-                  value={elements[selectedElementId || ""]?.letterSpacing || ""}
-                  onChange={(ls) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      letterSpacing: ls,
-                      className: buildClassName({ ...el, letterSpacing: ls }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_LETTER_SPACING}
-                />
-                <StyleSelect
-                  label="Text Decoration"
-                  options={TAILWIND_TEXT_DECORATION}
-                  value={
-                    elements[selectedElementId || ""]?.textDecoration || ""
-                  }
-                  onChange={(td) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      textDecoration: td,
-                      className: buildClassName({ ...el, textDecoration: td }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_TEXT_DECORATION}
-                />
-                <StyleSelect
-                  label="Text Transform"
-                  options={TAILWIND_TEXT_TRANSFORM}
-                  value={elements[selectedElementId || ""]?.textTransform || ""}
-                  onChange={(tt) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      textTransform: tt,
-                      className: buildClassName({ ...el, textTransform: tt }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_TEXT_TRANSFORM}
-                />
+                  }} disabled={!selectedElementId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      {TAILWIND_BG_GRADIENTS.map((g) => (
+                        <SelectItem key={g} value={g}>{g.replace("bg-gradient-to-", "to ")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {selectedElement && (
                   <div className="mt-2">
-                    <ColorPicker
-                      element={selectedElement}
-                      onUpdate={() => {}}
-                    />
+                    <ColorPicker element={selectedElement} onUpdate={() => { }} />
                   </div>
                 )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="background">
-              <AccordionTrigger>Background</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Gradient"
-                  options={TAILWIND_BG_GRADIENTS}
-                  value={elements[selectedElementId || ""]?.bgGradient || ""}
-                  onChange={(g) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      bgGradient: g,
-                      className: buildClassName({ ...el, bgGradient: g }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_BG_GRADIENTS}
-                />
+              </div>
+            </div>
+            {/* --- END BACKGROUND SECTION --- */}
+            {/* --- BORDER SECTION --- */}
+            <div className="mb-6">
+              <div className="text-base font-bold mb-2">Border</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Border Width</Label>
+                    <Select value={elements[selectedElementId || ""]?.borderWidth || "default"} onValueChange={(bw) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        borderWidth: bw === "default" ? undefined : bw,
+                        className: buildClassName({ ...el, borderWidth: bw === "default" ? undefined : bw }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_BORDER_WIDTHS.map((bw) => (
+                          <SelectItem key={bw} value={bw}>{bw}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Border Radius</Label>
+                    <Select value={elements[selectedElementId || ""]?.borderRadius || "default"} onValueChange={(br) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        borderRadius: br === "default" ? undefined : br,
+                        className: buildClassName({ ...el, borderRadius: br === "default" ? undefined : br }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_BORDER_RADIUS.map((br) => (
+                          <SelectItem key={br} value={br}>{br.replace("rounded-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {selectedElement && (
                   <div className="mt-2">
-                    <ColorPicker
-                      element={selectedElement}
-                      onUpdate={() => {}}
-                    />
+                    <ColorPicker element={selectedElement} onUpdate={() => { }} />
                   </div>
                 )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="border">
-              <AccordionTrigger>Border</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Border Width"
-                  options={TAILWIND_BORDER_WIDTHS}
-                  value={elements[selectedElementId || ""]?.borderWidth || ""}
-                  onChange={(bw) => {
+              </div>
+            </div>
+            {/* --- END BORDER SECTION --- */}
+            {/* --- SHADOW SECTION --- */}
+            <div className="mb-6">
+              <div className="text-base font-bold mb-2">Shadow</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                <div>
+                  <Label className="text-xs mb-1 block">Shadow</Label>
+                  <Select value={elements[selectedElementId || ""]?.shadow || "default"} onValueChange={(sh) => {
                     if (!selectedElementId) return;
                     updateElement(selectedElementId, (el) => ({
                       ...el,
-                      borderWidth: bw,
-                      className: buildClassName({ ...el, borderWidth: bw }),
+                      shadow: sh === "default" ? undefined : sh,
+                      className: buildClassName({ ...el, shadow: sh === "default" ? undefined : sh }),
                     }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_BORDER_WIDTHS}
-                />
-                <StyleSelect
-                  label="Border Radius"
-                  options={TAILWIND_BORDER_RADIUS}
-                  value={elements[selectedElementId || ""]?.borderRadius || ""}
-                  onChange={(br) => {
+                  }} disabled={!selectedElementId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      {TAILWIND_SHADOWS.map((sh) => (
+                        <SelectItem key={sh} value={sh}>{sh.replace("shadow-", "")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            {/* --- END SHADOW SECTION --- */}
+            {/* --- SPACING SECTION --- */}
+            <div className="mb-6">
+              <div className="text-base font-bold mb-2">Spacing</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                <div>
+                  <Label className="text-xs mb-1 block">Spacing</Label>
+                  <Select value={elements[selectedElementId || ""]?.spacing || "default"} onValueChange={(sp) => {
                     if (!selectedElementId) return;
                     updateElement(selectedElementId, (el) => ({
                       ...el,
-                      borderRadius: br,
-                      className: buildClassName({ ...el, borderRadius: br }),
+                      spacing: sp === "default" ? undefined : sp,
+                      className: buildClassName({ ...el, spacing: sp === "default" ? undefined : sp }),
                     }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_BORDER_RADIUS}
-                />
-                {selectedElement && (
-                  <div className="mt-2">
-                    <ColorPicker
-                      element={selectedElement}
-                      onUpdate={() => {}}
-                    />
+                  }} disabled={!selectedElementId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      {TAILWIND_SPACING.map((sp) => (
+                        <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            {/* --- END SPACING SECTION --- */}
+            {/* --- LAYOUT SECTION --- */}
+            <div className="mb-6">
+              <div className="text-base font-bold mb-2">Layout</div>
+              <div className="flex flex-col gap-3 bg-muted/30 rounded-lg p-4 border border-muted">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Width</Label>
+                    <Select value={elements[selectedElementId || ""]?.width || "default"} onValueChange={(w) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        width: w === "default" ? undefined : w,
+                        className: buildClassName({ ...el, width: w === "default" ? undefined : w }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_WIDTHS.map((w) => (
+                          <SelectItem key={w} value={w}>{w.replace("w-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="shadow">
-              <AccordionTrigger>Shadow</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Shadow"
-                  options={TAILWIND_SHADOWS}
-                  value={elements[selectedElementId || ""]?.shadow || ""}
-                  onChange={(sh) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      shadow: sh,
-                      className: buildClassName({ ...el, shadow: sh }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_SHADOWS}
-                />
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="spacing">
-              <AccordionTrigger>Spacing</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Spacing"
-                  options={TAILWIND_SPACING}
-                  value={elements[selectedElementId || ""]?.spacing || ""}
-                  onChange={(sp) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      spacing: sp,
-                      className: buildClassName({ ...el, spacing: sp }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_SPACING}
-                />
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="layout">
-              <AccordionTrigger>Layout</AccordionTrigger>
-              <AccordionContent>
-                <StyleSelect
-                  label="Width"
-                  options={TAILWIND_WIDTHS}
-                  value={elements[selectedElementId || ""]?.width || ""}
-                  onChange={(w) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      width: w,
-                      className: buildClassName({ ...el, width: w }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_WIDTHS}
-                />
-                <StyleSelect
-                  label="Height"
-                  options={TAILWIND_HEIGHTS}
-                  value={elements[selectedElementId || ""]?.height || ""}
-                  onChange={(h) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      height: h,
-                      className: buildClassName({ ...el, height: h }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_HEIGHTS}
-                />
-                <StyleSelect
-                  label="Display"
-                  options={TAILWIND_DISPLAY}
-                  value={elements[selectedElementId || ""]?.display || ""}
-                  onChange={(d) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      display: d,
-                      className: buildClassName({ ...el, display: d }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_DISPLAY}
-                />
-                <StyleSelect
-                  label="Flex/Grid Align"
-                  options={TAILWIND_FLEX_ALIGN}
-                  value={elements[selectedElementId || ""]?.flexAlign || ""}
-                  onChange={(fa) => {
-                    if (!selectedElementId) return;
-                    updateElement(selectedElementId, (el) => ({
-                      ...el,
-                      flexAlign: fa,
-                      className: buildClassName({ ...el, flexAlign: fa }),
-                    }));
-                  }}
-                  disabled={!selectedElementId}
-                  groupOptions={TAILWIND_FLEX_ALIGN}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Height</Label>
+                    <Select value={elements[selectedElementId || ""]?.height || "default"} onValueChange={(h) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        height: h === "default" ? undefined : h,
+                        className: buildClassName({ ...el, height: h === "default" ? undefined : h }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_HEIGHTS.map((h) => (
+                          <SelectItem key={h} value={h}>{h.replace("h-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Display</Label>
+                    <Select value={elements[selectedElementId || ""]?.display || "default"} onValueChange={(d) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        display: d === "default" ? undefined : d,
+                        className: buildClassName({ ...el, display: d === "default" ? undefined : d }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_DISPLAY.map((d) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Flex/Grid Align</Label>
+                    <Select value={elements[selectedElementId || ""]?.flexAlign || "default"} onValueChange={(fa) => {
+                      if (!selectedElementId) return;
+                      updateElement(selectedElementId, (el) => ({
+                        ...el,
+                        flexAlign: fa === "default" ? undefined : fa,
+                        className: buildClassName({ ...el, flexAlign: fa === "default" ? undefined : fa }),
+                      }));
+                    }} disabled={!selectedElementId}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        {TAILWIND_FLEX_ALIGN.map((fa) => (
+                          <SelectItem key={fa} value={fa}>{fa.replace("items-", "").replace("justify-", "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* --- END LAYOUT SECTION --- */}
+          </div>
+          {/* --- END DESIGN SECTIONS --- */}
           <div className="mb-6">
             <Label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Content

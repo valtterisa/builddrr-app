@@ -19,6 +19,8 @@ export type EditorElement = {
   height?: string;
   display?: string;
   flexAlign?: string;
+  fontFamily?: string;
+  fontStyle?: string;
   // Add more as needed
 };
 
