@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ChevronLeft,
-  Edit,
-  Eye,
+
   LayoutDashboard,
   Monitor,
   Rocket,
@@ -17,12 +15,8 @@ type ViewportSize = "desktop" | "mobile";
 
 function EditorHeader({
   id,
-  setIsEditMode,
-  isEditMode,
 }: {
   id: string;
-  setIsEditMode: (isEditMode: boolean) => void;
-  isEditMode: boolean;
 }) {
   const [viewportSize, setViewportSize] = useState<ViewportSize>("desktop");
   const [websiteUrl, setWebsiteUrl] = useState<string | null>(id);

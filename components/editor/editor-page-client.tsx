@@ -1,6 +1,5 @@
 "use client";
 
-import { processChatMessage } from "@/app/actions";
 import ChatInterface from "@/components/chat/chat-interface";
 
 import { useEffect, useState } from "react";
@@ -8,19 +7,12 @@ import { useEffect, useState } from "react";
 import WebsitePreview from "@/components/editor/website-preview";
 import { useToast } from "@/hooks/use-toast";
 import EditorHeader from "./editor-header";
-import { generateSite } from "@/app/actions";
+import { generateSite, generateStream, getChatMessages, sendChatMessage, getVirtualFileSystem, updateVirtualFileSystem, generateFileUpdatesStream, type Operation } from "@/app/actions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import DevMode from "./dev-mode";
 import { useEditorStore } from "@/lib/editor-store";
 import type { EditorState } from "@/lib/editor-store";
-
-type GenerationStatus =
-  | "idle"
-  | "thinking"
-  | "generating"
-  | "deploying"
-  | "polling"
-  | "ready";
+import { useChatStreamStore } from "@/lib/chat-stream-store";
 
 export default function EditorPageClient({
   id,
@@ -33,8 +25,7 @@ export default function EditorPageClient({
   machine: any;
   appExists: boolean;
 }) {
-  const [status, setStatus] = useState<GenerationStatus>("idle");
-  const [appName, setAppName] = useState<string>("");
+  const [appName, setAppName] = useState<string>(id);
   const isEditMode = useEditorStore((s: EditorState) => s.isEditMode);
   const setEditMode = useEditorStore((s: EditorState) => s.setEditMode);
   const [websiteUrl, setWebsiteUrl] = useState<string | null>(id);
@@ -43,6 +34,16 @@ export default function EditorPageClient({
   const { toast } = useToast();
 
   const [machineData, setMachineData] = useState<any>(machine);
+
+  // Zustand chat state
+  const { setMessages, addMessage, startStream, updateStream, finishStream } = useChatStreamStore();
+
+  // Hydrate Zustand from Redis on mount
+  useEffect(() => {
+    if (user?.id && machine?.app_name) {
+      getChatMessages(user.id, machine.app_name).then(setMessages);
+    }
+  }, [user?.id, machine?.app_name, setMessages]);
 
   useEffect(() => {
     setMachineData(machine);
@@ -60,18 +61,12 @@ export default function EditorPageClient({
     }
 
     console.log("🔄 Calling generateSite...");
-
-    // Generate site if app doesn't exist already.
-    // Otherwise, just load the existing app.
-    if (!appExists) {
+    if (appExists) {
       generateSite(
         prompt,
-        (status) => {
-          console.log(`🔔 Status changed: ${status}`);
-          setStatus(status as GenerationStatus);
-        },
         user.user.id,
-        appName
+        appName,
+        machine[0].id
       )
         .then((result) => {
           console.log("✅ generateSite returned:", result);
@@ -87,11 +82,6 @@ export default function EditorPageClient({
             description: "Something went wrong during deployment.",
           });
         });
-    } else {
-      // Load existing app
-      // Fly.io boots up app automatically when request comes
-      setStatus("deploying");
-      // @TODO: Needs some health checks? Can it be in machine config?
     }
   }, [id, user]);
 
@@ -104,19 +94,85 @@ export default function EditorPageClient({
   }, [isEditMode]);
 
   const handleSendMessage = async (message: string) => {
-    try {
-      // Process the message using server action
-      if (appName) {
-        const response = await processChatMessage(
-          user.user.id,
-          appName,
-          message
-        );
-        return response;
+    const userMsg = {
+      id: Date.now().toString(),
+      content: message,
+      isUser: true,
+      timestamp: new Date().toISOString(),
+    };
+    addMessage(userMsg);
+    if (user?.id && machine?.app_name) {
+      await sendChatMessage(user.id, machine.app_name, userMsg.content, true);
+    }
+
+    // If site does not exist, use generateSite/generateStream (initial creation)
+    if (!appExists) {
+      startStream();
+      let aiContent = "";
+      for await (const chunk of generateStream(message, machine.app_name, machine.id)) {
+        if (chunk.type === "analysis") {
+          updateStream(chunk.content || "");
+          aiContent += chunk.content || "";
+        }
       }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      throw error;
+      finishStream();
+      const aiMsg = {
+        id: Date.now().toString(),
+        content: `<code-analysis>${aiContent}</code-analysis>`,
+        isUser: false,
+        timestamp: new Date().toISOString(),
+      };
+      addMessage(aiMsg);
+      if (user?.id && machine?.app_name) {
+        await sendChatMessage(user.id, machine.app_name, aiMsg.content, false);
+      }
+      return;
+    }
+
+    // If site exists, use generateFileUpdatesStream for post-creation chat
+    let currentFiles: Record<string, string> = {};
+    if (user?.id && machine?.app_name) {
+      currentFiles = (await getVirtualFileSystem(user.id, machine.app_name)) || {};
+    }
+    startStream();
+    let aiContent = "";
+    let fileOps: Operation[] = [];
+    for await (const chunk of generateFileUpdatesStream(message, currentFiles)) {
+      if (chunk.type === "analysis") {
+        updateStream(chunk.content || "");
+        aiContent += chunk.content || "";
+      } else if (chunk.type === "done" && chunk.operations) {
+        fileOps = chunk.operations;
+      }
+    }
+    finishStream();
+    // Auto-apply file operations to VFS
+    if (user?.id && machine?.app_name && fileOps.length > 0) {
+      // Apply file operations to currentFiles
+      let updatedFiles: Record<string, string> = { ...currentFiles };
+      for (const op of fileOps) {
+        if (op.operation === "write" && op.path && op.content !== undefined) {
+          updatedFiles[op.path] = op.content;
+        } else if (op.operation === "delete" && op.path) {
+          delete updatedFiles[op.path];
+        } else if (op.operation === "rename" && op.path && op.newPath) {
+          updatedFiles[op.newPath] = updatedFiles[op.path];
+          delete updatedFiles[op.path];
+        }
+        // (Dependency ops can be handled as needed)
+      }
+      await updateVirtualFileSystem(user.id, machine.app_name, updatedFiles);
+    }
+    // Show AI reasoning and confirmation in chat
+    const aiMsg = {
+      id: Date.now().toString(),
+      content: `<code-analysis>${aiContent}</code-analysis>\n\n${fileOps.length} file operations applied to your site.`,
+      isUser: false,
+      timestamp: new Date().toISOString(),
+    };
+    addMessage(aiMsg);
+    if (user?.id && machine?.app_name) {
+      await sendChatMessage(user.id, machine.app_name, aiMsg.content, false);
     }
   };
 
@@ -124,8 +180,6 @@ export default function EditorPageClient({
     <div className="flex flex-col h-full">
       <EditorHeader
         id={id}
-        setIsEditMode={setEditMode}
-        isEditMode={isEditMode}
       />
 
       <div className="flex flex-row gap-4 h-full rounded-3xl">
@@ -150,7 +204,6 @@ export default function EditorPageClient({
               asChild
             >
               <ChatInterface
-                status={status}
                 onSendMessage={handleSendMessage}
                 appName={appName}
                 userId={user.user.id}

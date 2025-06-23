@@ -6,19 +6,19 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { redis } from "@/lib/redis";
 
-interface Operation {
+export type Operation = {
   operation: "write" | "update" | "delete" | "code" | "rename" | "dependency";
   path?: string;
   newPath?: string; // For rename operations
   content?: string;
   dependency?: string;
-}
+};
 
 export interface ChatMessage {
   id: string;
   content: string;
   isUser: boolean;
-  timestamp: Date;
+  timestamp: string;
 }
 
 // Get user from Supabase
@@ -48,15 +48,13 @@ export async function getChatMessages(
     for (let i = 0; i < messages.length; i++) {
       try {
         const msg = messages[i].toString();
-        // Skip empty messages
         if (!msg || msg.trim() === "") continue;
-
         const parsed = JSON.parse(msg);
         parsedMessages.push({
           id: parsed.id || `generated-${Date.now()}-${i}`,
           content: parsed.content || "",
           isUser: !!parsed.isUser,
-          timestamp: new Date(parsed.timestamp || Date.now()),
+          timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date(parsed.timestamp || Date.now()).toISOString(),
         });
       } catch (parseError) {
         console.error(`Failed to parse message at index ${i}:`, parseError);
@@ -91,7 +89,7 @@ export async function sendChatMessage(
       id: Date.now().toString(),
       content: message,
       isUser,
-      timestamp: new Date(timestamp),
+      timestamp,
     };
 
     const messageString = JSON.stringify(messageObj);
@@ -109,10 +107,7 @@ export async function sendChatMessage(
       await Promise.race([
         redis.rpush(chatKey, messageString),
         new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Redis message save timeout")),
-            5000
-          )
+          setTimeout(() => reject(new Error("Redis message save timeout")), 5000)
         ),
       ]);
     } catch (timeoutError) {
@@ -179,7 +174,6 @@ export async function generateFileUpdates(
   currentFiles: Record<string, string>
 ): Promise<Operation[]> {
   try {
-    // Create a system prompt that enhances the original one but focuses on updates
     const fileUpdatePrompt = `
 You are builddrr, a professional AI frontend engineer. A user is asking to update their website code.
 
@@ -214,7 +208,7 @@ Respond ONLY with the <builddrr-code> block and file operations.
       prompt: message,
       temperature: 0,
       model: anthropic("claude-sonnet-4-20250514"),
-      maxTokens: 64000,
+      maxTokens: 16000,
       onError: ({ error }) => {
         console.error("AI Stream Error:", error);
       },
@@ -432,173 +426,21 @@ export async function generateAIResponse(
     }
   }
 
-  // Optionally, handle any remaining partial blocks in buffer here (rare, unless AI output is malformed)
-
   return { files, deletes, renames, dependencies, operations };
-}
-
-export async function processChatMessage(
-  userId: string,
-  appName: string,
-  message: string
-): Promise<{ success: boolean; operations?: string[]; error?: string }> {
-  try {
-    // Save the user message and get current VFS in parallel
-    const [savedMessage, currentVFSRaw] = await Promise.all([
-      sendChatMessage(userId, appName, message, true),
-      getVirtualFileSystem(userId, appName),
-    ]);
-    const currentVFS = currentVFSRaw || {};
-
-    if (!savedMessage.success) {
-      console.error("❌ Failed to save user message:", savedMessage.error);
-    }
-
-    // Run AI to generate file updates
-    const {
-      files: updatedVFS,
-      deletes,
-      renames,
-      dependencies,
-      operations,
-    } = await generateAIResponse(message);
-
-    // Apply operations to VFS
-    const updatedFiles = [];
-    const deletedFiles = [];
-    const renamedFiles = [];
-    const addedDependencies = [];
-
-    console.log("📝 Applying operations to VFS");
-    for (const op of operations) {
-      switch (op.type) {
-        case "write":
-          if (op.path && op.content) {
-            const path = op.path.startsWith("/")
-              ? op.path.substring(1)
-              : op.path;
-            currentVFS[path] = op.content;
-            updatedFiles.push(path);
-          }
-          break;
-        case "delete":
-          if (op.path) {
-            const path = op.path.startsWith("/")
-              ? op.path.substring(1)
-              : op.path;
-            delete currentVFS[path];
-            deletedFiles.push(path);
-          }
-          break;
-        case "rename":
-          if (op.oldPath && op.newPath) {
-            const oldPath = op.oldPath.startsWith("/")
-              ? op.oldPath.substring(1)
-              : op.oldPath;
-            const newPath = op.newPath.startsWith("/")
-              ? op.newPath.substring(1)
-              : op.newPath;
-            if (currentVFS[oldPath]) {
-              currentVFS[newPath] = currentVFS[oldPath];
-              delete currentVFS[oldPath];
-              renamedFiles.push(`${oldPath} -> ${newPath}`);
-            }
-          }
-          break;
-        case "dependency":
-          if (op.dependency) {
-            const pkgJsonPath = "package.json";
-            let pkgJson: {
-              dependencies?: Record<string, string>;
-              [key: string]: any;
-            } = {};
-            if (currentVFS[pkgJsonPath]) {
-              try {
-                pkgJson = JSON.parse(currentVFS[pkgJsonPath]);
-              } catch (e) {
-                console.error("Error parsing package.json:", e);
-              }
-            }
-            pkgJson.dependencies = pkgJson.dependencies || {};
-            pkgJson.dependencies[op.dependency] = "*";
-            currentVFS[pkgJsonPath] = JSON.stringify(pkgJson, null, 2);
-            addedDependencies.push(op.dependency);
-          }
-          break;
-      }
-    }
-
-    console.log("📊 Operation summary:");
-    console.log(`- Updated: ${updatedFiles.length} files`);
-    console.log(`- Deleted: ${deletedFiles.length} files`);
-    console.log(`- Renamed: ${renamedFiles.length} files`);
-    console.log(`- Added dependencies: ${addedDependencies.length}`);
-
-    // Save the updated VFS
-    console.log("💾 Saving updated VFS");
-    await updateVirtualFileSystem(userId, appName, currentVFS);
-
-    // Save assistant response (no need to await, can be fire-and-forget)
-    const responseMessage =
-      operations.length === 0
-        ? "No changes were made to your website."
-        : [
-          operations.filter((op) => op.type === "write").length > 0
-            ? `Updated ${operations.filter((op) => op.type === "write").length} file(s)`
-            : "",
-          operations.filter((op) => op.type === "delete").length > 0
-            ? `Deleted ${operations.filter((op) => op.type === "delete").length} file(s)`
-            : "",
-          operations.filter((op) => op.type === "rename").length > 0
-            ? `Renamed ${operations.filter((op) => op.type === "rename").length} file(s)`
-            : "",
-          operations.filter((op) => op.type === "dependency").length > 0
-            ? `Added ${operations.filter((op) => op.type === "dependency").length} dependenc${operations.filter((op) => op.type === "dependency").length > 1 ? "ies" : "y"}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(", ") + ".";
-
-    sendChatMessage(userId, appName, responseMessage, false); // fire-and-forget
-
-    return {
-      success: true,
-      operations: operations.map((op) => op.type),
-    };
-  } catch (error) {
-    // Only catch actionable errors
-    try {
-      await sendChatMessage(
-        userId,
-        appName,
-        "Sorry, I encountered an error processing your request.",
-        false
-      );
-    } catch { }
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Message processing failed.",
-    };
-  }
 }
 
 export async function generateSite(
   prompt: string,
-  setStatus: (status: string) => void,
   userId: string,
-  appName: string
+  appName: string,
+  machineId: string
 ) {
   console.log("📥 generateSite started with prompt length:", prompt.length);
-
-  setStatus("thinking");
-  setStatus("generating");
 
   let filesObj: Record<string, string> = {};
   try {
     const { files } = await generateAIResponse(prompt);
     if (!files || Object.keys(files).length === 0) {
-      setStatus("ready");
       return {
         success: false,
         error:
@@ -606,7 +448,6 @@ export async function generateSite(
       };
     }
   } catch (aiError) {
-    setStatus("ready");
     return {
       success: false,
       error: aiError instanceof Error ? aiError.message : String(aiError),
@@ -619,105 +460,288 @@ export async function generateSite(
     content,
   }));
 
-  // Save to Redis in parallel
-  setStatus("deploying");
   try {
-    await Promise.all([
-      (async () => {
-        try {
-          await Promise.race([
-            redis.set(`prompt:${userId}:${appName}`, prompt),
-            new Promise((_, reject) =>
-              setTimeout(
-                () => reject(new Error("Redis prompt save timeout")),
-                5000
-              )
-            ),
-          ]);
-        } catch (err) {
-          console.error("❌ Redis prompt error:", err);
-        }
-      })(),
-      (async () => {
-        try {
-          await Promise.race([
-            redis.set(`vfs:${userId}:${appName}`, JSON.stringify(files)),
-            new Promise((_, reject) =>
-              setTimeout(
-                () => reject(new Error("Redis VFS save timeout")),
-                5000
-              )
-            ),
-          ]);
-        } catch (err) {
-          console.error("❌ Redis VFS error:", err);
-        }
-      })(),
-    ]);
-  } catch (redisError) {
-    // Only log, don't fallback to localStorage unless both fail
-    console.error("❌ Redis error:", redisError);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(`vfs:${userId}:${appName}`, JSON.stringify(files));
-      } catch (localStorageError) {
-        console.error("❌ Failed to save to localStorage:", localStorageError);
-      }
-    }
-  }
-
-  // Chat history initialization
-  const chatKey = `chat:${userId}:${appName}`;
-  const initialMessage = {
-    id: Date.now().toString(),
-    content: prompt,
-    isUser: true,
-    timestamp: new Date().toISOString(),
-  };
-  try {
-    const messageString = JSON.stringify(initialMessage);
-    JSON.parse(messageString); // Sanity check
-    await Promise.race([
-      redis.rpush(chatKey, messageString),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Redis chat message save timeout")),
-          5000
-        )
-      ),
-    ]);
-  } catch (chatError) {
-    console.error("❌ Chat history error:", chatError);
-    if (typeof window !== "undefined") {
-      try {
-        const localStorageKey = `chat:${userId}:${appName}`;
-        const existingMessages = localStorage.getItem(localStorageKey);
-        const messages = existingMessages
-          ? [...JSON.parse(existingMessages), initialMessage]
-          : [initialMessage];
-        localStorage.setItem(localStorageKey, JSON.stringify(messages));
-      } catch (localStorageError) {
-        console.error("❌ Failed to save to localStorage:", localStorageError);
-      }
-    }
-  }
-
-  // Deploy (keep as is, but error handling is now more targeted)
-  // MOve the deploy-preview api route here? We just need to pass update machine with the files
-  let result;
-  try {
-    result = await fetch("/api/deploy-preview", {
-      method: "POST",
-      body: JSON.stringify({ files, userId }),
-    });
-    setStatus("polling");
-    setStatus("ready");
-    return result;
+    return await deployPreview(files, appName, machineId);
   } catch (deployError) {
-    setStatus("ready");
     return {
       success: true,
       machine: { id: "error-machine-id", name: appName },
     };
   }
 }
+
+// Update files in fly.io
+async function deployPreview(files: any[], appName: string, machineId: string) {
+
+  const normalizedFiles = Array.isArray(files) ? files : files ? [files] : [];
+
+  if (!normalizedFiles.length || !appName || !machineId) {
+    return { error: "Missing required fields" }
+  }
+
+  try {
+    const filesPayload = normalizedFiles.map(
+      (file: { path: string; content: string }) => ({
+        guest_path: file.path,
+        raw_value: Buffer.from(file.content, "utf-8").toString("base64"),
+      })
+    );
+    const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
+
+    // Get specific machine, copy config, update config, continue
+    // This should be correct only thing is can this be called from the action? answer is no i think
+    const machine = await fetch(
+      `https://api.machines.dev/v1/apps/${appName}/machines`,
+      {
+        headers: {
+          Authorization: `Bearer ${FLY_API_TOKEN}`,
+        },
+      }
+    );
+
+    const machineData = await machine.json();
+    const machineConfig = machineData.find(
+      (m: any) => m.id === machineId
+    )?.config;
+
+    if (!machineConfig) {
+      return { error: "Machine not found" }
+    }
+
+    // Update config
+    machineConfig.files = filesPayload;
+
+    const updateRes = await fetch(
+      `https://api.machines.dev/v1/apps/${appName}/machines/${machineId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${FLY_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          config: machineConfig,
+        }),
+      }
+    );
+
+    if (!updateRes.ok) {
+      const errorText = await updateRes.text();
+      throw new Error(`Fly API error: ${updateRes.status} ${errorText}`);
+    }
+
+    const data = await updateRes.json();
+    return { machine: data, machineId, appName }
+  } catch (err: any) {
+    return { error: err?.message || err }
+  }
+}
+
+export async function* generateStream(prompt: string, appName: string, machineId: string): AsyncGenerator<{ type: 'analysis' | 'done', content?: string, result?: any }, void, unknown> {
+  const result = streamText({
+    system: systemPrompt,
+    prompt,
+    temperature: 0,
+    model: anthropic("claude-sonnet-4-20250514"),
+    maxTokens: 16000,
+    onError: ({ error }) => {
+      console.error("AI Stream Error:", error);
+    },
+    onFinish: ({ finishReason, usage }) => {
+      console.log("AI Stream Finished:", { finishReason, usage });
+    },
+  });
+
+  const reader = result.textStream.getReader();
+  let buffer = "";
+  let inBlock = false;
+  let done = false;
+  let codeBuffer = "";
+  let codeBlockStarted = false;
+
+  while (!done) {
+    const { value, done: streamDone } = await reader.read();
+    done = streamDone;
+    if (value) buffer += value;
+
+    // Stream <code-analysis> block
+    while (true) {
+      if (!inBlock) {
+        const startIdx = buffer.indexOf("<code-analysis>");
+        if (startIdx !== -1) {
+          inBlock = true;
+          buffer = buffer.slice(startIdx + "<code-analysis>".length);
+        } else {
+          // No block start yet, wait for more data
+          break;
+        }
+      }
+      if (inBlock) {
+        const endIdx = buffer.indexOf("</code-analysis>");
+        if (endIdx !== -1) {
+          // End of block found, yield up to end
+          const chunk = buffer.slice(0, endIdx);
+          if (chunk) yield { type: 'analysis', content: chunk };
+          buffer = buffer.slice(endIdx + "</code-analysis>".length);
+          inBlock = false;
+          codeBlockStarted = true;
+          codeBuffer += buffer; // Start buffering the rest for code
+          buffer = "";
+          break;
+        } else {
+          // No end yet, yield all and wait for more
+          if (buffer) {
+            yield { type: 'analysis', content: buffer };
+            buffer = "";
+          }
+          break;
+        }
+      }
+    }
+    // After <code-analysis>, buffer the rest for code processing
+    if (codeBlockStarted && buffer) {
+      codeBuffer += buffer;
+      buffer = "";
+    }
+  }
+
+  // After streaming, process <builddrr-code> blocks
+  let deployResult = null;
+  const codeMatch = codeBuffer.match(/<builddrr-code>([\s\S]*?)<\/builddrr-code>/);
+  if (codeMatch && codeMatch[1]) {
+    // You can parse and deploy here, e.g.:
+    // deployResult = await deployPreview(...)
+    // For now, just return the code block
+    deployResult = codeMatch[1].trim();
+  }
+  yield { type: 'done', result: deployResult };
+}
+
+export async function* generateFileUpdatesStream(message: string, currentFiles: Record<string, string>): AsyncGenerator<{ type: 'analysis' | 'done', content?: string, operations?: Operation[] }, void, unknown> {
+  const fileUpdatePrompt = `
+You are builddrr, a professional AI frontend engineer. A user is asking to update their website code.
+
+Current project files:
+${Object.keys(currentFiles)
+      .map((path) => `- ${path}`)
+      .join("\n")}
+
+Based on the user's request, first narrate your reasoning and plan in a <code-analysis>...</code-analysis> block (markdown, conversational, detailed). Then, determine which files need to be updated, created, renamed, or deleted. When responding, use the format:
+
+<builddrr-code>
+<builddrr-write file="/path/to/file.tsx">
+// Complete file content here
+</builddrr-write>
+
+<builddrr-delete file="/path/to/delete.tsx"/>
+
+<builddrr-rename file="/path/to/old.tsx" newPath="/path/to/new.tsx"/>
+
+<builddrr-add-dependency>
+package-name
+</builddrr-add-dependency>
+</builddrr-code>
+
+Always provide complete file content for written or updated files, not just changes.
+Respond ONLY with the <builddrr-code> block and file operations.
+`;
+
+  const result = streamText({
+    system: fileUpdatePrompt,
+    prompt: message,
+    temperature: 0,
+    model: anthropic("claude-sonnet-4-20250514"),
+    maxTokens: 16000,
+    onError: ({ error }) => {
+      console.error("AI Stream Error:", error);
+    },
+    onFinish: ({ finishReason, usage }) => {
+      console.log("AI Stream Finished:", { finishReason, usage });
+    },
+  });
+
+  const reader = result.textStream.getReader();
+  let buffer = "";
+  let inBlock = false;
+  let done = false;
+  let codeBuffer = "";
+  let codeBlockStarted = false;
+
+  while (!done) {
+    const { value, done: streamDone } = await reader.read();
+    done = streamDone;
+    if (value) buffer += value;
+
+    // Stream <code-analysis> block
+    while (true) {
+      if (!inBlock) {
+        const startIdx = buffer.indexOf("<code-analysis>");
+        if (startIdx !== -1) {
+          inBlock = true;
+          buffer = buffer.slice(startIdx + "<code-analysis>".length);
+        } else {
+          // No block start yet, wait for more data
+          break;
+        }
+      }
+      if (inBlock) {
+        const endIdx = buffer.indexOf("</code-analysis>");
+        if (endIdx !== -1) {
+          // End of block found, yield up to end
+          const chunk = buffer.slice(0, endIdx);
+          if (chunk) yield { type: 'analysis', content: chunk };
+          buffer = buffer.slice(endIdx + "</code-analysis>".length);
+          inBlock = false;
+          codeBlockStarted = true;
+          codeBuffer += buffer; // Start buffering the rest for code
+          buffer = "";
+          break;
+        } else {
+          // No end yet, yield all and wait for more
+          if (buffer) {
+            yield { type: 'analysis', content: buffer };
+            buffer = "";
+          }
+          break;
+        }
+      }
+    }
+    // After <code-analysis>, buffer the rest for code processing
+    if (codeBlockStarted && buffer) {
+      codeBuffer += buffer;
+      buffer = "";
+    }
+  }
+
+  // After streaming, process <builddrr-code> blocks
+  const operations: Operation[] = [];
+  const codeMatch = codeBuffer.match(/<builddrr-code>([\s\S]*?)<\/builddrr-code>/);
+  if (codeMatch && codeMatch[1]) {
+    const codeBlock = codeMatch[1].trim();
+    // Extract write operations
+    const writeMatches = [...codeBlock.matchAll(/<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g)];
+    for (const match of writeMatches) {
+      operations.push({ operation: "write", path: match[1], content: match[2].trim() });
+    }
+    // Extract delete operations
+    const deleteMatches = [...codeBlock.matchAll(/<builddrr-delete file="([^"]+)"\/>/g)];
+    for (const match of deleteMatches) {
+      operations.push({ operation: "delete", path: match[1] });
+    }
+    // Extract rename operations
+    const renameMatches = [...codeBlock.matchAll(/<builddrr-rename file="([^"]+)" newPath="([^"]+)"\/>/g)];
+    for (const match of renameMatches) {
+      operations.push({ operation: "rename", path: match[1], newPath: match[2] });
+    }
+    // Extract dependency operations
+    const depMatches = [...codeBlock.matchAll(/<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/g)];
+    for (const match of depMatches) {
+      const deps = match[1].trim().split("\n").filter((dep) => dep.trim() !== "");
+      for (const dep of deps) {
+        operations.push({ operation: "dependency", dependency: dep.trim() });
+      }
+    }
+  }
+  yield { type: 'done', operations };
+}
+

@@ -15,20 +15,18 @@ export default async function EditorPage({
   let machine: any;
   const appExists = await checkAppAvailability(id);
 
-  if (appExists === true) {
-    const response = await fetch(
-      `${process.env.FLY_API_BASE}/v1/apps/${id}/machines`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
-        },
-      }
-    );
+  const response = await fetch(
+    `${process.env.FLY_API_BASE}/v1/apps/${id}/machines`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,
+      },
+    }
+  );
 
-    machine = await response.json();
-  }
+  machine = await response.json();
 
   return (
     <EditorPageClient
