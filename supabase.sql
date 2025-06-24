@@ -134,3 +134,57 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
+CREATE POLICY "Allow read for team members"
+ON memberships
+FOR SELECT
+USING (
+  team_id IN (
+    SELECT team_id FROM memberships WHERE user_id = auth.uid() AND status = 'active'
+  )
+);
+-- Allow access to profiles of members in the same teams
+CREATE POLICY "Allow read of team member profiles"
+ON profiles
+FOR SELECT
+USING (
+  id IN (
+    SELECT user_id FROM memberships
+    WHERE team_id IN (
+      SELECT team_id FROM memberships WHERE user_id = auth.uid() AND status = 'active'
+    )
+  )
+);
+CREATE POLICY "Allow read for team admins or owners"
+ON pending_invitations
+FOR SELECT
+USING (
+  team_id IN (
+    SELECT team_id FROM memberships
+    WHERE user_id = auth.uid()
+    AND status = 'active'
+    AND role IN ('owner', 'admin')
+  )
+);
+CREATE POLICY "Allow update for team admins or owners"
+ON pending_invitations
+FOR UPDATE
+USING (
+  team_id IN (
+    SELECT team_id FROM memberships
+    WHERE user_id = auth.uid()
+    AND status = 'active'
+    AND role IN ('owner', 'admin')
+  )
+);
+CREATE POLICY "Allow delete for team admins or owners"
+ON pending_invitations
+FOR DELETE
+USING (
+  team_id IN (
+    SELECT team_id FROM memberships
+    WHERE user_id = auth.uid()
+    AND status = 'active'
+    AND role IN ('owner', 'admin')
+  )
+);
+
