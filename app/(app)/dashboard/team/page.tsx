@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -46,15 +45,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getWebsiteUsers,
-  addWebsiteUser,
-  updateWebsiteUserRole,
-  removeWebsiteUser,
-} from "@/lib/database";
 import { SiteHeader } from "@/components/site-header";
 
-type TeamMemberRole = "owner" | "admin" | "editor" | "viewer";
+type TeamMemberRole = "owner" | "admin" | "billing" | "editor" | "viewer";
 
 interface TeamMember {
   id: string;
@@ -64,8 +57,8 @@ interface TeamMember {
   avatar: string | null;
 }
 
-interface UserWebsite {
-  website_id: string;
+interface UserTeam {
+  team_id: string;
   name: string;
   role: TeamMemberRole;
 }
@@ -74,11 +67,10 @@ export default function TeamPage() {
   const { toast } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [userWebsites, setUserWebsites] = useState<UserWebsite[]>([]);
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(
-    null
-  );
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamMemberRole>("editor");
@@ -111,102 +103,117 @@ export default function TeamPage() {
     fetchCurrentUser();
   }, []);
 
-  // Fetch user's websites when userId is available
+  // Fetch user's teams when userId is available
   useEffect(() => {
-    const fetchUserWebsites = async () => {
+    const fetchUserTeams = async () => {
       if (!userId) return;
 
-      setIsLoading(true);
+      setIsLoadingTeams(true);
       try {
         // Create a client-side Supabase client
         const supabase = createClient();
 
-        // Get user websites directly from the client
+        // Get user's teams from memberships table
         const { data, error } = await supabase
-          .from("website_users")
-          .select(
-            `
-            *,
-            website:website_id (*)
-          `
-          )
-          .eq("user_id", userId);
+          .from("memberships")
+          .select(`
+            user_id,
+            team_id,
+            role,
+            status,
+            team:team_id (
+              id,
+              name
+            )
+          `)
+          .eq("user_id", userId)
+          .eq("status", "active");
 
         if (error) throw error;
 
-        // Format the data as before
-        const formattedWebsites: UserWebsite[] = data
-          .filter((item) => item.website) // Filter out entries with null website
+        // Format the data
+        const formattedTeams: UserTeam[] = data
+          .filter((item) => item.team) // Filter out entries with null team
           .map((item) => ({
-            website_id: item.website_id,
-            name: item.website.name,
-            role: item.role,
+            team_id: item.team_id,
+            name: item.team.name,
+            role: item.role as TeamMemberRole,
           }));
 
-        if (data.some((item) => !item.website)) {
-          console.warn("Some website entries are null:", data);
+        if (data.some((item) => !item.team)) {
+          console.warn("Some team entries are null:", data);
         }
 
-        setUserWebsites(formattedWebsites);
+        setUserTeams(formattedTeams);
 
-        // Select the first website by default if available
-        if (formattedWebsites.length > 0 && !selectedWebsiteId) {
-          setSelectedWebsiteId(formattedWebsites[0].website_id);
+        // Select the first team by default if available
+        if (formattedTeams.length > 0 && !selectedTeamId) {
+          setSelectedTeamId(formattedTeams[0].team_id);
         }
       } catch (error) {
-        console.error("Failed to fetch user websites:", error);
+        console.error("Failed to fetch user teams:", error);
         toast({
           title: "Error",
-          description: "Failed to load your websites. Please try again.",
+          description: "Failed to load your teams. Please try again.",
           variant: "destructive",
         });
       } finally {
+        setIsLoadingTeams(false);
         setIsLoading(false);
       }
     };
 
-    fetchUserWebsites();
-  }, [userId, toast, selectedWebsiteId]);
+    fetchUserTeams();
+  }, [userId, toast, selectedTeamId]);
 
-  // Fetch team members when selected website changes
+  // Fetch team members when selected team changes
   useEffect(() => {
     const fetchTeamMembers = async () => {
-      if (!selectedWebsiteId) return;
+      if (!selectedTeamId) return;
 
       setIsLoadingMembers(true);
       try {
         const supabase = createClient();
 
-        // Fetch team members
-        const { data: teamData, error: teamError } = await supabase
-          .from("website_users")
-          .select("user_id, role")
-          .eq("website_id", selectedWebsiteId);
+        // Log debug info to check RLS policies
+        console.log("Fetching members for team:", selectedTeamId);
 
-        if (teamError) throw teamError;
+        // Fetch team members from memberships table with debug info
+        const { data: membersData, error: membersError } = await supabase
+          .from("memberships")
+          .select(`
+            user_id,
+            role,
+            status,
+            profile:profiles!user_id (
+              id,
+              full_name,
+              email,
+              avatar_url
+            )
+          `)
+          .eq("team_id", selectedTeamId)
+          .eq("status", "active");
 
-        // Fetch profiles for each team member
-        const profilePromises = teamData.map((item) =>
-          supabase
-            .from("profiles")
-            .select("id, full_name, email, avatar_url")
-            .eq("id", item.user_id)
-            .single()
-        );
+        if (membersError) {
+          console.error("Error fetching team members:", membersError);
+          throw membersError;
+        }
 
-        const profileResults = await Promise.all(profilePromises);
+        console.log("Raw members data:", membersData);
 
-        const formattedMembers: TeamMember[] = teamData.map((item, index) => {
-          const profile = profileResults[index].data;
-          return {
+        // Format the data
+        const formattedMembers: TeamMember[] = membersData
+          .filter((item) => item.profile) // Filter out entries with null profile
+          .map((item) => ({
             id: item.user_id,
-            name: profile?.full_name || "No Name",
-            email: profile?.email || "No Email",
-            role: item.role,
-            avatar: profile?.avatar_url || null,
-          };
-        });
+            name: item.profile.full_name || "No Name",
+            email: item.profile.email || "No Email",
+            role: item.role as TeamMemberRole,
+            avatar: item.profile.avatar_url || null,
+          }));
 
+        console.log("Formatted members:", formattedMembers);
         setTeamMembers(formattedMembers);
       } catch (error) {
         console.error("Failed to fetch team members:", error);
@@ -221,18 +228,18 @@ export default function TeamPage() {
     };
 
     fetchTeamMembers();
-  }, [selectedWebsiteId, toast]);
+  }, [selectedTeamId, toast]);
 
-  const handleWebsiteChange = (websiteId: string) => {
-    setSelectedWebsiteId(websiteId);
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeamId(teamId);
   };
 
   const handleInviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedWebsiteId) {
+    if (!selectedTeamId) {
       toast({
         title: "Error",
-        description: "Please select a website first.",
+        description: "Please select a team first.",
         variant: "destructive",
       });
       return;
@@ -240,8 +247,20 @@ export default function TeamPage() {
 
     setIsInviting(true);
     try {
-      const dummyUserId = "tempUserId"; // This would be fetched based on email in a real implementation
-      await addWebsiteUser(selectedWebsiteId, dummyUserId, inviteRole);
+      const supabase = createClient();
+
+      // Create a pending invitation
+      const { error } = await supabase
+        .from("pending_invitations")
+        .insert({
+          email: inviteEmail,
+          team_id: selectedTeamId,
+          role: inviteRole,
+          invited_by: userId,
+          status: "pending"
+        });
+
+      if (error) throw error;
 
       toast({
         title: "Success",
@@ -249,16 +268,7 @@ export default function TeamPage() {
       });
 
       // Refresh the team members list
-      const updatedUsers = await getWebsiteUsers(selectedWebsiteId);
-      const formattedMembers = updatedUsers.map((item) => ({
-        id: item.user_id,
-        name: item.profile.full_name || "No Name",
-        email: item.profile.email || "No Email",
-        role: item.role,
-        avatar: item.profile.avatar_url,
-      }));
-
-      setTeamMembers(formattedMembers);
+      fetchTeamMembers();
     } catch (error) {
       console.error("Failed to invite member:", error);
       toast({
@@ -274,15 +284,66 @@ export default function TeamPage() {
     }
   };
 
+  const fetchTeamMembers = async () => {
+    if (!selectedTeamId) return;
+
+    setIsLoadingMembers(true);
+    try {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("memberships")
+        .select(`
+          user_id,
+          role,
+          status,
+          profile:profiles!user_id (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
+        .eq("team_id", selectedTeamId)
+        .eq("status", "active");
+
+      if (error) throw error;
+
+      const formattedMembers: TeamMember[] = data
+        .filter((item) => item.profile)
+        .map((item) => ({
+          id: item.user_id,
+          name: item.profile.full_name || "No Name",
+          email: item.profile.email || "No Email",
+          role: item.role as TeamMemberRole,
+          avatar: item.profile.avatar_url || null,
+        }));
+
+      setTeamMembers(formattedMembers);
+    } catch (error) {
+      console.error("Failed to refresh team members:", error);
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
   const handleRoleChange = async (
     memberId: string,
     newRole: TeamMemberRole
   ) => {
-    if (!selectedWebsiteId) return;
+    if (!selectedTeamId) return;
 
     setIsUpdatingRole(memberId);
     try {
-      await updateWebsiteUserRole(selectedWebsiteId, memberId, newRole);
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("memberships")
+        .update({ role: newRole })
+        .eq("team_id", selectedTeamId)
+        .eq("user_id", memberId);
+
+      if (error) throw error;
 
       // Update local state
       setTeamMembers(
@@ -308,11 +369,20 @@ export default function TeamPage() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!selectedWebsiteId) return;
+    if (!selectedTeamId) return;
 
     setIsRemoving(memberId);
     try {
-      await removeWebsiteUser(selectedWebsiteId, memberId);
+      const supabase = createClient();
+
+      // Update membership status to 'removed' instead of deleting
+      const { error } = await supabase
+        .from("memberships")
+        .update({ status: "removed" })
+        .eq("team_id", selectedTeamId)
+        .eq("user_id", memberId);
+
+      if (error) throw error;
 
       // Update local state
       setTeamMembers(teamMembers.filter((m) => m.id !== memberId));
@@ -337,7 +407,7 @@ export default function TeamPage() {
     <div className="px-4 md:px-6">
       <SiteHeader title="Team Management" />
       <div className="space-y-6 pt-4">
-        {selectedWebsiteId && (
+        {selectedTeamId && (
           <Dialog
             open={isInviteDialogOpen}
             onOpenChange={setIsInviteDialogOpen}
@@ -386,6 +456,7 @@ export default function TeamPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="billing">Billing</SelectItem>
                         <SelectItem value="editor">Editor</SelectItem>
                         <SelectItem value="viewer">Viewer</SelectItem>
                       </SelectContent>
@@ -406,51 +477,51 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Website Selector */}
+      {/* Team Selector */}
       <div className="mb-6">
         <Card>
           <CardHeader>
-            <CardTitle>Select Website</CardTitle>
+            <CardTitle>Select Team</CardTitle>
             <CardDescription>
-              Choose a website to manage team members for.
+              Choose a team to manage members for.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoadingTeams ? (
               <div className="flex items-center space-x-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading your websites...</span>
+                <span>Loading your teams...</span>
               </div>
-            ) : userWebsites.length > 0 ? (
+            ) : userTeams.length > 0 ? (
               <Select
-                value={selectedWebsiteId || ""}
-                onValueChange={handleWebsiteChange}
+                value={selectedTeamId || ""}
+                onValueChange={handleTeamChange}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a website" />
+                  <SelectValue placeholder="Select a team" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userWebsites.map((site) => (
-                    <SelectItem key={site.website_id} value={site.website_id}>
-                      {site.name}
+                  {userTeams.map((team) => (
+                    <SelectItem key={team.team_id} value={team.team_id}>
+                      {team.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
-              <p>You don't have access to any websites. Create one first.</p>
+              <p>You don't have access to any teams.</p>
             )}
           </CardContent>
         </Card>
       </div>
 
       <div className="space-y-6">
-        {selectedWebsiteId && (
+        {selectedTeamId && (
           <Card>
             <CardHeader>
               <CardTitle>Team Members</CardTitle>
               <CardDescription>
-                Manage who has access to this website.
+                Manage who has access to this team.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -512,6 +583,7 @@ export default function TeamPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="billing">Billing</SelectItem>
                                   <SelectItem value="editor">Editor</SelectItem>
                                   <SelectItem value="viewer">Viewer</SelectItem>
                                 </SelectContent>

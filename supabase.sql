@@ -79,3 +79,58 @@ create table invoice_line_items (
   plan_tier text,
   amount numeric
 );
+create table pending_invitations (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  team_id uuid not null references teams(id) on delete cascade,
+  role text not null check (role in ('admin', 'billing', 'editor', 'viewer')),
+  invited_at timestamp with time zone default now(),
+  invited_by uuid references profiles(id),
+  token text unique,  -- optional: for magic invite links
+  status text default 'pending' check (status in ('pending', 'accepted', 'expired'))
+);
+create or replace function public.handle_new_user()
+returns trigger as $$
+declare
+  user_email text;
+  new_team_id uuid;
+  full_name text;
+  invitation record;
+begin
+  user_email := new.email;
+
+  -- Create a profile (default behavior)
+  insert into public.profiles (id, email, created_at)
+  values (new.id, new.email, now());
+
+  -- Check for pending invitation
+  select * into invitation
+  from public.pending_invitations
+  where lower(email) = lower(user_email) and status = 'pending'
+  limit 1;
+
+  if found then
+    -- Mark invitation as accepted
+    update public.pending_invitations
+    set status = 'accepted'
+    where id = invitation.id;
+
+    -- Add to invited team
+    insert into public.memberships (user_id, team_id, role, status, joined_at)
+    values (new.id, invitation.team_id, invitation.role, 'active', now());
+  else
+    -- No invite: create a personal team
+    insert into public.teams (name)
+    values (initcap(split_part(user_email, '@', 1)) || '''s Team')
+    returning id into new_team_id;
+
+    insert into public.memberships (user_id, team_id, role, status, joined_at)
+    values (new.id, new_team_id, 'owner', 'active', now());
+
+    insert into public.websites (team_id, name)
+    values (new_team_id, 'My Website');
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
