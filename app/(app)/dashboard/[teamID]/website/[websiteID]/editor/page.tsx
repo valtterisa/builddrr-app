@@ -1,22 +1,22 @@
 import { checkAppAvailability } from "@/lib/fly";
 import { createClient } from "@/lib/supabase/server";
-import EditorPageClient from "../../../../../../components/editor/editor-page-client";
+import EditorPageClient from "@/components/editor/editor-page-client";
 
 export default async function EditorPage({
   params,
 }: {
-  params: { id: string };
+  params: { teamID: string; websiteID: string };
 }) {
-  const { id } = await params;
+  const { websiteID } = params;
 
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
 
   let machine: any;
-  const appExists = await checkAppAvailability(id);
+  const appExists = await checkAppAvailability(websiteID);
 
   const response = await fetch(
-    `${process.env.FLY_API_BASE}/v1/apps/${id}/machines`,
+    `${process.env.FLY_API_BASE}/v1/apps/${websiteID}/machines`,
     {
       method: "GET",
       headers: {
@@ -30,10 +30,11 @@ export default async function EditorPage({
 
   return (
     <EditorPageClient
-      id={id}
+      id={websiteID}
       user={user}
       machine={machine}
       appExists={appExists}
     />
   );
 }
+

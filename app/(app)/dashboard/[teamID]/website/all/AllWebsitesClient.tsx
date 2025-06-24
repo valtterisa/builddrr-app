@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -94,6 +94,13 @@ function constructWebsiteUrl(website: MyWebsite): string {
 export default function AllWebsitesClient(machine: any) {
   const router = useRouter();
   const { toast } = useToast();
+  const params = useParams();
+  const teamId =
+    typeof params.teamID === "string"
+      ? params.teamID
+      : Array.isArray(params.teamID)
+      ? params.teamID[0]
+      : undefined;
   const [websites, setWebsites] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,34 +112,54 @@ export default function AllWebsitesClient(machine: any) {
 
   useEffect(() => {
     const fetchWebsites = async () => {
-      setIsLoading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (!user) {
+      if (!teamId) {
+        toast({
+          title: "Error",
+          description: "Team ID is missing. Please select a team.",
+          variant: "destructive",
+        });
         setWebsites([]);
         setIsLoading(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("websites")
-        .select(
-          "id, name, description, published, template_id, primary_url, settings, machine_id, app_name, status, preview_url, last_deployed, repository_url, subdomain, primary_domain, created_at"
-        )
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (error) {
+
+      setIsLoading(true);
+      const supabase = createClient();
+
+      try {
+        // Fetch websites associated with the team - only select fields that exist in the database schema
+        const { data, error } = await supabase
+          .from("websites")
+          .select("id, team_id, name, source_code_url, created_at")
+          .eq("team_id", teamId);
+
+        if (error) {
+          console.error("Error fetching websites:", JSON.stringify(error, null, 2));
+          toast({
+            title: "Error",
+            description: `Failed to load websites: ${error.message || error.code || "Unknown error"}`,
+            variant: "destructive",
+          });
+          setWebsites([]);
+        } else {
+          console.log("Websites fetched successfully:", data?.length || 0, "websites");
+          setWebsites(data || []);
+        }
+      } catch (error: any) {
+        console.error("Failed to fetch websites:", JSON.stringify(error, null, 2));
+        toast({
+          title: "Error",
+          description: `An unexpected error occurred: ${error?.message || "Unknown error"}`,
+          variant: "destructive",
+        });
         setWebsites([]);
-      } else {
-        setWebsites(data || []);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
+
     fetchWebsites();
-  }, []);
+  }, [teamId, toast]);
 
   const handleDeleteWebsite = (id: string) => {
     setWebsiteToDelete(id);
@@ -290,7 +317,7 @@ export default function AllWebsitesClient(machine: any) {
                 <Button
                   variant="outline"
                   size="sm"
-                  href={`/dashboard/website/editor/${website.app_name}`}
+                  href={`/dashboard/${teamId}/website/${website.id}/editor`}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
@@ -336,14 +363,14 @@ export default function AllWebsitesClient(machine: any) {
                       <DropdownMenuLabel hidden>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
                         onClick={() =>
-                          router.push("/dashboard/website/domains")
+                          router.push(`/dashboard/${teamId}/website/${website.id}/domains`)
                         }
                       >
                         Set up custom domain
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
-                          router.push("/dashboard/website/integrations")
+                          router.push(`/dashboard/${teamId}/website/${website.id}/integrations`)
                         }
                       >
                         Connect integrations

@@ -55,8 +55,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 
 export function AppSidebar({
   className = "",
@@ -64,6 +65,7 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   const { setOpenMobile, isMobile } = useSidebar();
   const params = useParams();
+  const pathname = usePathname();
   const teamId =
     typeof params.teamID === "string"
       ? params.teamID
@@ -72,12 +74,32 @@ export function AppSidebar({
       : undefined;
   const { teams, currentTeam, switchTeam, profile, isLoading } = useTeams(teamId);
   const router = useRouter();
+  const [websiteId, setWebsiteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Extract website ID from the URL if present
+    const match = pathname.match(/\/website\/([^/]+)/);
+    if (match) {
+      setWebsiteId(match[1]);
+    } else {
+      setWebsiteId(null);
+    }
+  }, [pathname]);
 
   // Helper to prefix dashboard URLs with /dashboard/[teamID]
   const withTeam = (path: string) =>
     teamId
       ? `/dashboard/${teamId}${path.startsWith("/") ? path : "/" + path}`
       : path;
+
+  // Helper function for website-specific URLs
+  const withWebsite = (path: string) => {
+    if (!teamId || !websiteId || websiteId === "all")
+      return withTeam(`/website/all`);
+    return withTeam(
+      `/website/${websiteId}${path.startsWith("/") ? path : "/" + path}`
+    );
+  };
 
   const navMain = [
     {
@@ -95,12 +117,28 @@ export function AppSidebar({
           url: withTeam("/website/all"),
         },
         {
+          title: "Editor",
+          url:
+            websiteId && websiteId !== "all"
+              ? withWebsite("/editor")
+              : withTeam("/website/all"),
+          disabled: !websiteId || websiteId === "all",
+        },
+        {
           title: "Integrations",
-          url: withTeam("/website/integrations"),
+          url:
+            websiteId && websiteId !== "all"
+              ? withWebsite("/integrations")
+              : withTeam("/website/all"),
+          disabled: !websiteId || websiteId === "all",
         },
         {
           title: "Domains",
-          url: withTeam("/website/domains"),
+          url:
+            websiteId && websiteId !== "all"
+              ? withWebsite("/domains")
+              : withTeam("/website/all"),
+          disabled: !websiteId || websiteId === "all",
         },
       ],
     },
@@ -178,7 +216,10 @@ export function AppSidebar({
     if (newTeamId !== teamId) {
       // Replace the teamID in the current path
       const currentPath = window.location.pathname;
-      const newPath = currentPath.replace(/\/dashboard\/[^/]+/, `/dashboard/${newTeamId}`);
+      const newPath = currentPath.replace(
+        /\/dashboard\/[^/]+/,
+        `/dashboard/${newTeamId}`
+      );
       router.push(newPath);
     }
     switchTeam(newTeamId);
@@ -344,3 +385,4 @@ export function AppSidebar({
     </Sidebar>
   );
 }
+
