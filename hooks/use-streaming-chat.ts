@@ -63,6 +63,13 @@ export const useStreamingChat = () => {
                                 if (data.type === 'analysis') {
                                     console.log(`📝 [useStreamingChat] Processing analysis chunk #${chunkCount}:`, data.content?.substring(0, 30) + "...");
                                     updateStream(data.content || '');
+                                } else if (data.type === 'progress') {
+                                    console.log(`🚀 [useStreamingChat] Deployment progress:`, data.status, data.files);
+                                    if (data.status === 'deploying') {
+                                        updateStream(`\n\n**🚀 Deploying files:** ${data.files?.join(', ') || 'Unknown files'}`);
+                                    } else if (data.status === 'deployed') {
+                                        updateStream(`\n\n**✅ Deployment completed successfully!** Files deployed: ${data.files?.join(', ') || 'Unknown files'}`);
+                                    }
                                 } else if (data.type === 'error') {
                                     console.error('❌ [useStreamingChat] Streaming error:', data.error);
                                     updateStream(`\n\n**Error:** ${data.error}`);

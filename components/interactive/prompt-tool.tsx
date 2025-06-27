@@ -26,6 +26,13 @@ export default function PromptTool({ user }: { user: any }) {
     // Store the prompt, appName, and clear steps in localStorage for the editor/chat
     sessionStorage.setItem("builddrr_generation_prompt", prompt);
 
+    // If not already on the editor page, redirect to it so the auto-trigger works
+    if (!window.location.pathname.includes("/dashboard/website/") || !window.location.pathname.includes("/editor")) {
+      const app_name = "plain-nextjs-app";
+      router.push(`/dashboard/website/${app_name}/editor`);
+      return; // Prevent further execution
+    }
+
     const supabase = createClient();
     try {
       // Get available preview environment

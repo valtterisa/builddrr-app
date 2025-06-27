@@ -9,8 +9,11 @@ export default async function EditorPage({
 }) {
   const { websiteID } = await params;
 
+  console.log("🔍 [EditorPage] Params:", params);
+  console.log("🔍 [EditorPage] websiteID:", websiteID);
+
   const supabase = await createClient();
-  const { data: user } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   let machine: any;
   const appExists = await checkAppAvailability(websiteID);

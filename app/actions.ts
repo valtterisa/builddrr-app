@@ -48,9 +48,35 @@ export async function getChatMessages(
 
     for (let i = 0; i < messages.length; i++) {
       try {
-        const msg = messages[i].toString();
+        let msg: string;
+
+        // Handle different data types from Redis
+        if (typeof messages[i] === 'string') {
+          msg = messages[i] as string;
+        } else if (messages[i] && typeof messages[i] === 'object') {
+          // If it's already an object, try to stringify it
+          msg = JSON.stringify(messages[i]);
+        } else {
+          msg = String(messages[i]);
+        }
+
         if (!msg || msg.trim() === "") continue;
-        const parsed = JSON.parse(msg);
+
+        // Try to parse as JSON
+        let parsed;
+        try {
+          parsed = JSON.parse(msg);
+        } catch (jsonError) {
+          // If JSON parsing fails, treat it as a plain text message
+          console.log(`Message ${i} is not JSON, treating as plain text:`, msg.substring(0, 100));
+          parsed = {
+            id: `legacy-${Date.now()}-${i}`,
+            content: msg,
+            isUser: false,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
         parsedMessages.push({
           id: parsed.id || `generated-${Date.now()}-${i}`,
           content: parsed.content || "",
@@ -58,8 +84,7 @@ export async function getChatMessages(
           timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date(parsed.timestamp || Date.now()).toISOString(),
         });
       } catch (parseError) {
-        console.error(`Failed to parse message at index ${i}:`, parseError);
-        console.error("Message content:", messages[i].toString());
+        console.error(`Failed to parse message at index ${i}:`, parseError, "Raw message:", messages[i]);
         // Skip this message but continue with the others
       }
     }
@@ -363,7 +388,7 @@ export async function generateAIResponse(
         const op: builddrrOperation = { type: "write", path, content };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice(writeMatch.index + writeMatch[0].length);
+        buffer = buffer.slice((writeMatch.index || 0) + writeMatch[0].length);
         matched = true;
         continue;
       }
@@ -378,7 +403,7 @@ export async function generateAIResponse(
         const op: builddrrOperation = { type: "delete", path };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice(deleteMatch.index + deleteMatch[0].length);
+        buffer = buffer.slice((deleteMatch.index || 0) + deleteMatch[0].length);
         matched = true;
         continue;
       }
@@ -396,7 +421,7 @@ export async function generateAIResponse(
         const op: builddrrOperation = { type: "rename", oldPath, newPath };
         operations.push(op);
         if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice(renameMatch.index + renameMatch[0].length);
+        buffer = buffer.slice((renameMatch.index || 0) + renameMatch[0].length);
         matched = true;
         continue;
       }
@@ -414,7 +439,7 @@ export async function generateAIResponse(
           operations.push(op);
           if (onOperationParsed) onOperationParsed(op);
         }
-        buffer = buffer.slice(depMatch.index + depMatch[0].length);
+        buffer = buffer.slice((depMatch.index || 0) + depMatch[0].length);
         matched = true;
         continue;
       }
@@ -680,8 +705,9 @@ export async function* generateAIResponseStream(
   let currentFile = null;
   const collectedFiles: Record<string, string> = {};
 
-  // Regexes
-  const writeStart = /<builddrr-write file="([^"]+)">/g;
+  // Regexes (tolerant to whitespace)
+  const writeStart = /<builddrr-write\s+file="([^"]+)"\s*>/i;
+  const writeEnd = /<\/builddrr-write>/i;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -718,50 +744,113 @@ export async function* generateAIResponseStream(
       }
     }
 
-    // Collect <builddrr-write> blocks in memory
+    // Robustly collect <builddrr-write> blocks in memory
     while (true) {
       if (!inCodeBlock) {
-        const writeMatch = writeStart.exec(buffer);
+        const writeMatch = buffer.match(writeStart);
         if (writeMatch) {
           inCodeBlock = true;
           currentFile = writeMatch[1].startsWith("/") ? writeMatch[1].substring(1) : writeMatch[1];
-          buffer = buffer.slice(writeMatch.index + writeMatch[0].length);
+          buffer = buffer.slice((writeMatch.index || 0) + writeMatch[0].length);
           codeBuffer = "";
         } else {
           break;
         }
       }
       if (inCodeBlock) {
-        const endIdx = buffer.indexOf("</builddrr-write>");
-        if (endIdx !== -1) {
-          codeBuffer += buffer.slice(0, endIdx);
+        const endMatch = buffer.match(writeEnd);
+        if (endMatch) {
+          codeBuffer += buffer.slice(0, endMatch.index || 0);
           // Collect in memory
           if (typeof currentFile === 'string') {
-            collectedFiles[currentFile] = codeBuffer;
+            collectedFiles[currentFile] = codeBuffer.trim();
+            console.log(`[AIResponseStream] Collected file: ${currentFile}, length: ${codeBuffer.length}`);
           }
-          buffer = buffer.slice(endIdx + "</builddrr-write>".length);
+          buffer = buffer.slice((endMatch.index || 0) + endMatch[0].length);
           inCodeBlock = false;
           currentFile = null;
           codeBuffer = "";
         } else {
+          // Buffer is incomplete, wait for next chunk
           codeBuffer += buffer;
           buffer = "";
           break;
         }
       }
     }
-    // TODO: Handle delete, rename, dependency operations if you want to stream those as well
+
+    // Log any suspicious leftover buffer (not in code/analysis block)
+    if (!inAnalysisBlock && !inCodeBlock && buffer.length > 1000) {
+      console.warn('[AIResponseStream] Large unmatched buffer:', buffer.slice(0, 500));
+      buffer = '';
+    }
   }
 
   // After streaming is done, deploy all collected files
+  console.log(`[AIResponseStream] Streaming completed. Total files collected: ${Object.keys(collectedFiles).length}`);
+  console.log(`[AIResponseStream] Collected files:`, Object.keys(collectedFiles));
+
   if (Object.keys(collectedFiles).length > 0) {
+    console.log(`[AIResponseStream] Starting deployment with ${Object.keys(collectedFiles).length} files`);
     yield { type: 'progress', status: 'deploying', files: Object.keys(collectedFiles) };
     try {
-      await deployPreview(collectedFiles, appName, machineId);
-      yield { type: 'progress', status: 'deployed', files: Object.keys(collectedFiles) };
+      const deployResult = await deployPreview(collectedFiles, appName, machineId);
+      console.log(`[AIResponseStream] Deployment result:`, deployResult);
+      if (deployResult.error) {
+        yield { type: 'error', error: deployResult.error };
+      } else {
+        yield { type: 'progress', status: 'deployed', files: Object.keys(collectedFiles) };
+      }
     } catch (err: any) {
+      console.error(`[AIResponseStream] Deployment error:`, err);
       yield { type: 'error', error: err?.message || String(err) };
     }
+  } else {
+    console.log(`[AIResponseStream] No files collected, skipping deployment`);
+  }
+}
+
+// Debug function to check Redis messages (remove after debugging)
+export async function debugRedisMessages(userId: string, appName: string) {
+  try {
+    const chatKey = `chat:${userId}:${appName}`;
+    console.log("🔍 [DEBUG] Checking Redis key:", chatKey);
+
+    const messages = await redis.lrange(chatKey, 0, -1);
+    console.log("📥 [DEBUG] Found", messages.length, "messages in Redis");
+
+    messages.forEach((msg, index) => {
+      try {
+        let msgString: string;
+
+        // Handle different data types from Redis
+        if (typeof msg === 'string') {
+          msgString = msg;
+        } else if (msg && typeof msg === 'object') {
+          // If it's already an object, try to stringify it
+          msgString = JSON.stringify(msg);
+        } else {
+          msgString = String(msg);
+        }
+
+        const parsed = JSON.parse(msgString);
+        console.log(`📝 [DEBUG] Message ${index}:`, {
+          id: parsed.id,
+          content: parsed.content?.substring(0, 50) + "...",
+          isUser: parsed.isUser,
+          timestamp: parsed.timestamp
+        });
+      } catch (error) {
+        console.log(`❌ [DEBUG] Failed to parse message ${index}:`, error);
+        console.log(`❌ [DEBUG] Raw message type:`, typeof msg);
+        console.log(`❌ [DEBUG] Raw message:`, msg);
+      }
+    });
+
+    return messages.length;
+  } catch (error) {
+    console.error("💥 [DEBUG] Redis debug error:", error);
+    return 0;
   }
 }
 

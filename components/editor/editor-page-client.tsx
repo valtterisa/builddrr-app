@@ -44,18 +44,31 @@ export default function EditorPageClient({
   // Streaming chat hook
   const { sendMessage: sendStreamingMessage, isLoading: isStreamingLoading } = useStreamingChat();
 
+  // Get the actual user ID from the user object structure
+  const userId = user?.id;
+
+  // Debug logging for props and state
+  useEffect(() => {
+    console.log("🔍 [EditorPageClient] Props and state:", {
+      id,
+      appName,
+      userId,
+      hasUser: !!user,
+      userData: user?.data
+    });
+  }, [id, appName, userId, user]);
+
   // Hydrate Zustand from Redis on mount
   useEffect(() => {
-    console.log("🔄 [EditorPageClient] Hydrating chat messages...", { userId: user?.id, appName: id });
-    if (user?.id && id) {
-      getChatMessages(user.id, id).then((messages) => {
-        console.log("✅ [EditorPageClient] Chat messages loaded:", messages.length, "messages");
+    if (userId && id) {
+      getChatMessages(userId, id).then((messages) => {
+        console.log("Chat messages loaded:", messages.length, "messages");
         setMessages(messages);
       }).catch((error) => {
-        console.error("❌ [EditorPageClient] Failed to load chat messages:", error);
+        console.error("Failed to load chat messages:", error);
       });
     }
-  }, [user?.id, id, setMessages]);
+  }, [userId, id, setMessages]);
 
   useEffect(() => {
     console.log("🔄 [EditorPageClient] Setting machine data:", machine);
@@ -63,29 +76,25 @@ export default function EditorPageClient({
   }, [machine]);
 
   const handleSendMessage = useCallback(async (message: string) => {
-    console.log("🚀 [EditorPageClient] handleSendMessage called with:", message.substring(0, 50) + "...");
-
     const userMsg = {
       id: Date.now().toString(),
       content: message,
       isUser: true,
       timestamp: new Date().toISOString(),
     };
-    console.log("📝 [EditorPageClient] Adding user message to chat");
     addMessage(userMsg);
 
-    if (user?.id && id) {
-      console.log("💾 [EditorPageClient] Saving user message to Redis");
-      await sendChatMessage(user.id, id, userMsg.content, true);
+    if (userId && id) {
+      const saveResult = await sendChatMessage(userId, id, userMsg.content, true);
+      if (!saveResult.success) {
+        console.error("Failed to save user message:", saveResult.error);
+      }
     }
 
     // Step 1: Stream the analysis to chat interface and trigger deployment via backend
-    console.log("🌊 [EditorPageClient] Starting streaming analysis and deployment...");
     await sendStreamingMessage(message, id, machine.id);
-    console.log("✅ [EditorPageClient] Streaming analysis and deployment completed");
 
     // Show AI response in chat
-    console.log("💬 [EditorPageClient] Adding AI response to chat");
     const aiMsg = {
       id: Date.now().toString(),
       content: streamedContent || 'Analysis completed and site deployed.',
@@ -93,28 +102,39 @@ export default function EditorPageClient({
       timestamp: new Date().toISOString(),
     };
     addMessage(aiMsg);
-    if (user?.id && id) {
-      console.log("💾 [EditorPageClient] Saving AI message to Redis");
-      await sendChatMessage(user.id, id, aiMsg.content, false);
+    if (userId && id) {
+      const aiSaveResult = await sendChatMessage(userId, id, aiMsg.content, false);
+      if (!aiSaveResult.success) {
+        console.error("Failed to save AI message:", aiSaveResult.error);
+      }
     }
 
     // Clear auto-processing state
-    console.log("🏁 [EditorPageClient] Clearing auto-processing state");
     setIsAutoProcessing(false);
-  }, [user?.id, id, machine?.id, addMessage, sendChatMessage, sendStreamingMessage, streamedContent]);
+  }, [userId, id, machine?.id, addMessage, sendChatMessage, sendStreamingMessage, streamedContent]);
+
+  // Debug logging for ChatInterface props
+  useEffect(() => {
+    console.log("🔍 [EditorPageClient] ChatInterface props:", {
+      appName,
+      userId,
+      hasOnSendMessage: !!handleSendMessage,
+      isAutoProcessing
+    });
+  }, [appName, userId, handleSendMessage, isAutoProcessing]);
 
   useEffect(() => {
     // Only run when user and machine are loaded
-    if (!user?.id || !machine?.id) {
+    if (!userId || !machine?.id) {
       console.log("⏳ [EditorPageClient] Waiting for user and machine to load...", {
-        hasUser: !!user?.id,
+        hasUser: !!userId,
         hasMachine: !!machine?.id
       });
       return;
     }
 
     console.log("🔍 [EditorPageClient] Checking for auto-trigger prompt...", {
-      hasUser: !!user?.id,
+      hasUser: !!userId,
       hasMachine: !!machine?.id,
       hasAutoTriggered,
       isAutoProcessing
@@ -157,20 +177,20 @@ export default function EditorPageClient({
 
       console.log("💬 [EditorPageClient] Adding welcome message to chat");
       addMessage(welcomeMsg);
-      if (user?.id && id) {
+      if (userId && id) {
         console.log("💾 [EditorPageClient] Saving welcome message to Redis");
-        sendChatMessage(user.id, id, welcomeMsg.content, false);
+        sendChatMessage(userId, id, welcomeMsg.content, false);
       }
     } else {
       console.log("⏭️ [EditorPageClient] Skipping auto-trigger:", {
         hasPrompt: !!prompt,
-        hasUser: !!user?.id,
+        hasUser: !!userId,
         hasMachine: !!machine?.id,
         hasAutoTriggered,
         isAutoProcessing
       });
     }
-  }, [user?.id, machine?.id, hasAutoTriggered, handleSendMessage, toast, addMessage, sendChatMessage]);
+  }, [userId, machine?.id, hasAutoTriggered, handleSendMessage, toast, addMessage, sendChatMessage]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -209,8 +229,8 @@ export default function EditorPageClient({
             >
               <ChatInterface
                 onSendMessage={handleSendMessage}
-                appName={appName}
-                userId={user.user.id}
+                appName={id}
+                userId={userId}
                 isAutoProcessing={isAutoProcessing}
               />
             </TabsContent>
