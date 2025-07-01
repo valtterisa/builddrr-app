@@ -27,15 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { logout } from "@/app/(auth)/actions";
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    name: string;
-    email: string;
-    avatar: string;
-  };
-}) {
+export function NavUser({ user }: { user: any }) {
   const { isMobile } = useSidebar();
 
   return (

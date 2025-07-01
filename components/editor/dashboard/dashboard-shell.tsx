@@ -16,7 +16,13 @@ type Website = {
   is_active?: boolean; // Optional property to indicate if the website is active
 };
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: any;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [websites, setWebsites] = useState<Website[]>([]);
@@ -89,7 +95,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen p-2 md:p-4 w-full">
-        <AppSidebar className="hidden md:flex py-4" />
+        <AppSidebar className="hidden md:flex pt-2" user={user} />
         <SidebarInset className="rounded-3xl min-w-0 flex-1">
           {children}
         </SidebarInset>

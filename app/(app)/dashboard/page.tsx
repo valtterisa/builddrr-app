@@ -27,5 +27,5 @@ export default async function DashboardPage() {
     }
   }
 
-  return <DashboardClient websites={websites} error={error} />;
+  return <DashboardClient websites={websites} error={error} user={user} />;
 }

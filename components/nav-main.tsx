@@ -68,6 +68,10 @@ export function NavMain({
         <SidebarMenu role="menu">
           {items.map((item, idx) => {
             const submenuId = `sidebar-submenu-${idx}`;
+            const isParentActive =
+              pathname === item.url ||
+              (item.children &&
+                item.children.some((sub) => pathname === sub.url));
             return (
               <SidebarMenuItem key={item.title} role="none">
                 {item.children ? (
@@ -75,15 +79,14 @@ export function NavMain({
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
                         tooltip={item.title}
-                        className="bg-sidebar hover:bg-sidebar-hover"
                         aria-controls={submenuId}
                         aria-label={item.title}
                         role="menuitem"
                         tabIndex={0}
-                        onClick={undefined}
+                        isActive={isParentActive}
                       >
                         {item.icon && <item.icon />}
-                        <span>{item.title}</span>
+                        {item.title}
                         <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
@@ -93,10 +96,10 @@ export function NavMain({
                           <SidebarMenuSubItem key={sub.title} role="none">
                             <SidebarMenuSubButton
                               href={sub.url}
-                              className="bg-sidebar hover:bg-sidebar-hover"
                               aria-label={sub.title}
                               role="menuitem"
                               tabIndex={0}
+                              isActive={pathname === sub.url}
                               aria-current={
                                 pathname === sub.url ? "page" : undefined
                               }
@@ -111,23 +114,21 @@ export function NavMain({
                     </CollapsibleContent>
                   </Collapsible>
                 ) : (
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    className="bg-sidebar hover:bg-sidebar-hover"
+                  <Link
+                    href={item.url}
+                    className={cn(
+                      "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] bg-sidebar hover:bg-sidebar-hover hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-hover active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+                      pathname === item.url && "bg-sidebar-hover"
+                    )}
                     aria-label={item.title}
                     role="menuitem"
                     tabIndex={0}
+                    aria-current={pathname === item.url ? "page" : undefined}
                     onClick={handleMobileClose}
                   >
-                    <Link
-                      href={item.url}
-                      aria-current={pathname === item.url ? "page" : undefined}
-                    >
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </Link>
                 )}
               </SidebarMenuItem>
             );
