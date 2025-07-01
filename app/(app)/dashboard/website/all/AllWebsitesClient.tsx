@@ -45,7 +45,6 @@ import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { deleteProjectById, deployWebsite } from "@/lib/fly";
 import { SiteHeader } from "@/components/site-header";
-import Loading from "@/app/loading";
 
 export type MyWebsite = {
   id: string;
@@ -99,8 +98,8 @@ export default function AllWebsitesClient(machine: any) {
     typeof params.teamID === "string"
       ? params.teamID
       : Array.isArray(params.teamID)
-      ? params.teamID[0]
-      : undefined;
+        ? params.teamID[0]
+        : undefined;
   const [websites, setWebsites] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +133,10 @@ export default function AllWebsitesClient(machine: any) {
           .eq("team_id", teamId);
 
         if (error) {
-          console.error("Error fetching websites:", JSON.stringify(error, null, 2));
+          console.error(
+            "Error fetching websites:",
+            JSON.stringify(error, null, 2)
+          );
           toast({
             title: "Error",
             description: `Failed to load websites: ${error.message || error.code || "Unknown error"}`,
@@ -142,11 +144,18 @@ export default function AllWebsitesClient(machine: any) {
           });
           setWebsites([]);
         } else {
-          console.log("Websites fetched successfully:", data?.length || 0, "websites");
+          console.log(
+            "Websites fetched successfully:",
+            data?.length || 0,
+            "websites"
+          );
           setWebsites(data || []);
         }
       } catch (error: any) {
-        console.error("Failed to fetch websites:", JSON.stringify(error, null, 2));
+        console.error(
+          "Failed to fetch websites:",
+          JSON.stringify(error, null, 2)
+        );
         toast({
           title: "Error",
           description: `An unexpected error occurred: ${error?.message || "Unknown error"}`,
@@ -363,14 +372,18 @@ export default function AllWebsitesClient(machine: any) {
                       <DropdownMenuLabel hidden>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
                         onClick={() =>
-                          router.push(`/dashboard/${teamId}/website/${website.id}/domains`)
+                          router.push(
+                            `/dashboard/${teamId}/website/${website.id}/domains`
+                          )
                         }
                       >
                         Set up custom domain
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
-                          router.push(`/dashboard/${teamId}/website/${website.id}/integrations`)
+                          router.push(
+                            `/dashboard/${teamId}/website/${website.id}/integrations`
+                          )
                         }
                       >
                         Connect integrations

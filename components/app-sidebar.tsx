@@ -93,22 +93,22 @@ export function AppSidebar({
     },
     {
       title: "All Websites",
-      url: withTeam("/website/all"),
+      url: withTeam("/dashboard/website/all"),
       icon: Globe,
     },
     {
       title: "Analytics",
-      url: withTeam("/analytics"),
+      url: withTeam("/dashboard/analytics"),
       icon: BarChartIcon,
     },
     {
       title: "Media Library",
-      url: withTeam("/media-library"),
+      url: withTeam("/dashboard/media-library"),
       icon: ImageIcon,
     },
     {
       title: "Team",
-      url: withTeam("/team"),
+      url: withTeam("/dashboard/team"),
       icon: UsersIcon,
     },
   ];

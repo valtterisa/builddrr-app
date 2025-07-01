@@ -19,6 +19,7 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination";
 import React from "react";
+import Link from "next/link";
 
 interface Website {
   id: string;
@@ -36,7 +37,7 @@ export function WebsitesList({ websites }: WebsitesListProps) {
   const [allPage, setAllPage] = React.useState(1);
   const [activePage, setActivePage] = React.useState(1);
   const [inactivePage, setInactivePage] = React.useState(1);
-  const perPage = 5;
+  const perPage = 10;
 
   const allWebsites = websites;
   const activeWebsites = websites.filter((w) => w.status === "active");
@@ -69,11 +70,12 @@ export function WebsitesList({ websites }: WebsitesListProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="min-h-[450px]">
-            <div className="space-y-4">
+            <div className="flex flex-wrap gap-4 max-w-[50rem]">
               {getPaginated(allWebsites, allPage).map((website) => (
-                <div
+                <Link
+                  href={`/dashboard/website/${website.id}`}
                   key={website.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+                  className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
@@ -81,35 +83,9 @@ export function WebsitesList({ websites }: WebsitesListProps) {
                     </div>
                     <div>
                       <h3 className="font-medium">{website.name}</h3>
-                      {/* <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{website.lastUpdated}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span>{website.visitors} visitors</span>
-                        </div>
-                      </div> */}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant={
-                        website.status === "active"
-                          ? "default"
-                          : website.status === "maintenance"
-                            ? "outline"
-                            : "secondary"
-                      }
-                    >
-                      {website.status}
-                    </Badge>
-                    <Button variant="outline" size="sm">
-                      Configure
-                    </Button>
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
