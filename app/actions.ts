@@ -51,9 +51,9 @@ export async function getChatMessages(
         let msg: string;
 
         // Handle different data types from Redis
-        if (typeof messages[i] === 'string') {
+        if (typeof messages[i] === "string") {
           msg = messages[i] as string;
-        } else if (messages[i] && typeof messages[i] === 'object') {
+        } else if (messages[i] && typeof messages[i] === "object") {
           // If it's already an object, try to stringify it
           msg = JSON.stringify(messages[i]);
         } else {
@@ -68,7 +68,10 @@ export async function getChatMessages(
           parsed = JSON.parse(msg);
         } catch (jsonError) {
           // If JSON parsing fails, treat it as a plain text message
-          console.log(`Message ${i} is not JSON, treating as plain text:`, msg.substring(0, 100));
+          console.log(
+            `Message ${i} is not JSON, treating as plain text:`,
+            msg.substring(0, 100)
+          );
           parsed = {
             id: `legacy-${Date.now()}-${i}`,
             content: msg,
@@ -81,10 +84,18 @@ export async function getChatMessages(
           id: parsed.id || `generated-${Date.now()}-${i}`,
           content: parsed.content || "",
           isUser: !!parsed.isUser,
-          timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date(parsed.timestamp || Date.now()).toISOString(),
+          timestamp:
+            typeof parsed.timestamp === "string"
+              ? parsed.timestamp
+              : new Date(parsed.timestamp || Date.now()).toISOString(),
         });
       } catch (parseError) {
-        console.error(`Failed to parse message at index ${i}:`, parseError, "Raw message:", messages[i]);
+        console.error(
+          `Failed to parse message at index ${i}:`,
+          parseError,
+          "Raw message:",
+          messages[i]
+        );
         // Skip this message but continue with the others
       }
     }
@@ -133,7 +144,10 @@ export async function sendChatMessage(
       await Promise.race([
         redis.rpush(chatKey, messageString),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Redis message save timeout")), 5000)
+          setTimeout(
+            () => reject(new Error("Redis message save timeout")),
+            5000
+          )
         ),
       ]);
     } catch (timeoutError) {
@@ -205,8 +219,8 @@ You are builddrr, a professional AI frontend engineer. A user is asking to updat
 
 Current project files:
 ${Object.keys(currentFiles)
-        .map((path) => `- ${path}`)
-        .join("\n")}
+  .map((path) => `- ${path}`)
+  .join("\n")}
 
 Based on the user's request, determine which files need to be updated, created, renamed, or deleted.
 When responding, use the format:
@@ -331,15 +345,9 @@ export async function generateAIResponse(
   onOperationParsed?: (op: builddrrOperation) => void
 ): Promise<{
   files: Record<string, string>;
-  deletes: string[];
-  renames: { oldPath: string; newPath: string }[];
-  dependencies: string[];
   operations: builddrrOperation[];
 }> {
   const files: Record<string, string> = {};
-  const deletes: string[] = [];
-  const renames: { oldPath: string; newPath: string }[] = [];
-  const dependencies: string[] = [];
   const operations: builddrrOperation[] = [];
 
   const result = streamText({
@@ -359,94 +367,44 @@ export async function generateAIResponse(
   const reader = result.textStream.getReader();
   let buffer = "";
 
-  // Regexes for all operation types
-  const writeRegex =
-    /<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/;
-  const deleteRegex = /<builddrr-delete file="([^"]+)"\s*\/>/;
-  const renameRegex = /<builddrr-rename file="([^"]+)" newPath="([^"]+)"\s*\/>/;
-  const depRegex =
-    /<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/;
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += value;
-
-    // Keep extracting as long as we find any operation
-    let matched = true;
-    while (matched) {
-      matched = false;
-
-      // Write
-      const writeMatch = writeRegex.exec(buffer);
-      if (writeMatch) {
-        const path = writeMatch[1].startsWith("/")
-          ? writeMatch[1].substring(1)
-          : writeMatch[1];
-        const content = writeMatch[2].trim();
-        files[path] = content;
-        const op: builddrrOperation = { type: "write", path, content };
-        operations.push(op);
-        if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice((writeMatch.index || 0) + writeMatch[0].length);
-        matched = true;
-        continue;
-      }
-
-      // Delete
-      const deleteMatch = deleteRegex.exec(buffer);
-      if (deleteMatch) {
-        const path = deleteMatch[1].startsWith("/")
-          ? deleteMatch[1].substring(1)
-          : deleteMatch[1];
-        deletes.push(path);
-        const op: builddrrOperation = { type: "delete", path };
-        operations.push(op);
-        if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice((deleteMatch.index || 0) + deleteMatch[0].length);
-        matched = true;
-        continue;
-      }
-
-      // Rename
-      const renameMatch = renameRegex.exec(buffer);
-      if (renameMatch) {
-        const oldPath = renameMatch[1].startsWith("/")
-          ? renameMatch[1].substring(1)
-          : renameMatch[1];
-        const newPath = renameMatch[2].startsWith("/")
-          ? renameMatch[2].substring(1)
-          : renameMatch[2];
-        renames.push({ oldPath, newPath });
-        const op: builddrrOperation = { type: "rename", oldPath, newPath };
-        operations.push(op);
-        if (onOperationParsed) onOperationParsed(op);
-        buffer = buffer.slice((renameMatch.index || 0) + renameMatch[0].length);
-        matched = true;
-        continue;
-      }
-
-      // Dependency (can be multiline)
-      const depMatch = depRegex.exec(buffer);
-      if (depMatch) {
-        const deps = depMatch[1]
-          .split("\n")
-          .map((d) => d.trim())
-          .filter(Boolean);
-        for (const dependency of deps) {
-          dependencies.push(dependency);
-          const op: builddrrOperation = { type: "dependency", dependency };
-          operations.push(op);
-          if (onOperationParsed) onOperationParsed(op);
-        }
-        buffer = buffer.slice((depMatch.index || 0) + depMatch[0].length);
-        matched = true;
-        continue;
-      }
-    }
   }
 
-  return { files, deletes, renames, dependencies, operations };
+  // Extract the <builddrr-code> block (robust, tolerant to whitespace)
+  const codeMatch = buffer.match(/<builddrr-code>([\s\S]*?)<\/builddrr-code>/);
+  if (codeMatch && codeMatch[1]) {
+    const codeBlock = codeMatch[1].trim();
+    // Debug log
+    console.log("[generateAIResponse] codeBlock:", codeBlock.substring(0, 500));
+
+    // Extract all <builddrr-write ...>...</builddrr-write> blocks globally
+    const writeMatches = [
+      ...codeBlock.matchAll(
+        /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g
+      ),
+    ];
+    for (const match of writeMatches) {
+      const path = match[1].startsWith("/") ? match[1].substring(1) : match[1];
+      const content = match[2].trim();
+      files[path] = content;
+      const op: builddrrOperation = { type: "write", path, content };
+      operations.push(op);
+      if (onOperationParsed) onOperationParsed(op);
+      // Debug log
+      console.log(
+        `[generateAIResponse] Parsed file: ${path}, length: ${content.length}`
+      );
+    }
+  } else {
+    console.warn(
+      "[generateAIResponse] No <builddrr-code> block found in AI output."
+    );
+  }
+
+  return { files, operations };
 }
 
 export async function generateSite(
@@ -486,8 +444,11 @@ export async function generateSite(
 }
 
 // Update files in fly.io
-async function deployPreview(files: Record<string, string>, appName: string, machineId: string) {
-
+async function deployPreview(
+  files: Record<string, string>,
+  appName: string,
+  machineId: string
+) {
   // Convert files object to array of { path, content }
   const normalizedFiles = Object.entries(files).map(([path, content]) => ({
     guest_path: `/app/${path}`,
@@ -498,7 +459,7 @@ async function deployPreview(files: Record<string, string>, appName: string, mac
   console.log("[deployPreview] appName:", appName);
   console.log("[deployPreview] machineId:", machineId);
   if (!normalizedFiles.length || !appName || !machineId) {
-    return { error: "Missing required fields" }
+    return { error: "Missing required fields" };
   }
   try {
     const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
@@ -511,9 +472,11 @@ async function deployPreview(files: Record<string, string>, appName: string, mac
       }
     );
     const machineData = await machine.json();
-    const machineConfig = machineData.find((m: any) => m.id === machineId)?.config;
+    const machineConfig = machineData.find(
+      (m: any) => m.id === machineId
+    )?.config;
     if (!machineConfig) {
-      return { error: "Machine not found" }
+      return { error: "Machine not found" };
     }
     machineConfig.files = normalizedFiles;
     const updateRes = await fetch(
@@ -532,23 +495,32 @@ async function deployPreview(files: Record<string, string>, appName: string, mac
       throw new Error(`Fly API error: ${updateRes.status} ${errorText}`);
     }
     const data = await updateRes.json();
-    return { machine: data, machineId, appName }
+    return { machine: data, machineId, appName };
   } catch (err: any) {
-    return { error: err?.message || err }
+    return { error: err?.message || err };
   }
 }
 
-
-export async function* generateFileUpdatesStream(message: string, currentFiles: Record<string, string>): AsyncGenerator<{ type: 'analysis' | 'done', content?: string, operations?: Operation[] }, void, unknown> {
+export async function* generateFileUpdatesStream(
+  message: string,
+  currentFiles: Record<string, string>
+): AsyncGenerator<
+  { type: "analysis" | "done"; content?: string; operations?: Operation[] },
+  void,
+  unknown
+> {
   console.log("[generateFileUpdatesStream] called with message:", message);
-  console.log("[generateFileUpdatesStream] currentFiles keys:", Object.keys(currentFiles));
+  console.log(
+    "[generateFileUpdatesStream] currentFiles keys:",
+    Object.keys(currentFiles)
+  );
   const fileUpdatePrompt = `
 You are builddrr, a professional AI frontend engineer. A user is asking to update their website code.
 
 Current project files:
 ${Object.keys(currentFiles)
-      .map((path) => `- ${path}`)
-      .join("\n")}
+  .map((path) => `- ${path}`)
+  .join("\n")}
 
 Based on the user's request, first narrate your reasoning and plan in a <component-analysis>...</component-analysis> block (markdown, conversational, detailed). Then, determine which files need to be updated, created, renamed, or deleted. When responding, use the format:
 
@@ -605,7 +577,9 @@ Respond ONLY with the <builddrr-code> block and file operations.
         if (startIdx !== -1) {
           inBlock = true;
           buffer = buffer.slice(startIdx + "<component-analysis>".length);
-          console.log("[generateFileUpdatesStream] <component-analysis> block started");
+          console.log(
+            "[generateFileUpdatesStream] <component-analysis> block started"
+          );
         } else {
           break;
         }
@@ -615,8 +589,11 @@ Respond ONLY with the <builddrr-code> block and file operations.
         if (endIdx !== -1) {
           const chunk = buffer.slice(0, endIdx);
           if (chunk) {
-            console.log("[generateFileUpdatesStream] Yielding analysis chunk:", chunk);
-            yield { type: 'analysis', content: chunk };
+            console.log(
+              "[generateFileUpdatesStream] Yielding analysis chunk:",
+              chunk
+            );
+            yield { type: "analysis", content: chunk };
           }
           buffer = buffer.slice(endIdx + "</component-analysis>".length);
           inBlock = false;
@@ -626,8 +603,11 @@ Respond ONLY with the <builddrr-code> block and file operations.
           break;
         } else {
           if (buffer) {
-            console.log("[generateFileUpdatesStream] Yielding analysis buffer:", buffer);
-            yield { type: 'analysis', content: buffer };
+            console.log(
+              "[generateFileUpdatesStream] Yielding analysis buffer:",
+              buffer
+            );
+            yield { type: "analysis", content: buffer };
             buffer = "";
           }
           break;
@@ -639,37 +619,70 @@ Respond ONLY with the <builddrr-code> block and file operations.
       buffer = "";
     }
   }
-  console.log("[generateFileUpdatesStream] Streaming done. codeBuffer:", codeBuffer);
+  console.log(
+    "[generateFileUpdatesStream] Streaming done. codeBuffer:",
+    codeBuffer
+  );
   const operations: Operation[] = [];
-  const codeMatch = codeBuffer.match(/<builddrr-code>([\s\S]*?)<\/builddrr-code>/);
+  const codeMatch = codeBuffer.match(
+    /<builddrr-code>([\s\S]*?)<\/builddrr-code>/
+  );
   if (codeMatch && codeMatch[1]) {
     const codeBlock = codeMatch[1].trim();
     // Extract write operations
-    const writeMatches = [...codeBlock.matchAll(/<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g)];
+    const writeMatches = [
+      ...codeBlock.matchAll(
+        /<builddrr-write file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g
+      ),
+    ];
     for (const match of writeMatches) {
-      operations.push({ operation: "write", path: match[1], content: match[2].trim() });
+      operations.push({
+        operation: "write",
+        path: match[1],
+        content: match[2].trim(),
+      });
     }
     // Extract delete operations
-    const deleteMatches = [...codeBlock.matchAll(/<builddrr-delete file="([^"]+)"\/>/g)];
+    const deleteMatches = [
+      ...codeBlock.matchAll(/<builddrr-delete file="([^"]+)"\/>/g),
+    ];
     for (const match of deleteMatches) {
       operations.push({ operation: "delete", path: match[1] });
     }
     // Extract rename operations
-    const renameMatches = [...codeBlock.matchAll(/<builddrr-rename file="([^"]+)" newPath="([^"]+)"\/>/g)];
+    const renameMatches = [
+      ...codeBlock.matchAll(
+        /<builddrr-rename file="([^"]+)" newPath="([^"]+)"\/>/g
+      ),
+    ];
     for (const match of renameMatches) {
-      operations.push({ operation: "rename", path: match[1], newPath: match[2] });
+      operations.push({
+        operation: "rename",
+        path: match[1],
+        newPath: match[2],
+      });
     }
     // Extract dependency operations
-    const depMatches = [...codeBlock.matchAll(/<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/g)];
+    const depMatches = [
+      ...codeBlock.matchAll(
+        /<builddrr-add-dependency>([\s\S]*?)<\/builddrr-add-dependency>/g
+      ),
+    ];
     for (const match of depMatches) {
-      const deps = match[1].trim().split("\n").filter((dep) => dep.trim() !== "");
+      const deps = match[1]
+        .trim()
+        .split("\n")
+        .filter((dep) => dep.trim() !== "");
       for (const dep of deps) {
         operations.push({ operation: "dependency", dependency: dep.trim() });
       }
     }
   }
-  console.log("[generateFileUpdatesStream] Yielding done with operations:", operations);
-  yield { type: 'done', operations };
+  console.log(
+    "[generateFileUpdatesStream] Yielding done with operations:",
+    operations
+  );
+  yield { type: "done", operations };
 }
 
 export async function* generateAIResponseStream(
@@ -677,9 +690,9 @@ export async function* generateAIResponseStream(
   appName: string,
   machineId: string
 ): AsyncGenerator<
-  | { type: 'analysis'; content: string }
-  | { type: 'progress'; status: string; files?: string[] }
-  | { type: 'error'; error: string },
+  | { type: "analysis"; content: string }
+  | { type: "progress"; status: string; files?: string[] }
+  | { type: "error"; error: string },
   void,
   unknown
 > {
@@ -700,15 +713,9 @@ export async function* generateAIResponseStream(
   const reader = result.textStream.getReader();
   let buffer = "";
   let inAnalysisBlock = false;
-  let inCodeBlock = false;
   let codeBuffer = "";
-  let currentFile = null;
-  const collectedFiles: Record<string, string> = {};
 
-  // Regexes (tolerant to whitespace)
-  const writeStart = /<builddrr-write\s+file="([^"]+)"\s*>/i;
-  const writeEnd = /<\/builddrr-write>/i;
-
+  // Stream <component-analysis> block
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -730,83 +737,85 @@ export async function* generateAIResponseStream(
         if (endIdx !== -1) {
           const chunk = buffer.slice(0, endIdx);
           if (chunk) {
-            yield { type: 'analysis', content: chunk };
+            yield { type: "analysis", content: chunk };
           }
           buffer = buffer.slice(endIdx + "</component-analysis>".length);
           inAnalysisBlock = false;
         } else {
           if (buffer) {
-            yield { type: 'analysis', content: buffer };
+            yield { type: "analysis", content: buffer };
             buffer = "";
           }
           break;
         }
       }
     }
-
-    // Robustly collect <builddrr-write> blocks in memory
-    while (true) {
-      if (!inCodeBlock) {
-        const writeMatch = buffer.match(writeStart);
-        if (writeMatch) {
-          inCodeBlock = true;
-          currentFile = writeMatch[1].startsWith("/") ? writeMatch[1].substring(1) : writeMatch[1];
-          buffer = buffer.slice((writeMatch.index || 0) + writeMatch[0].length);
-          codeBuffer = "";
-        } else {
-          break;
-        }
-      }
-      if (inCodeBlock) {
-        const endMatch = buffer.match(writeEnd);
-        if (endMatch) {
-          codeBuffer += buffer.slice(0, endMatch.index || 0);
-          // Collect in memory
-          if (typeof currentFile === 'string') {
-            collectedFiles[currentFile] = codeBuffer.trim();
-            console.log(`[AIResponseStream] Collected file: ${currentFile}, length: ${codeBuffer.length}`);
-          }
-          buffer = buffer.slice((endMatch.index || 0) + endMatch[0].length);
-          inCodeBlock = false;
-          currentFile = null;
-          codeBuffer = "";
-        } else {
-          // Buffer is incomplete, wait for next chunk
-          codeBuffer += buffer;
-          buffer = "";
-          break;
-        }
-      }
-    }
-
-    // Log any suspicious leftover buffer (not in code/analysis block)
-    if (!inAnalysisBlock && !inCodeBlock && buffer.length > 1000) {
-      console.warn('[AIResponseStream] Large unmatched buffer:', buffer.slice(0, 500));
-      buffer = '';
-    }
+    // Accumulate everything else for code parsing
+    codeBuffer += buffer;
+    buffer = "";
   }
 
-  // After streaming is done, deploy all collected files
-  console.log(`[AIResponseStream] Streaming completed. Total files collected: ${Object.keys(collectedFiles).length}`);
-  console.log(`[AIResponseStream] Collected files:`, Object.keys(collectedFiles));
+  // After streaming is done, extract the <builddrr-code> block and parse all files
+  const codeMatch = codeBuffer.match(
+    /<builddrr-code>([\s\S]*?)<\/builddrr-code>/
+  );
+  const collectedFiles: Record<string, string> = {};
+  if (codeMatch && codeMatch[1]) {
+    const codeBlock = codeMatch[1].trim();
+    // Debug log
+    console.log(
+      "[generateAIResponseStream] codeBlock:",
+      codeBlock.substring(0, 500)
+    );
 
-  if (Object.keys(collectedFiles).length > 0) {
-    console.log(`[AIResponseStream] Starting deployment with ${Object.keys(collectedFiles).length} files`);
-    yield { type: 'progress', status: 'deploying', files: Object.keys(collectedFiles) };
-    try {
-      const deployResult = await deployPreview(collectedFiles, appName, machineId);
-      console.log(`[AIResponseStream] Deployment result:`, deployResult);
-      if (deployResult.error) {
-        yield { type: 'error', error: deployResult.error };
-      } else {
-        yield { type: 'progress', status: 'deployed', files: Object.keys(collectedFiles) };
-      }
-    } catch (err: any) {
-      console.error(`[AIResponseStream] Deployment error:`, err);
-      yield { type: 'error', error: err?.message || String(err) };
+    // Extract all <builddrr-write ...>...</builddrr-write> blocks globally
+    const writeMatches = [
+      ...codeBlock.matchAll(
+        /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g
+      ),
+    ];
+    for (const match of writeMatches) {
+      const path = match[1].startsWith("/") ? match[1].substring(1) : match[1];
+      const content = match[2].trim();
+      collectedFiles[path] = content;
+      console.log(
+        `[generateAIResponseStream] Parsed file: ${path}, length: ${content.length}`
+      );
     }
   } else {
-    console.log(`[AIResponseStream] No files collected, skipping deployment`);
+    console.warn(
+      "[generateAIResponseStream] No <builddrr-code> block found in AI output."
+    );
+  }
+
+  if (Object.keys(collectedFiles).length > 0) {
+    yield {
+      type: "progress",
+      status: "deploying",
+      files: Object.keys(collectedFiles),
+    };
+    try {
+      const deployResult = await deployPreview(
+        collectedFiles,
+        appName,
+        machineId
+      );
+      if (deployResult.error) {
+        yield { type: "error", error: deployResult.error };
+      } else {
+        yield {
+          type: "progress",
+          status: "deployed",
+          files: Object.keys(collectedFiles),
+        };
+      }
+    } catch (err: any) {
+      yield { type: "error", error: err?.message || String(err) };
+    }
+  } else {
+    console.log(
+      `[generateAIResponseStream] No files collected, skipping deployment`
+    );
   }
 }
 
@@ -824,9 +833,9 @@ export async function debugRedisMessages(userId: string, appName: string) {
         let msgString: string;
 
         // Handle different data types from Redis
-        if (typeof msg === 'string') {
+        if (typeof msg === "string") {
           msgString = msg;
-        } else if (msg && typeof msg === 'object') {
+        } else if (msg && typeof msg === "object") {
           // If it's already an object, try to stringify it
           msgString = JSON.stringify(msg);
         } else {
@@ -838,7 +847,7 @@ export async function debugRedisMessages(userId: string, appName: string) {
           id: parsed.id,
           content: parsed.content?.substring(0, 50) + "...",
           isUser: parsed.isUser,
-          timestamp: parsed.timestamp
+          timestamp: parsed.timestamp,
         });
       } catch (error) {
         console.log(`❌ [DEBUG] Failed to parse message ${index}:`, error);
@@ -853,4 +862,3 @@ export async function debugRedisMessages(userId: string, appName: string) {
     return 0;
   }
 }
-

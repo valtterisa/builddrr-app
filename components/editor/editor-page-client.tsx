@@ -313,12 +313,12 @@ export default function EditorPageClient({
           </Tabs>
         </div>
         <div className="flex flex-col flex-1 min-w-0 h-full bg-background rounded-3xl">
-          {/* <WebsitePreview
+          <WebsitePreview
             isEditMode={isEditMode}
             initialUrl={websiteUrl || undefined}
             id={id}
             machine={machineData}
-          /> */}
+          />
         </div>
       </div>
     </div>
