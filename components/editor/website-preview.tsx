@@ -30,25 +30,18 @@ export default function WebsitePreview({
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
-  const [activeTextColor, setActiveTextColor] = useState<string | null>(null); // State for active text color
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
   );
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const [debugInfo, setDebugInfo] = useState("");
-  const [elementType, setElementType] = useState<string>("");
   const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
-  const [canMakeStandalone, setCanMakeStandalone] = useState(false);
-  const [canRemoveStandalone, setCanRemoveStandalone] = useState(false);
+
   const [iframeReady, setIframeReady] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [iframeReadyAndPatched, setIframeReadyAndPatched] = useState(false);
 
   const selectElement = useEditorStore((s: EditorState) => s.selectElement);
-  const selectedElementId = useEditorStore(
-    (s: EditorState) => s.selectedElementId
-  );
+
   const elements = useEditorStore((s: EditorState) => s.elements);
 
   // Store handler references for clean removal
@@ -165,8 +158,6 @@ export default function WebsitePreview({
       return;
     }
 
-    setIsEditorReady(true);
-
     try {
       const existingStyle =
         iframe.contentDocument.getElementById("editor-styles");
@@ -244,9 +235,7 @@ export default function WebsitePreview({
       }
     } catch (error) {
       console.error("Error initializing editor:", error);
-      setDebugInfo(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+
       toast({
         title: "Editor Initialization Error",
         description: "Could not initialize editor. Try reloading the page.",
@@ -471,12 +460,6 @@ export default function WebsitePreview({
     }
 
     setSelectedElement(element);
-    setDebugInfo(
-      `Selected element: ${element.tagName}, id: ${element.getAttribute("data-editor-id")}, contentEditable: ${element.contentEditable}`
-    );
-    console.log("Selected element:", element);
-    const elementTypeLower = element.tagName.toLowerCase();
-    setElementType(elementTypeLower);
 
     if (!iframe) return;
     if (
@@ -597,253 +580,6 @@ export default function WebsitePreview({
       node = walker.nextNode();
     }
   }
-
-  // Detect if selection can be made standalone
-  const checkCanMakeStandalone = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-      setCanMakeStandalone(false);
-      setCanRemoveStandalone(false);
-      return;
-    }
-    const win = iframe.contentWindow;
-    const sel = win.getSelection();
-    let isInsideStandalone = false;
-    let isStandaloneSpanFocused = false;
-    // These are null on first click. Why?
-    if (
-      selectedElement &&
-      selectedElement.tagName === "SPAN" &&
-      selectedElement.getAttribute("data-editable-text") === "true"
-    ) {
-      isStandaloneSpanFocused = true;
-    }
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-      setCanMakeStandalone(false);
-      setCanRemoveStandalone(isStandaloneSpanFocused);
-      return;
-    }
-    const range = sel.getRangeAt(0);
-    if (
-      range.startContainer === range.endContainer &&
-      range.startContainer.nodeType === Node.TEXT_NODE &&
-      range.startOffset !== range.endOffset
-    ) {
-      // Check if the selected text is already inside a span[data-editable-text="true"]
-      let parent: Node | null = range.startContainer.parentNode;
-      while (parent && parent !== iframe.contentDocument.body) {
-        if (
-          parent.nodeType === Node.ELEMENT_NODE &&
-          (parent as HTMLElement).tagName === "SPAN" &&
-          (parent as HTMLElement).getAttribute("data-editable-text") === "true"
-        ) {
-          isInsideStandalone = true;
-          break;
-        }
-        parent = parent.parentNode;
-      }
-      setCanMakeStandalone(!isInsideStandalone);
-      setCanRemoveStandalone(isInsideStandalone || isStandaloneSpanFocused);
-    } else {
-      setCanMakeStandalone(false);
-      setCanRemoveStandalone(isStandaloneSpanFocused);
-    }
-  }, [selectedElement]);
-
-  // Function to remove standalone span (unwrap)
-  const removeStandaloneSpan = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
-    // If selectedElement is a standalone span, unwrap it
-    if (
-      selectedElement &&
-      selectedElement.tagName === "SPAN" &&
-      selectedElement.getAttribute("data-editable-text") === "true"
-    ) {
-      const standaloneSpan = selectedElement;
-      const parentNode = standaloneSpan.parentNode;
-      if (!parentNode) return;
-      // Save selection offsets if possible
-      let startOffset = 0;
-      let selectionLength = 0;
-      const win = iframe.contentWindow;
-      const sel = win.getSelection();
-      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
-        const range = sel.getRangeAt(0);
-        const spanRange = iframe.contentDocument.createRange();
-        spanRange.selectNodeContents(standaloneSpan);
-        const preSelectionRange = spanRange.cloneRange();
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        startOffset = preSelectionRange.toString().length;
-        selectionLength = range.toString().length;
-      }
-      // Replace the span with its children
-      let firstUnwrappedElement: HTMLElement | null = null;
-      while (standaloneSpan.firstChild) {
-        const child = standaloneSpan.firstChild;
-        parentNode.insertBefore(child, standaloneSpan);
-        if (!firstUnwrappedElement && child.nodeType === Node.ELEMENT_NODE) {
-          firstUnwrappedElement = child as HTMLElement;
-        }
-      }
-      parentNode.removeChild(standaloneSpan);
-      // Restore selection if possible
-      if (startOffset !== 0 || selectionLength !== 0) {
-        const walker = iframe.contentDocument.createTreeWalker(
-          parentNode,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-        let charCount = 0;
-        let foundStart = false;
-        let startNode: Text | null = null;
-        let endNode: Text | null = null;
-        let startOffsetInNode = 0;
-        let endOffsetInNode = 0;
-        while (walker.nextNode()) {
-          const node = walker.currentNode as Text;
-          const nextCharCount = charCount + node.length;
-          if (
-            !foundStart &&
-            startOffset >= charCount &&
-            startOffset < nextCharCount
-          ) {
-            startNode = node;
-            startOffsetInNode = startOffset - charCount;
-            foundStart = true;
-          }
-          if (foundStart && startOffset + selectionLength <= nextCharCount) {
-            endNode = node;
-            endOffsetInNode = startOffset + selectionLength - charCount;
-            break;
-          }
-          charCount = nextCharCount;
-        }
-        if (startNode && endNode) {
-          const newRange = iframe.contentDocument.createRange();
-          newRange.setStart(startNode, startOffsetInNode);
-          newRange.setEnd(endNode, endOffsetInNode);
-          const win = iframe.contentWindow;
-          const sel = win.getSelection();
-          sel?.removeAllRanges();
-          sel?.addRange(newRange);
-        }
-      }
-      setDebugInfo("Removed standalone span");
-      // Select the parent or first unwrapped element to keep toolbar open
-      if (firstUnwrappedElement) {
-        setSelectedElement(firstUnwrappedElement);
-        handleElementSelection(firstUnwrappedElement);
-      } else if (parentNode instanceof HTMLElement) {
-        setSelectedElement(parentNode);
-        handleElementSelection(parentNode);
-      } else {
-        setSelectedElement(null);
-      }
-      checkCanMakeStandalone();
-      return;
-    }
-    // Fallback: previous logic (selection inside span)
-    const win = iframe.contentWindow;
-    const sel = win.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-    const range = sel.getRangeAt(0);
-    if (
-      range.startContainer === range.endContainer &&
-      range.startContainer.nodeType === Node.TEXT_NODE &&
-      range.startOffset !== range.endOffset
-    ) {
-      // Find the nearest parent span[data-editable-text="true"]
-      let parent: Node | null = range.startContainer.parentNode;
-      let standaloneSpan: HTMLElement | null = null;
-      while (parent && parent !== iframe.contentDocument.body) {
-        if (
-          parent.nodeType === Node.ELEMENT_NODE &&
-          (parent as HTMLElement).tagName === "SPAN" &&
-          (parent as HTMLElement).getAttribute("data-editable-text") === "true"
-        ) {
-          standaloneSpan = parent as HTMLElement;
-          break;
-        }
-        parent = parent.parentNode;
-      }
-      if (standaloneSpan) {
-        // Save selection offsets relative to the span
-        const spanRange = iframe.contentDocument.createRange();
-        spanRange.selectNodeContents(standaloneSpan);
-        const preSelectionRange = spanRange.cloneRange();
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        const startOffset = preSelectionRange.toString().length;
-        const selectionLength = range.toString().length;
-
-        // Replace the span with its children
-        const parentNode = standaloneSpan.parentNode;
-        while (standaloneSpan.firstChild) {
-          parentNode?.insertBefore(standaloneSpan.firstChild, standaloneSpan);
-        }
-        parentNode?.removeChild(standaloneSpan);
-
-        // Restore selection
-        const walker = iframe.contentDocument.createTreeWalker(
-          parentNode!,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-        let charCount = 0;
-        let foundStart = false;
-        let startNode: Text | null = null;
-        let endNode: Text | null = null;
-        let startOffsetInNode = 0;
-        let endOffsetInNode = 0;
-        while (walker.nextNode()) {
-          const node = walker.currentNode as Text;
-          const nextCharCount = charCount + node.length;
-          if (
-            !foundStart &&
-            startOffset >= charCount &&
-            startOffset < nextCharCount
-          ) {
-            startNode = node;
-            startOffsetInNode = startOffset - charCount;
-            foundStart = true;
-          }
-          if (foundStart && startOffset + selectionLength <= nextCharCount) {
-            endNode = node;
-            endOffsetInNode = startOffset + selectionLength - charCount;
-            break;
-          }
-          charCount = nextCharCount;
-        }
-        if (startNode && endNode) {
-          const newRange = iframe.contentDocument.createRange();
-          newRange.setStart(startNode, startOffsetInNode);
-          newRange.setEnd(endNode, endOffsetInNode);
-          sel.removeAllRanges();
-          sel.addRange(newRange);
-        }
-        setDebugInfo("Removed standalone span");
-        checkCanMakeStandalone();
-      }
-    }
-  }, [checkCanMakeStandalone, selectedElement, handleElementSelection]);
-
-  // Listen for selection changes to update canMakeStandalone
-  useEffect(() => {
-    if (!isEditMode) return;
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
-    const win = iframe.contentWindow;
-    const handler = () => checkCanMakeStandalone();
-    win.document.addEventListener("selectionchange", handler);
-    return () => {
-      win.document.removeEventListener("selectionchange", handler);
-    };
-  }, [isEditMode, checkCanMakeStandalone]);
-
-  // Add useEffect to call checkCanMakeStandalone when selectedElement changes
-  useEffect(() => {
-    checkCanMakeStandalone();
-  }, [selectedElement, checkCanMakeStandalone]);
 
   // Poll preview endpoint until ready
   useEffect(() => {
