@@ -210,6 +210,7 @@ export default function EditorPageClient({
 
       setHasAutoTriggered(true);
 
+      // @TODO: This message shows up on every refresh. We should only show it once.
       const welcomeMsg = {
         id: Date.now().toString(),
         content:
@@ -292,23 +293,7 @@ export default function EditorPageClient({
               className="h-full flex-1 mt-0 flex flex-col"
               asChild
             >
-              <DevMode
-                show={true}
-                position={{ top: 100, left: 100 }}
-                activeFormats={{ bold: false, italic: false, underline: false }}
-                elementType={"div"}
-                selectedElement={null}
-                onFormatText={() => {}}
-                onSetBackgroundColor={() => {}}
-                onSetBackgroundImage={() => {}}
-                onSetLink={() => {}}
-                onSetAltTag={() => {}}
-                onClose={() => setEditMode(false)}
-                activeTextColor={null}
-                setActiveTextColor={() => {}}
-                onRemoveStandalone={() => {}}
-                canRemoveStandalone={false}
-              />
+              <DevMode />
             </TabsContent>
           </Tabs>
         </div>

@@ -30,7 +30,6 @@ export default function WebsitePreview({
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
-  const [showToolbar, setShowToolbar] = useState(false);
   const [activeTextColor, setActiveTextColor] = useState<string | null>(null); // State for active text color
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
@@ -44,12 +43,30 @@ export default function WebsitePreview({
   const [canRemoveStandalone, setCanRemoveStandalone] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
+  const [iframeReadyAndPatched, setIframeReadyAndPatched] = useState(false);
 
   const selectElement = useEditorStore((s: EditorState) => s.selectElement);
   const selectedElementId = useEditorStore(
     (s: EditorState) => s.selectedElementId
   );
   const elements = useEditorStore((s: EditorState) => s.elements);
+
+  // Store handler references for clean removal
+  const eventHandlersRef = useRef<{
+    handleElementClick: EventListener;
+    handleDocumentClick: EventListener;
+    handleElementInput: EventListener;
+    handleMouseEnter: EventListener;
+    handleMouseLeave: EventListener;
+    handleElementBlur: EventListener;
+    handleSelectionChange: EventListener;
+  } | null>(null);
+
+  // Add hasMounted to prevent SSR hydration mismatch
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Get a preview URL - use real machine URL, mock URL, or API preview endpoint
   const getPreviewUrl = useCallback(() => {
@@ -85,13 +102,6 @@ export default function WebsitePreview({
       </div>
     );
   }
-
-  const closeToolbar = useCallback(() => {
-    // Only close the toolbar if we're not in edit mode
-    if (!isEditMode) {
-      setShowToolbar(false);
-    }
-  }, [isEditMode]);
 
   const getStorageKey = useCallback(() => `editorChanges-${url}`, [url]);
 
@@ -219,12 +229,16 @@ export default function WebsitePreview({
 
       if (isEditMode) {
         iframe.contentDocument.body.classList.add("editor-active");
-        addEditModeListeners();
+        addAllEventListeners();
         // Add selection change listener here as well for initial load
-        iframe.contentDocument.addEventListener(
-          "selectionchange",
-          handleSelectionChange
-        );
+        if (
+          typeof eventHandlersRef.current?.handleSelectionChange === "function"
+        ) {
+          iframe.contentDocument.addEventListener(
+            "selectionchange",
+            eventHandlersRef.current.handleSelectionChange
+          );
+        }
       } else {
         iframe.contentDocument.body.classList.remove("editor-active");
       }
@@ -241,65 +255,14 @@ export default function WebsitePreview({
     }
   };
 
-  const addEditModeListeners = () => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument) return;
-    const editableElements = iframe.contentDocument.querySelectorAll(
-      '[data-editable="true"]'
-    );
-    editableElements.forEach((element) => {
-      const htmlElement = element as HTMLElement;
-      if (!(htmlElement as any).__clickListenerAttached) {
-        htmlElement.addEventListener("click", handleElementClick);
-        (htmlElement as any).__clickListenerAttached = true;
-      }
-      if (htmlElement.hasAttribute("data-editable-text")) {
-        htmlElement.addEventListener("input", handleElementInput);
-      }
-      htmlElement.addEventListener("mouseenter", handleMouseEnter);
-      htmlElement.addEventListener("mouseleave", handleMouseLeave);
-    });
-
-    iframe.contentDocument.addEventListener("click", handleDocumentClick);
-    // Add listener for selection changes
-    iframe.contentDocument.addEventListener(
-      "selectionchange",
-      handleSelectionChange
-    );
-  };
-
-  const removeEditModeListeners = () => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument) return;
-    const editableElements = iframe.contentDocument.querySelectorAll(
-      '[data-editable="true"]'
-    );
-    editableElements.forEach((element) => {
-      const htmlElement = element as HTMLElement;
-      htmlElement.removeEventListener("click", handleElementClick);
-      (htmlElement as any).__clickListenerAttached = false;
-      if (htmlElement.hasAttribute("data-editable-text")) {
-        htmlElement.contentEditable = "false";
-      }
-      htmlElement.removeEventListener("mouseenter", handleMouseEnter);
-      htmlElement.removeEventListener("mouseleave", handleMouseLeave);
-
-      htmlElement.classList.remove("hover-active", "focus-active");
-    });
-    iframe.contentDocument.removeEventListener("click", handleDocumentClick);
-    // Remove listener for selection changes
-    iframe.contentDocument.removeEventListener(
-      "selectionchange",
-      handleSelectionChange
-    );
-  };
-
+  // Move all handler function declarations above addAllEventListeners
   const handleElementClick = (e: Event) => {
     if (!isEditMode) return;
     const element = e.currentTarget as HTMLElement;
     const editorId = element.getAttribute("data-editor-id");
     if (editorId) {
       selectElement(editorId);
+      handleElementSelection(element);
     }
   };
 
@@ -320,6 +283,39 @@ export default function WebsitePreview({
     }
   };
 
+  const handleElementInput = (e: Event) => {
+    if (!isEditMode || isApplyingChanges) return;
+    const element = e.target as HTMLElement;
+    const editorId = element.getAttribute("data-editor-id");
+    if (editorId) {
+      recordChange(editorId, "content", "innerHTML", element.innerHTML);
+    }
+  };
+
+  const handleMouseEnter = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    if (currentHoveredElement && currentHoveredElement !== htmlEl) {
+      currentHoveredElement.classList.remove("hover-active");
+    }
+    htmlEl.classList.add("hover-active");
+    currentHoveredElement = htmlEl;
+  };
+  const handleMouseLeave = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    htmlEl.classList.remove("hover-active");
+    if (currentHoveredElement === htmlEl) {
+      currentHoveredElement = null;
+    }
+  };
+  const handleElementBlur = (e: Event) => {
+    const htmlEl = e.currentTarget as HTMLElement;
+    htmlEl.classList.remove("focus-active");
+  };
+  const handleSelectionChange = (e: Event) => {
+    if (!isEditMode) return;
+  };
+
+  // Move recordChange and checkActiveFormats above addAllEventListeners and handler declarations
   const recordChange = useCallback(
     (
       targetId: string,
@@ -349,81 +345,112 @@ export default function WebsitePreview({
     [isApplyingChanges]
   );
 
-  const handleElementInput = useCallback(
-    (e: Event) => {
-      if (!isEditMode || isApplyingChanges) return;
-      const element = e.target as HTMLElement;
-      const editorId = element.getAttribute("data-editor-id");
-      if (editorId) {
-        recordChange(editorId, "content", "innerHTML", element.innerHTML);
-      }
-    },
-    [isEditMode, isApplyingChanges, recordChange]
-  );
+  // Centralized add event listeners
+  const addAllEventListeners = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+    const doc = iframe.contentDocument;
+    const editableElements = doc.querySelectorAll('[data-editable="true"]');
 
-  // Utility: Recursively set contentEditable="true" on all child elements with data-editable-text="true"
-  function setAllTextEditable(root: HTMLElement) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
-      acceptNode: (node) => {
-        if (
-          (node as HTMLElement).getAttribute &&
-          (node as HTMLElement).getAttribute("data-editable-text") === "true"
-        ) {
-          return NodeFilter.FILTER_ACCEPT;
-        }
-        return NodeFilter.FILTER_SKIP;
-      },
+    // Create handlers if not already
+    if (!eventHandlersRef.current) {
+      eventHandlersRef.current = {
+        handleElementClick,
+        handleDocumentClick,
+        handleElementInput,
+        handleMouseEnter,
+        handleMouseLeave,
+        handleElementBlur,
+        handleSelectionChange,
+      };
+    }
+    const handlers = eventHandlersRef.current;
+    if (!handlers) return;
+
+    editableElements.forEach((element) => {
+      const htmlElement = element as HTMLElement;
+      if (!(htmlElement as any).__clickListenerAttached) {
+        htmlElement.addEventListener("click", handlers.handleElementClick);
+        (htmlElement as any).__clickListenerAttached = true;
+      }
+      if (htmlElement.hasAttribute("data-editable-text")) {
+        htmlElement.addEventListener("input", handlers.handleElementInput);
+      }
+      htmlElement.addEventListener("mouseenter", handlers.handleMouseEnter);
+      htmlElement.addEventListener("mouseleave", handlers.handleMouseLeave);
+      htmlElement.addEventListener("blur", handlers.handleElementBlur);
     });
-    let node = walker.nextNode();
-    while (node) {
-      (node as HTMLElement).contentEditable = "true";
-      node = walker.nextNode();
-    }
-  }
 
-  // Utility: Unwrap a span if it has no styles left
-  function unwrapIfNoStyle(span: HTMLElement) {
-    if (
-      span.tagName === "SPAN" &&
-      !span.style.fontWeight &&
-      !span.style.fontStyle &&
-      !span.style.textDecoration &&
-      !span.style.color &&
-      !span.style.fontSize
-    ) {
-      const parent = span.parentNode;
-      while (span.firstChild) {
-        parent?.insertBefore(span.firstChild, span);
+    if (typeof handlers.handleDocumentClick === "function") {
+      doc.addEventListener("click", handlers.handleDocumentClick);
+    }
+    if (typeof handlers.handleSelectionChange === "function") {
+      doc.addEventListener("selectionchange", handlers.handleSelectionChange);
+    }
+  }, [
+    isEditMode,
+    isApplyingChanges,
+    selectedElement,
+    recordChange,
+    selectElement,
+  ]);
+
+  // Centralized remove event listeners
+  const removeAllEventListeners = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+    const doc = iframe.contentDocument;
+    const editableElements = doc.querySelectorAll('[data-editable="true"]');
+    const handlers = eventHandlersRef.current;
+    if (!handlers) return;
+
+    editableElements.forEach((element) => {
+      const htmlElement = element as HTMLElement;
+      htmlElement.removeEventListener("click", handlers.handleElementClick);
+      (htmlElement as any).__clickListenerAttached = false;
+      if (htmlElement.hasAttribute("data-editable-text")) {
+        htmlElement.removeEventListener("input", handlers.handleElementInput);
       }
-      parent?.removeChild(span);
+      htmlElement.removeEventListener("mouseenter", handlers.handleMouseEnter);
+      htmlElement.removeEventListener("mouseleave", handlers.handleMouseLeave);
+      htmlElement.removeEventListener("blur", handlers.handleElementBlur);
+      htmlElement.classList.remove("hover-active", "focus-active");
+    });
+    if (typeof handlers.handleDocumentClick === "function") {
+      doc.removeEventListener("click", handlers.handleDocumentClick);
     }
-  }
+    if (typeof handlers.handleSelectionChange === "function") {
+      doc.removeEventListener(
+        "selectionchange",
+        handlers.handleSelectionChange
+      );
+    }
+  }, []);
 
-  // Utility: For a text node, wrap a range (start, end) in a span with style
-  function wrapTextRange(
-    textNode: Text,
-    start: number,
-    end: number,
-    styleProp: string,
-    styleValue: string
-  ) {
-    const doc = textNode.ownerDocument;
-    const span = doc.createElement("span");
-    if (styleProp === "fontWeight") span.style.fontWeight = styleValue;
-    if (styleProp === "fontStyle") span.style.fontStyle = styleValue;
-    if (styleProp === "textDecoration") span.style.textDecoration = styleValue;
-    if (styleProp === "color") span.style.color = styleValue;
-    const text = textNode.data;
-    const before = text.slice(0, start);
-    const middle = text.slice(start, end);
-    const after = text.slice(end);
-    const frag = doc.createDocumentFragment();
-    if (before) frag.appendChild(doc.createTextNode(before));
-    span.appendChild(doc.createTextNode(middle));
-    frag.appendChild(span);
-    if (after) frag.appendChild(doc.createTextNode(after));
-    textNode.parentNode?.replaceChild(frag, textNode);
-  }
+  // useEffect to add/remove listeners based on iframeReady and isEditMode
+  useEffect(() => {
+    if (iframeReady && isEditMode) {
+      makeElementsEditable();
+      addAllEventListeners();
+      setIframeReadyAndPatched(true);
+    } else if (iframeReady && !isEditMode) {
+      removeAllEventListeners();
+      // Set all contentEditable to false when leaving edit mode
+      const iframe = iframeRef.current;
+      if (iframe && iframe.contentDocument) {
+        const editableElements = iframe.contentDocument.querySelectorAll(
+          '[data-editable-text="true"]'
+        );
+        editableElements.forEach((el) => {
+          (el as HTMLElement).contentEditable = "false";
+        });
+      }
+      setIframeReadyAndPatched(true);
+    } else {
+      setIframeReadyAndPatched(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iframeReady, isEditMode]);
 
   const handleElementSelection = (element: HTMLElement) => {
     if (!isEditMode || !element) return;
@@ -485,338 +512,10 @@ export default function WebsitePreview({
     }
   };
 
-  // Remove focus from all editable elements when toolbar is closed
-  useEffect(() => {
-    if (!showToolbar) {
-      const iframe = iframeRef.current;
-      if (iframe && iframe.contentDocument) {
-        const allEditable = iframe.contentDocument.querySelectorAll(
-          '[data-editable-text="true"]'
-        );
-        allEditable.forEach((s) => s.classList.remove("focus-active"));
-      }
-    }
-  }, [showToolbar]);
+  // Move currentHoveredElement above its first use
+  let currentHoveredElement: HTMLElement | null = null;
 
-  // Converts RGB color format to HEX format
-  const rgbToHex = useCallback((rgb: string | null): string | null => {
-    if (!rgb) return null;
-    // Check if the color is already in hex format
-    if (rgb.startsWith("#")) return rgb;
-
-    // Extract RGB values from the format "rgb(r, g, b)" or "rgba(r, g, b, a)"
-    const rgbMatch = rgb.match(
-      /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/
-    );
-    if (!rgbMatch) return rgb; // Return original if format doesn't match
-
-    const r = parseInt(rgbMatch[1], 10);
-    const g = parseInt(rgbMatch[2], 10);
-    const b = parseInt(rgbMatch[3], 10);
-
-    // Convert to hex
-    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
-  }, []);
-
-  // Renamed and updated checkActiveFormats
-  const checkActiveFormats = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
-
-    const doc = iframe.contentDocument;
-    const win = iframe.contentWindow;
-
-    try {
-      const selection = win.getSelection();
-      if (!selection || selection.rangeCount === 0) {
-        // If no selection, maybe reset or use element's style? For now, reset.
-        setActiveTextColor(null);
-        return;
-      }
-
-      // Check basic formats using queryCommandState
-      const isBold = doc.queryCommandState("bold");
-      const isItalic = doc.queryCommandState("italic");
-      const isUnderline = doc.queryCommandState("underline");
-
-      // Check text color - try first with queryCommandValue for more accurate results
-      let color: string | null = null;
-      try {
-        // Try to get color using queryCommandValue first
-        const foreColor = doc.queryCommandValue("foreColor");
-        if (foreColor && foreColor !== "false") {
-          color = foreColor.toString();
-        }
-      } catch (e) {
-        // Fallback to computed style if queryCommandValue fails
-        console.log("Error getting text color with queryCommandValue:", e);
-      }
-
-      // If queryCommandValue didn't work, use getComputedStyle as fallback
-      if (!color || color === "false") {
-        const range = selection.getRangeAt(0);
-        let node = range.startContainer;
-        // If selection is in a text node, get its parent element
-        if (node.nodeType === Node.TEXT_NODE) {
-          node = node.parentElement as HTMLElement;
-        }
-        // Ensure we have an element node to check style
-        if (node && node.nodeType === Node.ELEMENT_NODE) {
-          color = win.getComputedStyle(node as Element).color;
-        }
-      }
-
-      // Convert RGB format to HEX for consistency and better UI display
-      const normalizedColor = rgbToHex(color);
-      setActiveTextColor(normalizedColor);
-    } catch (error) {
-      console.error("Error checking active formats:", error);
-      setDebugInfo(`Error checking formats: ${error}`);
-      // Reset on error
-      setActiveTextColor(null);
-    }
-  }, [rgbToHex]); // Added rgbToHex as dependency
-
-  // Handler for the selectionchange event
-  const handleSelectionChange = useCallback(() => {
-    if (!isEditMode) return;
-    // Check formats whenever the selection changes
-    checkActiveFormats();
-  }, [isEditMode, checkActiveFormats]);
-
-  // Utility to update or create a <style> tag for a given element by data-editor-id
-  const updateElementStyleTag = (
-    editorId: string,
-    styleObj: Record<string, string>
-  ) => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument) return;
-    let styleTag = iframe.contentDocument.getElementById(
-      `style-for-${editorId}`
-    ) as HTMLStyleElement | null;
-    const selector = `[data-editor-id="${editorId}"]`;
-    const styleString = Object.entries(styleObj)
-      .map(
-        ([k, v]) =>
-          `${k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())}: ${v};`
-      )
-      .join(" ");
-    const css = `${selector} { ${styleString} }`;
-    if (!styleTag) {
-      styleTag = iframe.contentDocument.createElement("style");
-      styleTag.id = `style-for-${editorId}`;
-      iframe.contentDocument.head.appendChild(styleTag);
-    }
-    styleTag.textContent = css;
-  };
-
-  // Utility to get current style object from <style> tag for an element
-  const getElementStyleObj = (editorId: string): Record<string, string> => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument) return {};
-    const styleTag = iframe.contentDocument.getElementById(
-      `style-for-${editorId}`
-    ) as HTMLStyleElement | null;
-    if (!styleTag || !styleTag.textContent) return {};
-    const match = styleTag.textContent.match(/\{([^}]*)\}/);
-    if (!match) return {};
-    return Object.fromEntries(
-      match[1]
-        .split(";")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => {
-          const [k, v] = s.split(":").map((x) => x.trim());
-          return [k.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), v];
-        })
-    );
-  };
-
-  const setElementStyle = (property: string, value: string) => {
-    if (!isEditMode || !selectedElement) return;
-    const editorId = selectedElement.getAttribute("data-editor-id");
-    if (editorId) {
-      try {
-        // Get current style object from <style> tag
-        const styleObj = getElementStyleObj(editorId);
-        // Remove property if value is default
-        const shouldRemove =
-          (property === "fontWeight" && value === "normal") ||
-          (property === "fontStyle" && value === "normal") ||
-          (property === "textDecoration" && value === "none") ||
-          (property === "color" &&
-            (!value || value === "initial" || value === "inherit")) ||
-          (property === "fontSize" &&
-            (!value || value === "initial" || value === "inherit"));
-        if (shouldRemove) {
-          delete styleObj[property];
-        } else {
-          styleObj[property] = value;
-        }
-        updateElementStyleTag(editorId, styleObj);
-        setDebugInfo(`Applied ${property}: ${value}`);
-        recordChange(editorId, "style", property, value);
-      } catch (error) {
-        setDebugInfo(`Error applying ${property}: ${error}`);
-      }
-    }
-  };
-
-  const setBackgroundColor = (color: string) => {
-    setElementStyle("backgroundColor", color);
-  };
-
-  const setBackgroundImage = (urlValue: string) => {
-    setElementStyle("backgroundImage", `url(${urlValue})`);
-    setElementStyle("backgroundSize", "cover");
-    setElementStyle("backgroundPosition", "center");
-  };
-
-  const setLink = (urlValue: string) => {
-    if (!isEditMode) return;
-    formatText("createLink", urlValue);
-  };
-
-  const setAltTag = (alt: string) => {
-    if (!isEditMode || !selectedElement || selectedElement.tagName !== "IMG")
-      return;
-    const editorId = selectedElement.getAttribute("data-editor-id");
-    if (editorId) {
-      try {
-        (selectedElement as HTMLImageElement).alt = alt;
-        setDebugInfo(`Set alt text: ${alt}`);
-        recordChange(editorId, "attribute", "alt", alt);
-        toast({
-          title: "Alt Text Updated",
-          description: "The image alt text has been updated successfully.",
-        });
-      } catch (error) {
-        setDebugInfo(`Error setting alt text: ${error}`);
-      }
-    }
-  };
-
-  const saveChanges = useCallback(() => {
-    if (pendingChanges.length === 0) {
-      return;
-    }
-
-    const storageKey = getStorageKey();
-    const storedChangesJson = localStorage.getItem(storageKey);
-    let existingChanges: EditorChange[] = [];
-    if (storedChangesJson) {
-      try {
-        existingChanges = JSON.parse(storedChangesJson);
-      } catch (e) {
-        console.error("Error parsing existing changes from localStorage:", e);
-      }
-    }
-
-    const changesMap = new Map<string, EditorChange>();
-    existingChanges.forEach((change) => {
-      const key = `${change.targetId}-${change.payload.name}`;
-      changesMap.set(key, change);
-    });
-    pendingChanges.forEach((change) => {
-      const key = `${change.targetId}-${change.payload.name}`;
-      changesMap.set(key, change);
-    });
-
-    const mergedChanges = Array.from(changesMap.values());
-
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(mergedChanges));
-      toast({
-        title: "Changes Saved",
-        description: "Your edits have been saved locally.",
-      });
-      setPendingChanges([]);
-    } catch (e) {
-      console.error("Error saving changes to localStorage:", e);
-      toast({
-        title: "Save Error",
-        description: "Could not save changes.",
-        variant: "destructive",
-      });
-    }
-  }, [pendingChanges, getStorageKey]);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (
-      isEditorReady &&
-      iframe &&
-      iframe.contentDocument &&
-      iframe.contentDocument.body
-    ) {
-      const iframeBody = iframe.contentDocument.body;
-      if (isEditMode) {
-        iframeBody.classList.add("editor-active");
-        addEditModeListeners(); // This already adds the selectionchange listener
-      } else {
-        saveChanges();
-        iframeBody.classList.remove("editor-active");
-        removeEditModeListeners(); // This already removes the selectionchange listener
-      }
-    } else {
-      if (iframe && iframe.contentDocument && !iframe.contentDocument.body) {
-        console.warn("iframe.contentDocument.body is null in useEffect");
-      }
-      // Log if conditions aren't met
-      // console.log("useEffect [isEditMode, isEditorReady]: Conditions not met", { isEditorReady, iframeExists: !!iframe, docExists: !!iframe?.contentDocument, bodyExists: !!iframe?.contentDocument?.body });
-    }
-    // No need for explicit return cleanup for listeners added/removed in add/removeEditModeListeners
-    // The dependency array ensures this effect runs when isEditMode or isEditorReady changes.
-  }, [
-    isEditMode,
-    isEditorReady,
-    saveChanges,
-    addEditModeListeners,
-    removeEditModeListeners,
-  ]); // Added add/remove listeners to dependencies
-
-  // Listen for image change events from the MediaLibrary
-  useEffect(() => {
-    const handleImageChanged = (event: CustomEvent) => {
-      const { url, editorId } = event.detail;
-      if (url && editorId) {
-        recordChange(editorId, "attribute", "src", url);
-        // Also update alt text if not already set
-        const iframe = iframeRef.current;
-        if (iframe && iframe.contentDocument) {
-          const imgElement = iframe.contentDocument.querySelector(
-            `[data-editor-id="${editorId}"]`
-          ) as HTMLImageElement | null;
-          if (imgElement && !imgElement.alt) {
-            // Extract filename from URL for basic alt text
-            const filename = url.split("/").pop()?.split(".")[0] || "";
-            const altText = filename.replace(/[-_]/g, " ");
-            imgElement.alt = altText;
-            recordChange(editorId, "attribute", "alt", altText);
-          }
-        }
-      }
-    };
-
-    document.addEventListener(
-      "imageChanged",
-      handleImageChanged as EventListener
-    );
-
-    return () => {
-      document.removeEventListener(
-        "imageChanged",
-        handleImageChanged as EventListener
-      );
-    };
-  }, [recordChange]);
-
-  useEffect(() => {
-    setShowToolbar(false);
-    setDebugInfo("");
-  }, []);
-
-  // Add back the makeElementsEditable function that was accidentally removed
+  // Move makeElementsEditable above its first use
   const makeElementsEditable = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentDocument) return;
@@ -879,221 +578,25 @@ export default function WebsitePreview({
     });
   };
 
-  let currentHoveredElement: HTMLElement | null = null;
-  const handleMouseEnter = (e: Event) => {
-    const htmlEl = e.currentTarget as HTMLElement;
-    if (currentHoveredElement && currentHoveredElement !== htmlEl) {
-      currentHoveredElement.classList.remove("hover-active");
-    }
-    htmlEl.classList.add("hover-active");
-    currentHoveredElement = htmlEl;
-  };
-  const handleMouseLeave = (e: Event) => {
-    const htmlEl = e.currentTarget as HTMLElement;
-    htmlEl.classList.remove("hover-active");
-    if (currentHoveredElement === htmlEl) {
-      currentHoveredElement = null;
-    }
-  };
-  const handleElementBlur = (e: Event) => {
-    const htmlEl = e.currentTarget as HTMLElement;
-    htmlEl.classList.remove("focus-active");
-  };
-
-  const toggleStyleOnSelection = (styleProp: string, styleValue: string) => {
-    if (!isEditMode || !selectedElement) return;
-    // Apply style directly to the selected element
-    if (styleProp === "fontWeight") {
-      selectedElement.style.fontWeight =
-        selectedElement.style.fontWeight === styleValue ? "" : styleValue;
-    } else if (styleProp === "fontStyle") {
-      selectedElement.style.fontStyle =
-        selectedElement.style.fontStyle === styleValue ? "" : styleValue;
-    } else if (styleProp === "textDecoration") {
-      selectedElement.style.textDecoration =
-        selectedElement.style.textDecoration === styleValue ? "" : styleValue;
-    } else if (styleProp === "color") {
-      selectedElement.style.color =
-        selectedElement.style.color === styleValue ? "" : styleValue;
-    }
-    // Also apply to all descendant spans with !important
-    const spans = selectedElement.querySelectorAll("span");
-    spans.forEach((span) => {
-      if (styleProp === "fontWeight") {
-        span.style.setProperty("font-weight", styleValue, "important");
-      } else if (styleProp === "fontStyle") {
-        span.style.setProperty("font-style", styleValue, "important");
-      } else if (styleProp === "textDecoration") {
-        span.style.setProperty("text-decoration", styleValue, "important");
-      } else if (styleProp === "color") {
-        span.style.setProperty("color", styleValue, "important");
-      }
+  // Utility: Recursively set contentEditable="true" on all child elements with data-editable-text="true"
+  function setAllTextEditable(root: HTMLElement) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (node) => {
+        if (
+          (node as HTMLElement).getAttribute &&
+          (node as HTMLElement).getAttribute("data-editable-text") === "true"
+        ) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      },
     });
-    // Unwrap spans that have no formatting left
-    spans.forEach((span) => {
-      const style = span.style;
-      if (
-        !style.fontWeight &&
-        !style.fontStyle &&
-        !style.textDecoration &&
-        !style.color &&
-        !style.fontSize
-      ) {
-        const parent = span.parentNode;
-        while (span.firstChild) {
-          parent?.insertBefore(span.firstChild, span);
-        }
-        parent?.removeChild(span);
-      }
-    });
-    selectedElement.dispatchEvent(
-      new Event("input", { bubbles: true, cancelable: true })
-    );
-  };
-
-  const formatText = (command: string, value = "") => {
-    if (!isEditMode) return;
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) return;
-    const win = iframe.contentWindow;
-    const sel = win.getSelection();
-    const hasSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed;
-
-    // Helper to visually focus the span
-    const visuallyFocusSpan = (span: HTMLElement) => {
-      // Remove focus-active from all spans first
-      const allSpans = iframe.contentDocument!.querySelectorAll(
-        'span[data-editable-text="true"]'
-      );
-      allSpans.forEach((s) => s.classList.remove("focus-active"));
-      // Add focus-active to the current span
-      span.classList.add("focus-active");
-    };
-
-    if (hasSelection) {
-      const range = sel!.getRangeAt(0);
-      // Only operate on text selections
-      if (
-        range.startContainer === range.endContainer &&
-        range.startContainer.nodeType === Node.TEXT_NODE &&
-        range.startOffset !== range.endOffset
-      ) {
-        // Prevent wrapping whitespace-only selections
-        const selectedText = range.toString();
-        if (selectedText.trim().length === 0) {
-          setDebugInfo("Cannot style: selection is only whitespace.");
-          return;
-        }
-        // Check if already inside a span
-        let parent: Node | null = range.startContainer.parentNode;
-        let span: HTMLElement | null = null;
-        while (parent && parent !== iframe.contentDocument.body) {
-          if (
-            parent.nodeType === Node.ELEMENT_NODE &&
-            (parent as HTMLElement).tagName === "SPAN" &&
-            (parent as HTMLElement).getAttribute("data-editable-text") ===
-              "true"
-          ) {
-            span = parent as HTMLElement;
-            break;
-          }
-          parent = parent.parentNode;
-        }
-
-        // If not inside a span, wrap in a new span
-        if (!span) {
-          span = iframe.contentDocument.createElement("span");
-          span.setAttribute("data-editable", "true");
-          span.setAttribute("data-editable-type", "text");
-          span.setAttribute("data-editable-text", "true");
-          span.setAttribute("data-editor-id", `editor-span-${Date.now()}`);
-          span.style.display = "inline";
-          try {
-            range.surroundContents(span);
-            // Reselect the new span
-            sel!.removeAllRanges();
-            const newRange = iframe.contentDocument.createRange();
-            newRange.selectNodeContents(span);
-            sel!.addRange(newRange);
-          } catch (e) {
-            setDebugInfo(
-              "Could not wrap selection: " +
-                (e instanceof Error ? e.message : String(e))
-            );
-            return;
-          }
-        }
-
-        // Now apply the style to the span
-        if (command === "bold") {
-          span.style.fontWeight =
-            span.style.fontWeight === "700" ? "400" : "700";
-        } else if (command === "italic") {
-          span.style.fontStyle =
-            span.style.fontStyle === "italic" ? "normal" : "italic";
-        } else if (command === "underline") {
-          span.style.textDecoration =
-            span.style.textDecoration === "underline" ? "none" : "underline";
-        } else if (command === "color") {
-          span.style.color = value;
-        }
-        // ... handle other styles as needed
-
-        // Update selection and toolbar
-        setSelectedElement(span);
-        handleElementSelection(span);
-        visuallyFocusSpan(span);
-        return;
-      }
+    let node = walker.nextNode();
+    while (node) {
+      (node as HTMLElement).contentEditable = "true";
+      node = walker.nextNode();
     }
-
-    // If no text selection but selectedElement is a standalone span, style it
-    if (
-      selectedElement &&
-      selectedElement.tagName === "SPAN" &&
-      selectedElement.getAttribute("data-editable-text") === "true"
-    ) {
-      if (command === "bold") {
-        selectedElement.style.fontWeight =
-          selectedElement.style.fontWeight === "700" ? "400" : "700";
-      } else if (command === "italic") {
-        selectedElement.style.fontStyle =
-          selectedElement.style.fontStyle === "italic" ? "normal" : "italic";
-      } else if (command === "underline") {
-        selectedElement.style.textDecoration =
-          selectedElement.style.textDecoration === "underline"
-            ? "none"
-            : "underline";
-      } else if (command === "color") {
-        selectedElement.style.color = value;
-      }
-      visuallyFocusSpan(selectedElement);
-      return;
-    }
-
-    // Fallback: if not a text selection, apply to selectedElement as before
-    if (selectedElement) {
-      if (command === "bold") {
-        toggleStyleOnSelection(
-          "fontWeight",
-          selectedElement.style.fontWeight === "700" ? "400" : "700"
-        );
-        return;
-      }
-      if (command === "italic") {
-        toggleStyleOnSelection("fontStyle", "italic");
-        return;
-      }
-      if (command === "underline") {
-        toggleStyleOnSelection("textDecoration", "underline");
-        return;
-      }
-      if (command === "color") {
-        toggleStyleOnSelection("color", value);
-        return;
-      }
-    }
-  };
+  }
 
   // Detect if selection can be made standalone
   const checkCanMakeStandalone = useCallback(() => {
@@ -1413,6 +916,18 @@ export default function WebsitePreview({
       }
     });
   }, [elements, iframeReady]);
+
+  if (!iframeReadyAndPatched) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
+        <div className="text-center max-w-md">
+          <h3 className="text-xl font-medium mb-2">Website Preview</h3>
+          <p className="text-gray-500 mb-4">Loading website preview...</p>
+          <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
