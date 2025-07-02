@@ -33,7 +33,7 @@ export default function WebsitePreview({
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
   );
-  const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]);
+  const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]); // save for now for text changes
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
 
   const [iframeReady, setIframeReady] = useState(false);
