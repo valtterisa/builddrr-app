@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:custom": "ts-node --transpile-only server.ts",
+    "build:custom": "tsc server.ts --outDir dist",
+    "start:custom": "node dist/server.js"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.10",
@@ -69,6 +72,7 @@
     "fs-extra": "^11.3.0",
     "htmlparser2": "^10.0.0",
     "http-proxy": "^1.18.1",
+    "http-proxy-middleware": "^3.0.5",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
@@ -93,6 +97,7 @@
     "stripe": "latest",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "ui": "git+https://github.com/shadcn/ui.git",
     "vaul": "^0.9.9",
     "zod": "^3.24.2",
@@ -100,6 +105,7 @@
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",
+    "@types/express": "^5.0.3",
     "@types/http-proxy": "^1.17.16",
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.2",

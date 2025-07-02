@@ -193,14 +193,11 @@ export default function WebsitePreview({
            padding: 2px 6px !important;
            border-radius: 4px !important;
            font-size: 10px !important;
-           opacity: 1 !important; 
-           transition: opacity 0.2s ease !important;
            pointer-events: none !important;
            z-index: 1000 !important;
         }
 
         .editor-active [data-editable="true"]::before {
-           opacity: 0 !important;
            pointer-events: none !important;
            content: attr(data-editable-tag) !important;
            font-weight: 400 !important;
@@ -212,7 +209,6 @@ export default function WebsitePreview({
            padding: 2px 6px !important;
            border-radius: 4px !important;
            font-size: 10px !important;
-           transition: opacity 0.2s ease !important;
            z-index: 1000 !important;
         }
       `;
@@ -1487,7 +1483,18 @@ export default function WebsitePreview({
         {!iframeReady && !iframeError && (
           <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="text-center">
-              <p className="mb-2">Waiting for website to be ready...</p>
+              <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+
+              <p className="text-gray-600 font-medium">
+                Waiting for website to be ready...
+              </p>
+
+              {/* Simple animated dots */}
+              <div className="flex justify-center space-x-1 mt-3">
+                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
+                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+              </div>
             </div>
           </div>
         )}
@@ -1496,6 +1503,7 @@ export default function WebsitePreview({
             ref={iframeRef}
             key={`url-${url}`}
             src={`http://localhost:3000/api/preview/${url}/`}
+            // src={"https://plain-nextjs-app.fly.dev/"}
             className="w-full h-full"
             sandbox="allow-same-origin allow-scripts"
           />

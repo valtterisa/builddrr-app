@@ -124,7 +124,7 @@ export function EditableText({
           {value || placeholder}
         </TagName>
         {!disabled && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 shadow-sm rounded-md border border-gray-200 dark:border-gray-700 p-1 cursor-pointer">
+          <div className="absolute right-0 top-1/2 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 shadow-sm rounded-md border border-gray-200 dark:border-gray-700 p-1 cursor-pointer">
             <Button
               size="icon"
               variant="ghost"
