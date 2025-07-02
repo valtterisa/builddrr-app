@@ -46,11 +46,8 @@ nextApp.prepare().then(() => {
       const appName = previewMatch[1];
       return getProxy(appName)(req, res, () => {});
     }
-    // All other requests: let Next.js handle (for static, SSR, etc)
     return handle(req, res, parse(url, true));
   });
-
-  // WebSocket upgrade handling removed as it's not necessary if Fly.io dev mode is handling updates
 
   server.listen(port, () => {
     console.log(`> Server ready on http://localhost:${port}`);

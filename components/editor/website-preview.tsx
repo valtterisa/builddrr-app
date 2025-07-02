@@ -3,7 +3,12 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, useReducer } from "react";
 import { toast } from "@/components/ui/use-toast";
-import { useEditorStore, addEditorElement } from "@/lib/editor-store";
+import {
+  useEditorStore,
+  addEditorElement,
+  buildClassName,
+  replaceClassInGroup,
+} from "@/lib/editor-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
 
 interface EditorChange {
@@ -790,16 +795,18 @@ export default function WebsitePreview({
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentDocument) return;
     const els = elements as Record<string, EditorElement>;
-    Object.entries(els).forEach(([id, { className }]) => {
+    Object.entries(els).forEach(([id, element]) => {
       const el = iframe.contentDocument!.querySelector(
         `[data-editor-id='${id}']`
       );
       if (el) {
-        // Only set className if the store has a non-empty value
-        if (typeof className === "string" && className.trim() !== "") {
-          el.className += " " + className;
+        // Merge style-generated classes and custom/manual classes
+        const styleClasses = buildClassName(element);
+        const customClasses = element.className || "";
+        const merged = (styleClasses + " " + customClasses).trim();
+        if (merged) {
+          el.className = merged;
         }
-        // If className is empty, undefined, or null, do nothing (preserve existing classes)
       }
     });
   }, [elements, editorState.iframeReady]);
@@ -821,6 +828,16 @@ export default function WebsitePreview({
       }
     }
   }, [isEditMode]);
+
+  // Add this effect to sync DOM className to store on selection
+  useEffect(() => {
+    if (!editorState.selectedElement) return;
+    const el = editorState.selectedElement;
+    const editorId = el.getAttribute("data-editor-id");
+    if (!editorId) return;
+    const className = el.className || "";
+    useEditorStore.getState().setElementClass(editorId, className);
+  }, [editorState.selectedElement]);
 
   if (!editorState.iframeReady) {
     return (

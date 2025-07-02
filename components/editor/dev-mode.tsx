@@ -21,7 +21,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { buildClassName } from "@/lib/editor-store";
+import { buildClassName, replaceClassInGroup } from "@/lib/editor-store";
 
 export default function DevMode() {
   const selectedElementId = useEditorStore(
@@ -257,18 +257,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Weight</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.fontWeight ||
-                        "default"
+                        TAILWIND_FONT_WEIGHTS.find((fw) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(fw)
+                        ) || "default"
                       }
                       onValueChange={(fw) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          fontWeight: fw === "default" ? undefined : fw,
-                          className: buildClassName({
-                            ...el,
-                            fontWeight: fw === "default" ? undefined : fw,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_FONT_WEIGHTS,
+                            fw === "default" ? "" : fw
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -290,13 +293,23 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Size</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.fontSize || "default"
+                        TAILWIND_TEXT_SIZES.find((sz) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(sz)
+                        ) || "default"
                       }
-                      onValueChange={(size) =>
-                        handleTextSizeChange(
-                          size === "default" ? undefined : size
-                        )
-                      }
+                      onValueChange={(size) => {
+                        if (!selectedElementId) return;
+                        updateElement(selectedElementId, (el) => ({
+                          ...el,
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_TEXT_SIZES,
+                            size === "default" ? "" : size
+                          ),
+                        }));
+                      }}
                       disabled={!selectedElementId}
                     >
                       <SelectTrigger className="h-8 text-sm">
@@ -319,18 +332,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Line Height</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.lineHeight ||
-                        "default"
+                        TAILWIND_LINE_HEIGHTS.find((lh) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(lh)
+                        ) || "default"
                       }
                       onValueChange={(lh) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          lineHeight: lh === "default" ? undefined : lh,
-                          className: buildClassName({
-                            ...el,
-                            lineHeight: lh === "default" ? undefined : lh,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_LINE_HEIGHTS,
+                            lh === "default" ? "" : lh
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -352,18 +368,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Letter Spacing</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.letterSpacing ||
-                        "default"
+                        TAILWIND_LETTER_SPACING.find((ls) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(ls)
+                        ) || "default"
                       }
                       onValueChange={(ls) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          letterSpacing: ls === "default" ? undefined : ls,
-                          className: buildClassName({
-                            ...el,
-                            letterSpacing: ls === "default" ? undefined : ls,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_LETTER_SPACING,
+                            ls === "default" ? "" : ls
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -391,8 +410,11 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[selectedElementId || ""]?.textAlign ===
-                          "text-left"
+                          TAILWIND_TEXT_ALIGN.find((a) =>
+                            (elements[selectedElementId || ""]?.className || "")
+                              .split(" ")
+                              .includes(a)
+                          ) === "text-left"
                             ? "default"
                             : "ghost"
                         }
@@ -401,11 +423,11 @@ export default function DevMode() {
                           if (!selectedElementId) return;
                           updateElement(selectedElementId, (el) => ({
                             ...el,
-                            textAlign: "text-left",
-                            className: buildClassName({
-                              ...el,
-                              textAlign: "text-left",
-                            }),
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_ALIGN,
+                              "text-left"
+                            ),
                           }));
                         }}
                         aria-label="Align Left"
@@ -416,8 +438,11 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[selectedElementId || ""]?.textAlign ===
-                          "text-center"
+                          TAILWIND_TEXT_ALIGN.find((a) =>
+                            (elements[selectedElementId || ""]?.className || "")
+                              .split(" ")
+                              .includes(a)
+                          ) === "text-center"
                             ? "default"
                             : "ghost"
                         }
@@ -426,11 +451,11 @@ export default function DevMode() {
                           if (!selectedElementId) return;
                           updateElement(selectedElementId, (el) => ({
                             ...el,
-                            textAlign: "text-center",
-                            className: buildClassName({
-                              ...el,
-                              textAlign: "text-center",
-                            }),
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_ALIGN,
+                              "text-center"
+                            ),
                           }));
                         }}
                         aria-label="Align Center"
@@ -441,8 +466,11 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[selectedElementId || ""]?.textAlign ===
-                          "text-right"
+                          TAILWIND_TEXT_ALIGN.find((a) =>
+                            (elements[selectedElementId || ""]?.className || "")
+                              .split(" ")
+                              .includes(a)
+                          ) === "text-right"
                             ? "default"
                             : "ghost"
                         }
@@ -451,11 +479,11 @@ export default function DevMode() {
                           if (!selectedElementId) return;
                           updateElement(selectedElementId, (el) => ({
                             ...el,
-                            textAlign: "text-right",
-                            className: buildClassName({
-                              ...el,
-                              textAlign: "text-right",
-                            }),
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_ALIGN,
+                              "text-right"
+                            ),
                           }));
                         }}
                         aria-label="Align Right"
@@ -466,8 +494,11 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[selectedElementId || ""]?.textAlign ===
-                          "text-justify"
+                          TAILWIND_TEXT_ALIGN.find((a) =>
+                            (elements[selectedElementId || ""]?.className || "")
+                              .split(" ")
+                              .includes(a)
+                          ) === "text-justify"
                             ? "default"
                             : "ghost"
                         }
@@ -476,11 +507,11 @@ export default function DevMode() {
                           if (!selectedElementId) return;
                           updateElement(selectedElementId, (el) => ({
                             ...el,
-                            textAlign: "text-justify",
-                            className: buildClassName({
-                              ...el,
-                              textAlign: "text-justify",
-                            }),
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_ALIGN,
+                              "text-justify"
+                            ),
                           }));
                         }}
                         aria-label="Align Justify"
@@ -496,37 +527,28 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[
-                            selectedElementId || ""
-                          ]?.textDecoration?.includes("underline")
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes("underline")
                             ? "default"
                             : "ghost"
                         }
                         className="h-8 w-8"
                         onClick={() => {
                           if (!selectedElementId) return;
-                          updateElement(selectedElementId, (el) => {
-                            let newDecoration = el.textDecoration || "";
-                            if (newDecoration.includes("underline")) {
-                              newDecoration = newDecoration
-                                .replace("underline", "")
-                                .replace(/\s+/g, " ")
-                                .trim();
-                            } else {
-                              newDecoration = (newDecoration + " underline")
-                                .trim()
-                                .replace(/\s+/g, " ");
-                            }
-                            newDecoration = newDecoration || "";
-                            return {
-                              ...el,
-                              textDecoration: newDecoration,
-                              className: buildClassName({
-                                ...el,
-                                textDecoration: newDecoration,
-                              }),
-                            };
-                          });
+                          const hasUnderline = (
+                            elements[selectedElementId || ""]?.className || ""
+                          )
+                            .split(" ")
+                            .includes("underline");
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_DECORATION,
+                              hasUnderline ? "" : "underline"
+                            ),
+                          }));
                         }}
                         aria-label="Underline"
                       >
@@ -536,37 +558,28 @@ export default function DevMode() {
                         type="button"
                         size="icon"
                         variant={
-                          elements[
-                            selectedElementId || ""
-                          ]?.textDecoration?.includes("line-through")
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes("line-through")
                             ? "default"
                             : "ghost"
                         }
                         className="h-8 w-8"
                         onClick={() => {
                           if (!selectedElementId) return;
-                          updateElement(selectedElementId, (el) => {
-                            let newDecoration = el.textDecoration || "";
-                            if (newDecoration.includes("line-through")) {
-                              newDecoration = newDecoration
-                                .replace("line-through", "")
-                                .replace(/\s+/g, " ")
-                                .trim();
-                            } else {
-                              newDecoration = (newDecoration + " line-through")
-                                .trim()
-                                .replace(/\s+/g, " ");
-                            }
-                            newDecoration = newDecoration || "";
-                            return {
-                              ...el,
-                              textDecoration: newDecoration,
-                              className: buildClassName({
-                                ...el,
-                                textDecoration: newDecoration,
-                              }),
-                            };
-                          });
+                          const hasLineThrough = (
+                            elements[selectedElementId || ""]?.className || ""
+                          )
+                            .split(" ")
+                            .includes("line-through");
+                          updateElement(selectedElementId, (el) => ({
+                            ...el,
+                            className: replaceClassInGroup(
+                              el.className || "",
+                              TAILWIND_TEXT_DECORATION,
+                              hasLineThrough ? "" : "line-through"
+                            ),
+                          }));
                         }}
                         aria-label="Strikethrough"
                       >
@@ -640,17 +653,21 @@ export default function DevMode() {
                   <Label className="text-xs mb-1 block">Gradient</Label>
                   <Select
                     value={
-                      elements[selectedElementId || ""]?.bgGradient || "default"
+                      TAILWIND_BG_GRADIENTS.find((g) =>
+                        (elements[selectedElementId || ""]?.className || "")
+                          .split(" ")
+                          .includes(g)
+                      ) || "default"
                     }
                     onValueChange={(g) => {
                       if (!selectedElementId) return;
                       updateElement(selectedElementId, (el) => ({
                         ...el,
-                        bgGradient: g === "default" ? undefined : g,
-                        className: buildClassName({
-                          ...el,
-                          bgGradient: g === "default" ? undefined : g,
-                        }),
+                        className: replaceClassInGroup(
+                          el.className || "",
+                          TAILWIND_BG_GRADIENTS,
+                          g === "default" ? "" : g
+                        ),
                       }));
                     }}
                     disabled={!selectedElementId}
@@ -678,18 +695,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Border Width</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.borderWidth ||
-                        "default"
+                        TAILWIND_BORDER_WIDTHS.find((bw) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(bw)
+                        ) || "default"
                       }
                       onValueChange={(bw) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          borderWidth: bw === "default" ? undefined : bw,
-                          className: buildClassName({
-                            ...el,
-                            borderWidth: bw === "default" ? undefined : bw,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_BORDER_WIDTHS,
+                            bw === "default" ? "" : bw
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -711,18 +731,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Border Radius</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.borderRadius ||
-                        "default"
+                        TAILWIND_BORDER_RADIUS.find((br) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(br)
+                        ) || "default"
                       }
                       onValueChange={(br) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          borderRadius: br === "default" ? undefined : br,
-                          className: buildClassName({
-                            ...el,
-                            borderRadius: br === "default" ? undefined : br,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_BORDER_RADIUS,
+                            br === "default" ? "" : br
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -750,17 +773,21 @@ export default function DevMode() {
                   <Label className="text-xs mb-1 block">Shadow</Label>
                   <Select
                     value={
-                      elements[selectedElementId || ""]?.shadow || "default"
+                      TAILWIND_SHADOWS.find((sh) =>
+                        (elements[selectedElementId || ""]?.className || "")
+                          .split(" ")
+                          .includes(sh)
+                      ) || "default"
                     }
                     onValueChange={(sh) => {
                       if (!selectedElementId) return;
                       updateElement(selectedElementId, (el) => ({
                         ...el,
-                        shadow: sh === "default" ? undefined : sh,
-                        className: buildClassName({
-                          ...el,
-                          shadow: sh === "default" ? undefined : sh,
-                        }),
+                        className: replaceClassInGroup(
+                          el.className || "",
+                          TAILWIND_SHADOWS,
+                          sh === "default" ? "" : sh
+                        ),
                       }));
                     }}
                     disabled={!selectedElementId}
@@ -788,17 +815,21 @@ export default function DevMode() {
                   <Label className="text-xs mb-1 block">Spacing</Label>
                   <Select
                     value={
-                      elements[selectedElementId || ""]?.spacing || "default"
+                      TAILWIND_SPACING.find((sp) =>
+                        (elements[selectedElementId || ""]?.className || "")
+                          .split(" ")
+                          .includes(sp)
+                      ) || "default"
                     }
                     onValueChange={(sp) => {
                       if (!selectedElementId) return;
                       updateElement(selectedElementId, (el) => ({
                         ...el,
-                        spacing: sp === "default" ? undefined : sp,
-                        className: buildClassName({
-                          ...el,
-                          spacing: sp === "default" ? undefined : sp,
-                        }),
+                        className: replaceClassInGroup(
+                          el.className || "",
+                          TAILWIND_SPACING,
+                          sp === "default" ? "" : sp
+                        ),
                       }));
                     }}
                     disabled={!selectedElementId}
@@ -827,17 +858,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Width</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.width || "default"
+                        TAILWIND_WIDTHS.find((w) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(w)
+                        ) || "default"
                       }
                       onValueChange={(w) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          width: w === "default" ? undefined : w,
-                          className: buildClassName({
-                            ...el,
-                            width: w === "default" ? undefined : w,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_WIDTHS,
+                            w === "default" ? "" : w
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -859,17 +894,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Height</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.height || "default"
+                        TAILWIND_HEIGHTS.find((h) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(h)
+                        ) || "default"
                       }
                       onValueChange={(h) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          height: h === "default" ? undefined : h,
-                          className: buildClassName({
-                            ...el,
-                            height: h === "default" ? undefined : h,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_HEIGHTS,
+                            h === "default" ? "" : h
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -893,17 +932,21 @@ export default function DevMode() {
                     <Label className="text-xs mb-1 block">Display</Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.display || "default"
+                        TAILWIND_DISPLAY.find((d) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(d)
+                        ) || "default"
                       }
                       onValueChange={(d) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          display: d === "default" ? undefined : d,
-                          className: buildClassName({
-                            ...el,
-                            display: d === "default" ? undefined : d,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_DISPLAY,
+                            d === "default" ? "" : d
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}
@@ -927,18 +970,21 @@ export default function DevMode() {
                     </Label>
                     <Select
                       value={
-                        elements[selectedElementId || ""]?.flexAlign ||
-                        "default"
+                        TAILWIND_FLEX_ALIGN.find((fa) =>
+                          (elements[selectedElementId || ""]?.className || "")
+                            .split(" ")
+                            .includes(fa)
+                        ) || "default"
                       }
                       onValueChange={(fa) => {
                         if (!selectedElementId) return;
                         updateElement(selectedElementId, (el) => ({
                           ...el,
-                          flexAlign: fa === "default" ? undefined : fa,
-                          className: buildClassName({
-                            ...el,
-                            flexAlign: fa === "default" ? undefined : fa,
-                          }),
+                          className: replaceClassInGroup(
+                            el.className || "",
+                            TAILWIND_FLEX_ALIGN,
+                            fa === "default" ? "" : fa
+                          ),
                         }));
                       }}
                       disabled={!selectedElementId}

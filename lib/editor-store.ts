@@ -3,9 +3,9 @@ import { create } from "zustand";
 export type EditorElement = {
   className: string;
   tagName: string;
-  fontSize?: string;
-  fontWeight?: string;
-  textAlign?: string;
+  fontSize?: string; // e.g. 'text-5xl'
+  fontWeight?: string; // e.g. 'font-bold'
+  textAlign?: string; // e.g. 'text-center'
   lineHeight?: string;
   letterSpacing?: string;
   textDecoration?: string;
@@ -21,7 +21,7 @@ export type EditorElement = {
   flexAlign?: string;
   fontFamily?: string;
   fontStyle?: string;
-  // Add more as needed
+  customClasses?: string; // for any extra classes
 };
 
 export type EditorSnapshot = {
@@ -211,7 +211,20 @@ export function buildClassName(el: EditorElement): string {
     el.height,
     el.display,
     el.flexAlign,
+    el.customClasses, // allow user to add extra classes if needed
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+// Utility: Replace any class in a group with a new class
+export function replaceClassInGroup(
+  className: string,
+  group: string[],
+  newClass: string
+): string {
+  const classes = className.split(" ").filter(Boolean);
+  const filtered = classes.filter((cls) => !group.includes(cls));
+  if (newClass) filtered.push(newClass);
+  return filtered.join(" ");
 }
