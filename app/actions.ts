@@ -373,8 +373,13 @@ export async function generateAIResponse(
     buffer += value;
   }
 
-  // Extract the <builddrr-code> block (robust, tolerant to whitespace)
-  const codeMatch = buffer.match(/<builddrr-code>([\s\S]*?)<\/builddrr-code>/);
+  // Log buffer preview for debugging
+  console.log("[generateAIResponse] Buffer preview:", buffer.substring(0, 500));
+
+  // More robust regex for <builddrr-code> (allows whitespace)
+  const codeMatch = buffer.match(
+    /<builddrr-code\s*>([\s\S]*?)<\/builddrr-code\s*>/i
+  );
   if (codeMatch && codeMatch[1]) {
     const codeBlock = codeMatch[1].trim();
     // Debug log
@@ -399,9 +404,16 @@ export async function generateAIResponse(
       );
     }
   } else {
-    console.warn(
-      "[generateAIResponse] No <builddrr-code> block found in AI output."
-    );
+    // Fallback: check if <builddrr-code> is present at all
+    if (buffer.indexOf("<builddrr-code") !== -1) {
+      console.warn(
+        "[generateAIResponse] <builddrr-code> tag found by indexOf but not by regex. Check for formatting issues."
+      );
+    } else {
+      console.warn(
+        "[generateAIResponse] <builddrr-code> tag not found at all."
+      );
+    }
   }
 
   return { files, operations };
@@ -692,7 +704,8 @@ export async function* generateAIResponseStream(
 ): AsyncGenerator<
   | { type: "analysis"; content: string }
   | { type: "progress"; status: string; files?: string[] }
-  | { type: "error"; error: string },
+  | { type: "error"; error: string }
+  | { type: "warning"; message: string },
   void,
   unknown
 > {
@@ -712,82 +725,125 @@ export async function* generateAIResponseStream(
 
   const reader = result.textStream.getReader();
   let buffer = "";
-  let inAnalysisBlock = false;
-  let codeBuffer = "";
+  const collectedFiles: Record<string, string> = {};
+  const MAX_BLOCK_SIZE = 1024 * 1024; // 1MB per block
+  let unexpectedContentBuffer = "";
+  let foundCodeBlock = false;
 
-  // Stream <component-analysis> block
+  // Regex for <builddrr-code>...</builddrr-code>
+  const codeBlockRegex = /<builddrr-code\s*>([\s\S]*?)<\/builddrr-code\s*>/gi;
+  // Regex for <builddrr-write file="...">...</builddrr-write>
+  const writeBlockRegex =
+    /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write\s*>/gi;
+  // Regex for <component-analysis>...</component-analysis>
+  const analysisBlockRegex =
+    /<component-analysis>([\s\S]*?)<\/component-analysis>/gi;
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += value;
 
-    // Stream <component-analysis> block
-    while (true) {
-      if (!inAnalysisBlock) {
-        const startIdx = buffer.indexOf("<component-analysis>");
-        if (startIdx !== -1) {
-          inAnalysisBlock = true;
-          buffer = buffer.slice(startIdx + "<component-analysis>".length);
-        } else {
-          break;
-        }
-      }
-      if (inAnalysisBlock) {
-        const endIdx = buffer.indexOf("</component-analysis>");
-        if (endIdx !== -1) {
-          const chunk = buffer.slice(0, endIdx);
-          if (chunk) {
-            yield { type: "analysis", content: chunk };
-          }
-          buffer = buffer.slice(endIdx + "</component-analysis>".length);
-          inAnalysisBlock = false;
-        } else {
-          if (buffer) {
-            yield { type: "analysis", content: buffer };
-            buffer = "";
-          }
-          break;
-        }
+    // Extract all <component-analysis> blocks
+    let match;
+    while ((match = analysisBlockRegex.exec(buffer)) !== null) {
+      const content = match[1];
+      if (content && content.trim()) {
+        yield { type: "analysis", content };
       }
     }
-    // Accumulate everything else for code parsing
-    codeBuffer += buffer;
-    buffer = "";
-  }
+    buffer = buffer.replace(analysisBlockRegex, "");
+    analysisBlockRegex.lastIndex = 0;
 
-  // After streaming is done, extract the <builddrr-code> block and parse all files
-  const codeMatch = codeBuffer.match(
-    /<builddrr-code>([\s\S]*?)<\/builddrr-code>/
-  );
-  const collectedFiles: Record<string, string> = {};
-  if (codeMatch && codeMatch[1]) {
-    const codeBlock = codeMatch[1].trim();
-    // Debug log
-    console.log(
-      "[generateAIResponseStream] codeBlock:",
-      codeBlock.substring(0, 500)
-    );
-
-    // Extract all <builddrr-write ...>...</builddrr-write> blocks globally
-    const writeMatches = [
-      ...codeBlock.matchAll(
-        /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write>/g
-      ),
-    ];
-    for (const match of writeMatches) {
-      const path = match[1].startsWith("/") ? match[1].substring(1) : match[1];
-      const content = match[2].trim();
-      collectedFiles[path] = content;
-      console.log(
-        `[generateAIResponseStream] Parsed file: ${path}, length: ${content.length}`
-      );
+    // Extract all <builddrr-code> blocks
+    let codeMatch;
+    let foundInThisChunk = false;
+    while ((codeMatch = codeBlockRegex.exec(buffer)) !== null) {
+      foundCodeBlock = true;
+      foundInThisChunk = true;
+      const codeContent = codeMatch[1];
+      // Extract all <builddrr-write> blocks inside this code block
+      let writeMatch;
+      while ((writeMatch = writeBlockRegex.exec(codeContent)) !== null) {
+        const file = writeMatch[1];
+        let content = writeMatch[2];
+        if (content.length > MAX_BLOCK_SIZE) {
+          content = content.slice(0, MAX_BLOCK_SIZE);
+          yield {
+            type: "warning",
+            message: `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`,
+          };
+        }
+        collectedFiles[file.startsWith("/") ? file.substring(1) : file] =
+          content;
+      }
+      writeBlockRegex.lastIndex = 0;
     }
-  } else {
-    console.warn(
-      "[generateAIResponseStream] No <builddrr-code> block found in AI output."
-    );
+    // Remove processed <builddrr-code> blocks from buffer
+    buffer = buffer.replace(codeBlockRegex, "");
+    codeBlockRegex.lastIndex = 0;
+
+    // Optionally, handle unexpected content outside tags
+    if (
+      buffer.length > 10000 &&
+      !buffer.match(/<builddrr-code|<component-analysis/)
+    ) {
+      unexpectedContentBuffer += buffer.slice(0, 500);
+      buffer = buffer.slice(-500); // keep last 500 chars
+    }
   }
 
+  // After stream ends, check for any remaining complete blocks in buffer
+  let match;
+  while ((match = analysisBlockRegex.exec(buffer)) !== null) {
+    const content = match[1];
+    if (content && content.trim()) {
+      yield { type: "analysis", content };
+    }
+  }
+  let codeMatch;
+  while ((codeMatch = codeBlockRegex.exec(buffer)) !== null) {
+    foundCodeBlock = true;
+    const codeContent = codeMatch[1];
+    let writeMatch;
+    while ((writeMatch = writeBlockRegex.exec(codeContent)) !== null) {
+      const file = writeMatch[1];
+      let content = writeMatch[2];
+      if (content.length > MAX_BLOCK_SIZE) {
+        content = content.slice(0, MAX_BLOCK_SIZE);
+        yield {
+          type: "warning",
+          message: `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`,
+        };
+      }
+      collectedFiles[file.startsWith("/") ? file.substring(1) : file] = content;
+    }
+    writeBlockRegex.lastIndex = 0;
+  }
+
+  // Warn if no <builddrr-code> block was found
+  if (!foundCodeBlock) {
+    yield {
+      type: "warning",
+      message: `[generateAIResponseStream] No <builddrr-code> block found in the stream.`,
+    };
+  }
+
+  // Warn if any unprocessed content remains
+  if (buffer.trim().length > 0) {
+    yield {
+      type: "warning",
+      message: `[generateAIResponseStream] Unprocessed content at end of stream: ${buffer.slice(0, 200)}${buffer.length > 200 ? "..." : ""}`,
+    };
+  }
+  if (unexpectedContentBuffer.trim().length > 0) {
+    yield {
+      type: "warning",
+      message: `[generateAIResponseStream] Unexpected content outside tags: ${unexpectedContentBuffer.slice(0, 200)}${unexpectedContentBuffer.length > 200 ? "..." : ""}`,
+    };
+  }
+
+  // After streaming, deploy if files were collected
   if (Object.keys(collectedFiles).length > 0) {
     yield {
       type: "progress",

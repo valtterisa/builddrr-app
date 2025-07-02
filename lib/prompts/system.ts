@@ -94,7 +94,7 @@ Before you output any code, output your planning steps as a numbered list, each 
 5. Use kebab-case for file names.
 6. Create a new file for every new component or hook, no matter how small.
 7. Implement FULLY FUNCTIONAL code for all components mentioned in the prompt.
-8. Use Tailwind CSS extensively for styling. Create and import correctly TailwindCSS files for project
+8. Use Tailwind CSS extensively for styling. Create and import correctly TailwindCSS files for project. Don't use custom classes like border-border, border-input, etc. Use TailwindCSS classes instead.
 9. Utilize shadcn/ui components where appropriate. Shadcn/ui components already exist inside "@/ui/components"
 10. Implement responsive designs.
 11. Use framer-motion for animations to enhance the user experience.
