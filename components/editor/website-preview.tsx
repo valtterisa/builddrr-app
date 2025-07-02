@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useReducer } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { useEditorStore, addEditorElement } from "@/lib/editor-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
@@ -22,6 +22,88 @@ interface IframeEditorProps {
   machine: any;
 }
 
+interface EditorReducerState {
+  iframeReady: boolean;
+  iframeError: string | null;
+  isEditorReady: boolean;
+  debugInfo: string;
+  elementType: string;
+  pendingChanges: EditorChange[];
+  isApplyingChanges: boolean;
+  canMakeStandalone: boolean;
+  canRemoveStandalone: boolean;
+  selectedElement: HTMLElement | null;
+  activeTextColor: string | null;
+}
+
+type EditorReducerAction =
+  | { type: "SET_IFRAME_READY"; value: boolean }
+  | { type: "SET_IFRAME_ERROR"; value: string | null }
+  | { type: "SET_EDITOR_READY"; value: boolean }
+  | { type: "SET_DEBUG_INFO"; value: string }
+  | { type: "SET_ELEMENT_TYPE"; value: string }
+  | { type: "SET_PENDING_CHANGES"; value: EditorChange[] }
+  | { type: "ADD_PENDING_CHANGE"; value: EditorChange }
+  | { type: "CLEAR_PENDING_CHANGES" }
+  | { type: "SET_APPLYING_CHANGES"; value: boolean }
+  | { type: "SET_CAN_MAKE_STANDALONE"; value: boolean }
+  | { type: "SET_CAN_REMOVE_STANDALONE"; value: boolean }
+  | { type: "SET_SELECTED_ELEMENT"; value: HTMLElement | null }
+  | { type: "SET_ACTIVE_TEXT_COLOR"; value: string | null };
+
+const initialEditorState: EditorReducerState = {
+  iframeReady: false,
+  iframeError: null,
+  isEditorReady: false,
+  debugInfo: "",
+  elementType: "",
+  pendingChanges: [],
+  isApplyingChanges: false,
+  canMakeStandalone: false,
+  canRemoveStandalone: false,
+  selectedElement: null,
+  activeTextColor: null,
+};
+
+function editorReducer(
+  state: EditorReducerState,
+  action: EditorReducerAction
+): EditorReducerState {
+  switch (action.type) {
+    case "SET_IFRAME_READY":
+      return { ...state, iframeReady: action.value };
+    case "SET_IFRAME_ERROR":
+      return { ...state, iframeError: action.value };
+    case "SET_EDITOR_READY":
+      return { ...state, isEditorReady: action.value };
+    case "SET_DEBUG_INFO":
+      return { ...state, debugInfo: action.value };
+    case "SET_ELEMENT_TYPE":
+      return { ...state, elementType: action.value };
+    case "SET_PENDING_CHANGES":
+      return { ...state, pendingChanges: action.value };
+    case "ADD_PENDING_CHANGE":
+      return {
+        ...state,
+        pendingChanges: [...state.pendingChanges, action.value],
+      };
+    case "CLEAR_PENDING_CHANGES":
+      return { ...state, pendingChanges: [] };
+    case "SET_APPLYING_CHANGES":
+      return { ...state, isApplyingChanges: action.value };
+    case "SET_CAN_MAKE_STANDALONE":
+      return { ...state, canMakeStandalone: action.value };
+    case "SET_CAN_REMOVE_STANDALONE":
+      return { ...state, canRemoveStandalone: action.value };
+    case "SET_SELECTED_ELEMENT":
+      return { ...state, selectedElement: action.value };
+    case "SET_ACTIVE_TEXT_COLOR":
+      return { ...state, activeTextColor: action.value };
+    default:
+      return state;
+  }
+}
+
 export default function WebsitePreview({
   initialUrl,
   isEditMode,
@@ -30,15 +112,7 @@ export default function WebsitePreview({
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url] = useState(initialUrl);
-  const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
-    null
-  );
-  const [pendingChanges, setPendingChanges] = useState<EditorChange[]>([]); // save for now for text changes
-  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
-
-  const [iframeReady, setIframeReady] = useState(false);
-  const [iframeError, setIframeError] = useState<string | null>(null);
-  const [iframeReadyAndPatched, setIframeReadyAndPatched] = useState(false);
+  const [editorState, dispatch] = useReducer(editorReducer, initialEditorState);
 
   const selectElement = useEditorStore((s: EditorState) => s.selectElement);
 
@@ -86,8 +160,8 @@ export default function WebsitePreview({
         <div className="text-center max-w-md">
           <h3 className="text-xl font-medium mb-2">Website Preview</h3>
           <p className="text-gray-500 mb-4">
-            {iframeError
-              ? `Error loading preview: ${iframeError}`
+            {editorState.iframeError
+              ? `Error loading preview: ${editorState.iframeError}`
               : "Your website is being generated. The preview will appear here once it's ready."}
           </p>
           <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
@@ -100,9 +174,10 @@ export default function WebsitePreview({
 
   const applyStoredChanges = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument || isApplyingChanges) return;
+    if (!iframe || !iframe.contentDocument || editorState.isApplyingChanges)
+      return;
 
-    setIsApplyingChanges(true);
+    dispatch({ type: "SET_APPLYING_CHANGES", value: true });
     const storageKey = getStorageKey();
     const storedChangesJson = localStorage.getItem(storageKey);
 
@@ -143,8 +218,8 @@ export default function WebsitePreview({
         localStorage.removeItem(storageKey);
       }
     }
-    setIsApplyingChanges(false);
-  }, [getStorageKey, isApplyingChanges]);
+    dispatch({ type: "SET_APPLYING_CHANGES", value: false });
+  }, [getStorageKey, editorState.isApplyingChanges]);
 
   const initializeEditor = () => {
     const iframe = iframeRef.current;
@@ -263,17 +338,17 @@ export default function WebsitePreview({
       !target.closest('[data-toolbar="true"]')
     ) {
       if (
-        selectedElement &&
-        selectedElement.hasAttribute("data-editable-text")
+        editorState.selectedElement &&
+        editorState.selectedElement.hasAttribute("data-editable-text")
       ) {
-        selectedElement.contentEditable = "false";
+        editorState.selectedElement.contentEditable = "false";
       }
-      setSelectedElement(null);
+      dispatch({ type: "SET_SELECTED_ELEMENT", value: null });
     }
   };
 
   const handleElementInput = (e: Event) => {
-    if (!isEditMode || isApplyingChanges) return;
+    if (!isEditMode || editorState.isApplyingChanges) return;
     const element = e.target as HTMLElement;
     const editorId = element.getAttribute("data-editor-id");
     if (editorId) {
@@ -312,26 +387,13 @@ export default function WebsitePreview({
       name: string,
       value: string
     ) => {
-      if (isApplyingChanges) return;
-      setPendingChanges((prev) => {
-        const lastChange = prev[prev.length - 1];
-        if (
-          lastChange &&
-          lastChange.targetId === targetId &&
-          lastChange.payload.name === name &&
-          lastChange.payload.value === value
-        ) {
-          return prev;
-        }
-        const newChange: EditorChange = {
-          targetId,
-          type,
-          payload: { name, value },
-        };
-        return [...prev, newChange];
+      if (editorState.isApplyingChanges) return;
+      dispatch({
+        type: "ADD_PENDING_CHANGE",
+        value: { targetId, type, payload: { name, value } },
       });
     },
-    [isApplyingChanges]
+    [editorState.isApplyingChanges]
   );
 
   // Centralized add event listeners
@@ -378,8 +440,8 @@ export default function WebsitePreview({
     }
   }, [
     isEditMode,
-    isApplyingChanges,
-    selectedElement,
+    editorState.isApplyingChanges,
+    editorState.selectedElement,
     recordChange,
     selectElement,
   ]);
@@ -418,11 +480,10 @@ export default function WebsitePreview({
 
   // useEffect to add/remove listeners based on iframeReady and isEditMode
   useEffect(() => {
-    if (iframeReady && isEditMode) {
+    if (editorState.iframeReady && isEditMode) {
       makeElementsEditable();
       addAllEventListeners();
-      setIframeReadyAndPatched(true);
-    } else if (iframeReady && !isEditMode) {
+    } else if (editorState.iframeReady && !isEditMode) {
       removeAllEventListeners();
       // Set all contentEditable to false when leaving edit mode
       const iframe = iframeRef.current;
@@ -434,12 +495,9 @@ export default function WebsitePreview({
           (el as HTMLElement).contentEditable = "false";
         });
       }
-      setIframeReadyAndPatched(true);
-    } else {
-      setIframeReadyAndPatched(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iframeReady, isEditMode]);
+  }, [editorState.iframeReady, isEditMode]);
 
   const handleElementSelection = (element: HTMLElement) => {
     if (!isEditMode || !element) return;
@@ -453,13 +511,16 @@ export default function WebsitePreview({
       allEditable.forEach((s) => s.classList.remove("focus-active"));
     }
 
-    if (selectedElement && selectedElement !== element) {
-      if (selectedElement.hasAttribute("data-editable-text")) {
-        selectedElement.contentEditable = "false";
+    if (
+      editorState.selectedElement &&
+      editorState.selectedElement !== element
+    ) {
+      if (editorState.selectedElement.hasAttribute("data-editable-text")) {
+        editorState.selectedElement.contentEditable = "false";
       }
     }
 
-    setSelectedElement(element);
+    dispatch({ type: "SET_SELECTED_ELEMENT", value: element });
 
     if (!iframe) return;
     if (
@@ -584,14 +645,14 @@ export default function WebsitePreview({
   useEffect(() => {
     let cancelled = false;
     if (!url) return;
-    setIframeReady(false);
-    setIframeError(null);
+    dispatch({ type: "SET_IFRAME_READY", value: false });
+    dispatch({ type: "SET_IFRAME_ERROR", value: null });
     const checkReady = async () => {
       try {
         const res = await fetch(`/api/preview/${url}/`, { method: "GET" });
         if (res.status === 200) {
           if (!cancelled) {
-            setIframeReady(true);
+            dispatch({ type: "SET_IFRAME_READY", value: true });
             // Initialize editor after iframe is ready
             setTimeout(() => {
               if (!cancelled) initializeEditor();
@@ -602,10 +663,18 @@ export default function WebsitePreview({
           setTimeout(checkReady, 1500);
         } else {
           const data = await res.json().catch(() => ({}));
-          if (!cancelled) setIframeError(data.error || `Error: ${res.status}`);
+          if (!cancelled)
+            dispatch({
+              type: "SET_IFRAME_ERROR",
+              value: data.error || `Error: ${res.status}`,
+            });
         }
       } catch (err: any) {
-        if (!cancelled) setIframeError(err.message || "Unknown error");
+        if (!cancelled)
+          dispatch({
+            type: "SET_IFRAME_ERROR",
+            value: err.message || "Unknown error",
+          });
       }
     };
     checkReady();
@@ -621,7 +690,7 @@ export default function WebsitePreview({
 
     const handleIframeLoad = () => {
       // Initialize editor when iframe loads
-      if (iframeReady) {
+      if (editorState.iframeReady) {
         initializeEditor();
       }
     };
@@ -631,7 +700,7 @@ export default function WebsitePreview({
     return () => {
       iframe.removeEventListener("load", handleIframeLoad);
     };
-  }, [iframeReady]);
+  }, [editorState.iframeReady]);
 
   // Sync className from store to DOM
   useEffect(() => {
@@ -650,9 +719,9 @@ export default function WebsitePreview({
         // If className is empty, undefined, or null, do nothing (preserve existing classes)
       }
     });
-  }, [elements, iframeReady]);
+  }, [elements, editorState.iframeReady]);
 
-  if (!iframeReadyAndPatched) {
+  if (!editorState.iframeReady) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
         <div className="text-center max-w-md">
@@ -667,14 +736,14 @@ export default function WebsitePreview({
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
       <div className="relative w-full h-full overflow-hidden">
-        {iframeError && (
+        {editorState.iframeError && (
           <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="text-center">
-              <p className="mb-2 text-red-500">{iframeError}</p>
+              <p className="mb-2 text-red-500">{editorState.iframeError}</p>
             </div>
           </div>
         )}
-        {!iframeReady && !iframeError && (
+        {!editorState.iframeReady && (
           <div className="w-full h-full bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="text-center">
               <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
@@ -692,7 +761,7 @@ export default function WebsitePreview({
             </div>
           </div>
         )}
-        {iframeReady && (
+        {editorState.iframeReady && (
           <iframe
             ref={iframeRef}
             key={`url-${url}`}
