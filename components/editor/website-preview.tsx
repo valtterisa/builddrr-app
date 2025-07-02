@@ -1502,7 +1502,7 @@ export default function WebsitePreview({
           <iframe
             ref={iframeRef}
             key={`url-${url}`}
-            src={`http://localhost:3000/api/preview/${url}/`}
+            src={`http://localhost:3000/api/preview/${url}`}
             // src={"https://plain-nextjs-app.fly.dev/"}
             className="w-full h-full"
             sandbox="allow-same-origin allow-scripts"
