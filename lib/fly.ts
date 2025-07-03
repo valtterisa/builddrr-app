@@ -79,109 +79,28 @@ export async function deployWebsite(websiteId: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log(`Starting deployment for website ID: ${websiteId}`);
-
-    // Step 1: Get website details from database to retrieve the app_name (slug)
-    const website = await getWebsite(websiteId);
-
-    if (!website) {
-      throw new Error(`Website with ID ${websiteId} not found`);
-    }
-
-    if (!website.app_name) {
-      throw new Error(
-        `Website with ID ${websiteId} has no app_name (slug) configured`
-      );
-    }
-
-    // Update status to "deploying" to indicate deployment in progress
-    await updateWebsite(websiteId, {
-      status: "deploying",
-    });
-    console.log(`Website status updated to "deploying"`);
-
-    const appName = website.app_name;
-    console.log(`Retrieved app name: ${appName} for website ID: ${websiteId}`);
-
-    // Step 2: Call the deployment API
-    console.log(`Calling deploy API with slug=${appName}`);
-    const deployResponse = await fetch(`http://localhost:3001/api/deploy`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ slug: appName }),
-    });
-
-    if (!deployResponse.ok) {
-      const errorText = await deployResponse
-        .text()
-        .catch(() => "Unknown error");
-      // Update status to reflect deployment failure
-      await updateWebsite(websiteId, {
-        status: "failed",
-      });
-      console.log(`Website status updated to "failed" due to deployment error`);
-      throw new Error(
-        `Deploy API returned status ${deployResponse.status}: ${errorText}`
-      );
-    }
-
-    // Check content type to ensure it's JSON
-    const contentType = deployResponse.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      // Update status to reflect deployment failure
-      await updateWebsite(websiteId, {
-        status: "failed",
-      });
-      console.log(
-        `Website status updated to "failed" due to invalid response format`
-      );
-      throw new Error(
-        `Deploy API did not return JSON. Content type: ${contentType}`
-      );
-    }
-
-    const deployData = await deployResponse.json();
-    console.log("Deploy API response:", deployData);
-
-    // Step 3: Update website record with latest deployment info
-    await updateWebsite(websiteId, {
-      status: "deployed", // Update status to "deployed" after successful deployment
-      last_deployed: new Date().toISOString(),
-    });
-
-    console.log(
-      `Website record updated with latest deployment timestamp and status "deployed"`
+    // Call the new deployment API route
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/deploy`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ websiteId }),
+      }
     );
-
-    // Step 4: Revalidate paths to reflect changes in UI
-    revalidatePath("/dashboard/website/all");
-    revalidatePath(`/website/editor/${websiteId}`);
-
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Deployment failed" };
+    }
     return {
       success: true,
       data: {
-        url: website.primary_url || deployData.url,
-        status: "deployed",
-        message: "Website deployed successfully",
+        url: data.url,
+        status: data.status,
+        message: data.message,
       },
     };
   } catch (error) {
-    console.error("Error in deployWebsite:", error);
-    // Ensure status is updated to "failed" on any uncaught exceptions
-    try {
-      await updateWebsite(websiteId, {
-        status: "failed",
-      });
-      console.log(`Website status updated to "failed" due to unhandled error`);
-    } catch (updateError) {
-      console.error(
-        "Failed to update website status to 'failed':",
-        updateError
-      );
-    }
-
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -202,7 +121,6 @@ export async function checkAppAvailability(appName: string): Promise<boolean> {
     .select("*")
     .eq("app_name", appName)
     .eq("status", "active");
-
 
   // If data is null app does not exist
   if (!data) {
