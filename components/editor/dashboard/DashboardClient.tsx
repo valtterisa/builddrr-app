@@ -22,9 +22,7 @@ export default function DashboardClient({
       <div className="flex-1 min-w-0">
         <SiteHeader title="Dashboard" />
         <div className="space-y-8 py-4">
-          <MetricsCards />
           <QuickActions />
-          <RecentActivity />
           <WebsitesList websites={websites} />
         </div>
       </div>

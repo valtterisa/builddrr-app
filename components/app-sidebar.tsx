@@ -96,16 +96,16 @@ export function AppSidebar({
       url: withTeam("/dashboard/website/all"),
       icon: Globe,
     },
-    {
-      title: "Analytics",
-      url: withTeam("/dashboard/analytics"),
-      icon: BarChartIcon,
-    },
-    {
-      title: "Media Library",
-      url: withTeam("/dashboard/media-library"),
-      icon: ImageIcon,
-    },
+    // {
+    //   title: "Analytics",
+    //   url: withTeam("/dashboard/analytics"),
+    //   icon: BarChartIcon,
+    // },
+    // {
+    //   title: "Media Library",
+    //   url: withTeam("/dashboard/media-library"),
+    //   icon: ImageIcon,
+    // },
     {
       title: "Team",
       url: withTeam("/dashboard/team"),
@@ -114,21 +114,21 @@ export function AppSidebar({
   ];
 
   const navSecondary = [
-    {
-      title: "Settings",
-      url: withTeam("/settings"),
-      icon: SettingsIcon,
-    },
+    // {
+    //   title: "Settings",
+    //   url: withTeam("/settings"),
+    //   icon: SettingsIcon,
+    // },
     {
       title: "Get Help",
       url: withTeam("/help"),
       icon: HelpCircleIcon,
     },
-    {
-      title: "Search",
-      url: withTeam("/search"),
-      icon: SearchIcon,
-    },
+    // {
+    //   title: "Search",
+    //   url: withTeam("/search"),
+    //   icon: SearchIcon,
+    // },
   ];
 
   function handleMobileClose() {
