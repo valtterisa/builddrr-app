@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { polar } from "@/lib/polar";
 
 import { createClient } from "@/lib/supabase/server";
 import { Provider } from "@supabase/supabase-js";
@@ -100,11 +101,26 @@ export async function signup(formData: FormData) {
     });
 
     if (authError) {
+      console.error("Failed to create user in Supabase", authError);
       // Handle specific error cases
       if (authError.message.includes("User already registered")) {
         redirect("/login?error=already-registered");
       }
       redirect("/error");
+    }
+
+    try {
+      // Create user in Polar.sh
+      const result = await polar.customers.create({
+        externalId: data.user?.id,
+        email: validatedData.email,
+        name: `${validatedData.firstName} ${validatedData.lastName}`,
+        billingAddress: { country: "US" },
+      });
+
+      console.log("Result", result);
+    } catch (error) {
+      console.error("Failed to create user in Polar.sh", error);
     }
 
     revalidatePath("/", "layout");
