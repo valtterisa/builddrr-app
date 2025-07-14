@@ -13,43 +13,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { getAllProductCheckOutUrls } from "@/lib/polar";
+
+const plans = getAllProductCheckOutUrls();
+
+console.log("plans", plans);
 
 interface BillingClientProps {
-  plans: any[];
   subscription: any | null;
-  error: string | null;
-  externalId: string;
+  customer: any | null;
 }
 
 const BillingClient: React.FC<BillingClientProps> = ({
-  plans,
   subscription,
-  error: initialError,
-  externalId,
+  customer,
 }) => {
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(initialError);
-
-  const handleUpgrade = async (productId: string) => {
-    setIsUpgrading(productId);
-    try {
-      const res = await fetch("/api/polar/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, externalId }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL returned");
-      }
-    } catch (e: any) {
-      setError(e.message || "Failed to start upgrade");
-    } finally {
-      setIsUpgrading(null);
-    }
-  };
 
   const currentPlanId = subscription?.product_id;
 
@@ -104,55 +83,51 @@ const BillingClient: React.FC<BillingClientProps> = ({
             <CardDescription>Upgrade or change your plan.</CardDescription>
           </CardHeader>
           <CardContent>
-            {error ? (
-              <div className="text-destructive">{error}</div>
-            ) : plans.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {plans.map((plan) => (
-                  <Card
-                    key={plan.id}
-                    className={
-                      plan.id === currentPlanId ? "border-primary border-2" : ""
-                    }
-                  >
-                    <CardHeader>
-                      <CardTitle>{plan.name}</CardTitle>
-                      <CardDescription>{plan.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {plan.prices && plan.prices[0]
-                          ? `${(plan.prices[0].price_amount / 100).toFixed(2)} ${plan.prices[0].price_currency}`
-                          : "Free"}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {plan.recurring_interval
-                          ? `Billed ${plan.recurring_interval}`
-                          : ""}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      {plan.id === currentPlanId ? (
-                        <Badge variant="default">Current Plan</Badge>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          onClick={() => handleUpgrade(plan.id)}
-                          disabled={!!isUpgrading}
-                        >
-                          {isUpgrading === plan.id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : null}
-                          Upgrade
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div>No plans found.</div>
-            )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {plans.map((plan) => (
+                <Card
+                  key={plan.id}
+                  className={
+                    plan.id === currentPlanId ? "border-primary border-2" : ""
+                  }
+                >
+                  <CardHeader>
+                    <CardTitle>{plan.name}</CardTitle>
+                    <CardDescription>{plan.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {plan.prices && plan.prices[0]
+                        ? `${(plan.prices[0].price_amount / 100).toFixed(2)} ${plan.prices[0].price_currency}`
+                        : "Free"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {plan.recurring_interval
+                        ? `Billed ${plan.recurring_interval}`
+                        : ""}
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    {plan.id === currentPlanId ? (
+                      <Badge variant="default">Current Plan</Badge>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        disabled={!!isUpgrading}
+                        onClick={() => {
+                          window.location.href = plan.url;
+                        }}
+                      >
+                        {isUpgrading === plan.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Upgrade
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>

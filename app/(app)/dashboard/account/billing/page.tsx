@@ -1,7 +1,4 @@
-import {
-  getPolarProducts,
-  getPolarSubscriptionByExternalId,
-} from "@/lib/polar";
+import { getPolarSubscriptionByExternalId } from "@/lib/polar";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import BillingClient from "./BillingClient";
 
@@ -19,22 +16,10 @@ export default async function BillingPage() {
   }
 
   const externalId = user.id;
-  let plans = [];
-  let subscription = null;
-  let error = null;
-  try {
-    plans = await getPolarProducts();
-    subscription = await getPolarSubscriptionByExternalId(externalId);
-  } catch (e: any) {
-    error = e.message || "Failed to load billing data";
-  }
 
-  return (
-    <BillingClient
-      plans={plans}
-      subscription={subscription}
-      error={error}
-      externalId={externalId}
-    />
-  );
+  const result = await getPolarSubscriptionByExternalId(externalId);
+  const subscription = result?.subscription ?? null;
+  const customer = result?.customer ?? null;
+
+  return <BillingClient subscription={subscription} customer={customer} />;
 }

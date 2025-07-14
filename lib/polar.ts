@@ -1,44 +1,58 @@
 import { Polar } from "@polar-sh/sdk";
 
 export const polar = new Polar({
-  accessToken: process.env.POLAR_ACCESS_TOKEN!,
-  // server: "sandbox",
+  accessToken:
+    process.env.NODE_ENV === "production"
+      ? process.env.POLAR_ACCESS_TOKEN!
+      : process.env.POLAR_SANDBOX_ACCESS_TOKEN!,
+  server: process.env.NODE_ENV === "production" ? "production" : "sandbox",
 });
-
-// integrate to pricing options -> get priduct ids straight
-// Need to sync with supabase per customer using external id.
-// We can query with the externalId and polar.sh tracks the usage.
-// No need for us to track the usage.
-// Finally: just test it.
-
-// Fetch all available products (plans)
-export async function getPolarProducts() {
-  // You may want to filter by organization or other params if needed
-  const result = await polar.products.list({});
-  // The SDK returns an async iterable for paginated results
-  const products: any[] = [];
-  for await (const page of result) {
-    products.push(...(page.items || page));
-  }
-  return products;
-}
 
 // Fetch the current user's subscription by externalId (e.g., Supabase user id or email)
 export async function getPolarSubscriptionByExternalId(externalId: string) {
-  // This assumes you use externalId to sync users between your app and Polar
-  // You may need to adjust this if you use a different identifier
-  const customer = await polar.customers.getExternal({ externalId });
+  const customer = await polar.customers.getStateExternal({
+    externalId: externalId,
+  });
   if (!customer || !customer.id) return null;
-  // List subscriptions for this customer
-  const result = await polar.subscriptions.list({ customerId: customer.id });
-  const subscriptions: any[] = [];
-  for await (const page of result) {
-    subscriptions.push(...(page.items || page));
-  }
-  // Return the most recent/active subscription
-  return (
-    subscriptions.find((sub) => sub.status === "active") ||
-    subscriptions[0] ||
-    null
-  );
+
+  const subscription = customer.activeSubscriptions?.[0] || null;
+
+  return { customer, subscription };
+}
+
+export function getAllProductCheckOutUrls() {
+  const plans = [
+    {
+      id: "free",
+      name: "Free",
+      description: "Basic access with limited features.",
+      prices: [],
+      checkOutUrl: process.env.POLAR_FREE_PLAN_LINK!,
+      checkOutUrlSandbox: process.env.POLAR_SANDBOX_FREE_PLAN_LINK!,
+    },
+    {
+      id: "pro",
+      name: "Pro",
+      description: "Full access to all features.",
+      prices: [{ price_amount: 1500, price_currency: "EUR" }],
+      recurring_interval: "monthly",
+      checkOutUrl: process.env.NEXT_PUBLIC_POLAR_PRO_PLAN_LINK!,
+      checkOutUrlSandbox: process.env.NEXT_PUBLIC_POLAR_SANDBOX_PRO_PLAN_LINK!,
+    },
+  ];
+
+  return plans.map((plan) => ({
+    ...plan,
+    url:
+      process.env.NODE_ENV === "development"
+        ? plan.checkOutUrlSandbox
+        : plan.checkOutUrl,
+  }));
+}
+
+export async function assignUserToFreePlan(externalId: string) {
+  // https://docs.polar.sh/api-reference/customer-portal/sessions/create
+  // Create Customer Session to get token
+  // https://docs.polar.sh/api-reference/customer-portal/subscriptions/update
+  // update subscription for user with the token from customer session and the free plan
 }

@@ -118,7 +118,8 @@ export async function signup(formData: FormData) {
         billingAddress: { country: "US" },
       });
 
-      console.log("Result", result);
+      // Assing user to Free plan
+      
     } catch (error) {
       console.error("Failed to create user in Polar.sh", error);
     }
