@@ -1,5 +1,4 @@
 import { Polar } from "@polar-sh/sdk";
-import { redirect } from "next/navigation";
 
 export const polar = new Polar({
   accessToken:
@@ -31,6 +30,7 @@ export async function getPolarProducts() {
       process.env.NODE_ENV === "production"
         ? process.env.POLAR_ORG_ID!
         : process.env.POLAR_SANDBOX_ORG_ID!,
+    isArchived: false,
   });
 
   for await (const page of products) {
@@ -38,32 +38,10 @@ export async function getPolarProducts() {
   }
 }
 
-export async function getAllProductCheckOutUrls() {
-  const plans = [
-    {
-      id: "free",
-      name: "Free",
-      description: "Basic access with limited features.",
-      prices: [],
-      checkOutUrl: process.env.POLAR_FREE_PLAN_LINK!,
-      checkOutUrlSandbox: process.env.POLAR_SANDBOX_FREE_PLAN_LINK!,
-    },
-    {
-      id: "pro",
-      name: "Pro",
-      description: "Full access to all features.",
-      prices: [{ price_amount: 1500, price_currency: "EUR" }],
-      recurring_interval: "monthly",
-      checkOutUrl: process.env.NEXT_PUBLIC_POLAR_PRO_PLAN_LINK!,
-      checkOutUrlSandbox: process.env.NEXT_PUBLIC_POLAR_SANDBOX_PRO_PLAN_LINK!,
-    },
-  ];
+export async function managePolarSubscription(externalId: string) {
+  const customer = await polar.customerSessions.create({
+    externalCustomerId: externalId,
+  });
 
-  return plans.map((plan) => ({
-    ...plan,
-    url:
-      process.env.NODE_ENV === "development"
-        ? plan.checkOutUrlSandbox
-        : plan.checkOutUrl,
-  }));
+  return customer.customerPortalUrl;
 }

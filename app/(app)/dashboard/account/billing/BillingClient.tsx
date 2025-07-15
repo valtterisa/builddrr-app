@@ -13,101 +13,78 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { managePolarSubscription } from "@/lib/polar";
 
 interface BillingClientProps {
   subscription: any | null;
   products: any | null;
+  customerPortalUrl: string | null;
 }
 
 const BillingClient: React.FC<BillingClientProps> = ({
   subscription,
   products,
+  customerPortalUrl,
 }) => {
   console.log("products", products);
-
+  console.log("subscription", subscription);
   return (
     <div className="px-4 md:px-6">
       <SiteHeader title="Billing" />
       <div className="space-y-6 pt-4">
         <Card>
           <CardHeader>
-            <CardTitle>Current Plan</CardTitle>
-            <CardDescription>
-              Manage your subscription and view billing details.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {subscription ? (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="text-lg font-semibold capitalize">
-                    {subscription.product?.name || "Unknown"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Renews on{" "}
-                    {new Date(
-                      subscription.currentPeriodEnd
-                    ).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div>No active subscription found.</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Available Plans</CardTitle>
             <CardDescription>Upgrade or change your plan.</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan) => (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {products.map((product: any) => (
                 <Card
-                  key={plan.id}
+                  key={product.id}
                   className={
-                    plan.id === currentPlanId ? "border-primary border-2" : ""
+                    product.id === subscription?.product?.id
+                      ? "border-primary border-2"
+                      : ""
                   }
                 >
                   <CardHeader>
-                    <CardTitle>{plan.name}</CardTitle>
-                    <CardDescription>{plan.description}</CardDescription>
+                    <CardTitle>{product.name}</CardTitle>
+                    {product.description && (
+                      <CardDescription>{product.description}</CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {plan.prices && plan.prices[0]
-                        ? `${(plan.prices[0].price_amount / 100).toFixed(2)} ${plan.prices[0].price_currency}`
+                      {product.prices &&
+                      product.prices[0] &&
+                      product.prices[0].priceAmount
+                        ? `${product.prices[0].priceAmount / 100} ${product.prices[0].priceCurrency.toUpperCase()}`
                         : "Free"}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {plan.recurring_interval
-                        ? `Billed ${plan.recurring_interval}`
+                      {product.recurringInterval
+                        ? `Billed ${product.recurringInterval}ly`
                         : ""}
                     </div>
                   </CardContent>
                   <CardFooter>
-                    {plan.id === currentPlanId ? (
-                      <Badge variant="default">Current Plan</Badge>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        disabled={!!isUpgrading}
-                        onClick={() => {
-                          window.location.href = plan.url;
-                        }}
-                      >
-                        {isUpgrading === plan.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : null}
-                        Upgrade
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (customerPortalUrl) {
+                          window.location.href = customerPortalUrl;
+                        }
+                      }}
+                    >
+                      {product.id === subscription?.product?.id
+                        ? "Manage"
+                        : "Upgrade"}
+                    </Button>
                   </CardFooter>
                 </Card>
               ))}
-            </div> */}
+            </div>
           </CardContent>
         </Card>
       </div>

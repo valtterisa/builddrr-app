@@ -1,6 +1,7 @@
 import {
   getPolarProducts,
   getPolarSubscriptionByExternalId,
+  managePolarSubscription,
 } from "@/lib/polar";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import BillingClient from "./BillingClient";
@@ -22,7 +23,14 @@ export default async function BillingPage() {
 
   const result = await getPolarSubscriptionByExternalId(externalId);
   const products = await getPolarProducts();
+  const customerPortalUrl = await managePolarSubscription(externalId);
   const subscription = result?.subscription ?? null;
 
-  return <BillingClient subscription={subscription} products={products} />;
+  return (
+    <BillingClient
+      subscription={subscription}
+      products={products}
+      customerPortalUrl={customerPortalUrl}
+    />
+  );
 }
