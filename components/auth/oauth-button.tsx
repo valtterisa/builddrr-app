@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ButtonHTMLAttributes } from "react";
-import { signInWithOAuth } from "@/app/(auth)/actions";
+import { signInWithOAuth, signUpWithOAuth } from "@/app/(auth)/actions";
 
 export type OAuthProvider = "google" | "apple" | "github" | "facebook";
 export type OAuthVariant = "default" | "dark" | "light";
@@ -130,7 +130,11 @@ export function OAuthButton({
         "flex items-center justify-center gap-2 h-10 w-full border-purple-100 hover:bg-purple-50 hover:border-purple-200 transition-colors",
         className
       )}
-      onClick={() => signInWithOAuth(provider)}
+      onClick={() =>
+        action === "sign-in"
+          ? signInWithOAuth(provider)
+          : signUpWithOAuth(provider)
+      }
     >
       <ProviderLogo />
       <span>{getButtonText()}</span>

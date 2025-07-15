@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { signup } from "../actions";
 import { useToast } from "@/hooks/use-toast";
+import { OAuthButton } from "@/components/auth/oauth-button";
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
@@ -90,10 +91,21 @@ export default function SignupPage() {
               Create an account
             </CardTitle>
             <CardDescription>
-              Enter your information to create an account
+              Sign up with Google or use your email and password
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <OAuthButton provider="google" variant="default" action="sign-up" />
+
+            {/* Separator */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-purple-100"></span>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
             <form action={handleSignup} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

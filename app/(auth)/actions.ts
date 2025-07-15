@@ -140,6 +140,33 @@ export async function logout() {
   redirect("/");
 }
 
+export async function signUpWithOAuth(provider: Provider) {
+  const supabase = await createClient();
+
+  const nextUrl = "/post-oauth"; // or any other post-auth page you want
+  const callbackUrl = `${process.env.NEXT_PUBLIC_URL}/api/auth/callback?next=${encodeURIComponent(nextUrl)}`;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: callbackUrl,
+    },
+  });
+
+  if (error) {
+    redirect("/error");
+  }
+
+  // If OAuth returns a URL, redirect to it (OAuth flow not yet complete)
+  if (data.url) {
+    console.log("data.url", data.url);
+    redirect(data.url);
+  }
+
+  // If for some reason we get here, just redirect to dashboard
+  redirect("/dashboard");
+}
+
 export async function signInWithOAuth(provider: Provider) {
   const supabase = await createClient();
 
