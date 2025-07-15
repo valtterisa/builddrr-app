@@ -1,4 +1,5 @@
 import { Polar } from "@polar-sh/sdk";
+import { redirect } from "next/navigation";
 
 export const polar = new Polar({
   accessToken:
@@ -20,7 +21,7 @@ export async function getPolarSubscriptionByExternalId(externalId: string) {
   return { customer, subscription };
 }
 
-export function getAllProductCheckOutUrls() {
+export async function getAllProductCheckOutUrls() {
   const plans = [
     {
       id: "free",
@@ -48,11 +49,4 @@ export function getAllProductCheckOutUrls() {
         ? plan.checkOutUrlSandbox
         : plan.checkOutUrl,
   }));
-}
-
-export async function assignUserToFreePlan(externalId: string) {
-  // https://docs.polar.sh/api-reference/customer-portal/sessions/create
-  // Create Customer Session to get token
-  // https://docs.polar.sh/api-reference/customer-portal/subscriptions/update
-  // update subscription for user with the token from customer session and the free plan
 }

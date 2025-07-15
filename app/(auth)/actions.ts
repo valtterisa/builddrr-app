@@ -74,66 +74,57 @@ export async function signup(formData: FormData) {
       path: ["confirmPassword"],
     });
 
-  try {
-    // Extract and validate form data
-    const formValues = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
-      confirmPassword: formData.get("confirmPassword") as string,
-      terms: formData.get("terms") as string,
-    };
+  // Extract and validate form data
+  const formValues = {
+    firstName: formData.get("firstName") as string,
+    lastName: formData.get("lastName") as string,
+    email: formData.get("email") as string,
+    password: formData.get("password") as string,
+    confirmPassword: formData.get("confirmPassword") as string,
+    terms: formData.get("terms") as string,
+  };
 
-    const validatedData = signupSchema.parse(formValues);
+  const validatedData = signupSchema.parse(formValues);
 
-    // Create the user in Supabase Auth
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: validatedData.email,
-      password: validatedData.password,
-      options: {
-        data: {
-          first_name: validatedData.firstName,
-          last_name: validatedData.lastName,
-          full_name: `${validatedData.firstName} ${validatedData.lastName}`,
-        },
+  // Create the user in Supabase Auth
+  const { data, error: authError } = await supabase.auth.signUp({
+    email: validatedData.email,
+    password: validatedData.password,
+    options: {
+      data: {
+        first_name: validatedData.firstName,
+        last_name: validatedData.lastName,
+        full_name: `${validatedData.firstName} ${validatedData.lastName}`,
       },
-    });
+    },
+  });
 
-    if (authError) {
-      console.error("Failed to create user in Supabase", authError);
-      // Handle specific error cases
-      if (authError.message.includes("User already registered")) {
-        redirect("/login?error=already-registered");
-      }
-      redirect("/error");
-    }
-
-    try {
-      // Create user in Polar.sh
-      const result = await polar.customers.create({
-        externalId: data.user?.id,
-        email: validatedData.email,
-        name: `${validatedData.firstName} ${validatedData.lastName}`,
-        billingAddress: { country: "US" },
-      });
-
-      // Assing user to Free plan
-      
-    } catch (error) {
-      console.error("Failed to create user in Polar.sh", error);
-    }
-
-    revalidatePath("/", "layout");
-    redirect("/dashboard");
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      // Get the first validation error
-      const firstError = error.errors[0];
-      redirect(`/signup?error=${encodeURIComponent(firstError.message)}`);
+  if (authError) {
+    console.error("Failed to create user in Supabase", authError);
+    // Handle specific error cases
+    if (authError.message.includes("User already registered")) {
+      redirect("/login?error=already-registered");
     }
     redirect("/error");
   }
+
+  // Create user in Polar.sh
+  const result = await polar.customers.create({
+    externalId: data.user?.id,
+    email: validatedData.email,
+    name: `${validatedData.firstName} ${validatedData.lastName}`,
+    billingAddress: { country: "US" },
+  });
+
+  // Assing user to Free plan
+  const checkout = await polar.checkouts.create({
+    products: ["20800f87-e007-4cea-a836-93f87f00ea40"],
+    customerEmail: validatedData.email,
+    successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard`,
+  });
+
+  revalidatePath("/", "layout");
+  redirect(checkout.url);
 }
 
 export async function logout() {
