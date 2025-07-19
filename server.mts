@@ -9,8 +9,27 @@ const dev = process.env.NODE_ENV !== "production";
 const nextApp = next({ dev });
 const handle = nextApp.getRequestHandler();
 
+// Cache for proxy middleware instances to prevent memory leaks
+const proxyCache = new Map<string, any>();
+
+// Cache cleanup interval (every 5 minutes)
+const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000;
+const CACHE_MAX_AGE = 10 * 60 * 1000; // 10 minutes
+
+// Track when proxies were last used
+const proxyLastUsed = new Map<string, number>();
+
 function getProxy(appName: string) {
-  return createProxyMiddleware({
+  const now = Date.now();
+
+  // Check if we already have a proxy for this app
+  if (proxyCache.has(appName)) {
+    proxyLastUsed.set(appName, now);
+    return proxyCache.get(appName);
+  }
+
+  // Create new proxy middleware
+  const proxy = createProxyMiddleware({
     target: `https://${appName}.fly.dev`,
     changeOrigin: true,
     ws: true, // Let http-proxy-middleware handle WebSocket upgrades (not needed if not using HMR)
@@ -18,7 +37,32 @@ function getProxy(appName: string) {
       [`^/api/preview/${appName}`]: "",
     },
   });
+
+  // Cache the proxy for reuse
+  proxyCache.set(appName, proxy);
+  proxyLastUsed.set(appName, now);
+
+  console.log(`[PROXY] Created new proxy for app: ${appName}`);
+  return proxy;
 }
+
+// Cleanup old proxies periodically
+setInterval(() => {
+  const now = Date.now();
+  const toDelete: string[] = [];
+
+  for (const [appName, lastUsed] of proxyLastUsed.entries()) {
+    if (now - lastUsed > CACHE_MAX_AGE) {
+      toDelete.push(appName);
+    }
+  }
+
+  for (const appName of toDelete) {
+    proxyCache.delete(appName);
+    proxyLastUsed.delete(appName);
+    console.log(`[PROXY] Cleaned up proxy for app: ${appName}`);
+  }
+}, CACHE_CLEANUP_INTERVAL);
 
 nextApp.prepare().then(() => {
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -44,7 +88,19 @@ nextApp.prepare().then(() => {
     const previewMatch = url.match(/^\/api\/preview\/([^\/]+)(.*)$/);
     if (previewMatch) {
       const appName = previewMatch[1];
-      return getProxy(appName)(req, res, () => { });
+      try {
+        return getProxy(appName)(req, res, (err: any) => {
+          if (err) {
+            console.error(`[PROXY] Error proxying to ${appName}:`, err);
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end('Proxy error');
+          }
+        });
+      } catch (error) {
+        console.error(`[PROXY] Failed to proxy to ${appName}:`, error);
+        res.writeHead(502, { 'Content-Type': 'text/plain' });
+        res.end('Proxy setup error');
+      }
     }
     return handle(req, res, parse(url, true));
   });

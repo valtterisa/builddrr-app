@@ -905,7 +905,7 @@ export default function WebsitePreview({
             <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
               <div className="flex items-center space-x-2">
                 <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200">
-                  {previewUrl || 'Loading...'}
+                  /
                 </div>
                 <button
                   onClick={reloadIframe}
