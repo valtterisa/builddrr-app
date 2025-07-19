@@ -102,7 +102,7 @@ const AILoadingComponent = React.memo(() => {
             <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
           <span className="text-sm text-muted-foreground">
-            AI is thinking...
+            Thinking...
           </span>
         </div>
       </div>
