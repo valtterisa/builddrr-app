@@ -858,6 +858,12 @@ export default function WebsitePreview({
 
   // Reload iframe when trigger changes
   useEffect(() => {
+    console.log("🔍 [WebsitePreview] Reload trigger effect:", {
+      reloadTrigger,
+      hasReloadIframe: !!reloadIframe,
+      hasSetLoading: !!setLoading
+    });
+
     if (reloadTrigger > 0) {
       console.log("🔄 [WebsitePreview] Reload trigger detected, reloading iframe");
       setLoading(true);
@@ -865,6 +871,7 @@ export default function WebsitePreview({
 
       // Clear loading after a short delay to allow iframe to load
       const timer = setTimeout(() => {
+        console.log("🔄 [WebsitePreview] Clearing loading state");
         setLoading(false);
       }, 2000);
 

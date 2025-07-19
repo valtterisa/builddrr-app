@@ -535,7 +535,6 @@ export async function* generateAIResponseStream(
     // Check if we're entering a markdown section (before <builddrr-code>)
     if (!inMarkdownSection && !buffer.includes("<builddrr-code")) {
       inMarkdownSection = true;
-      markdownBuffer = buffer;
       console.log("📝 [generateAIResponseStream] Entered markdown section");
     }
 
@@ -550,17 +549,16 @@ export async function* generateAIResponseStream(
       }
 
       inMarkdownSection = false;
-      markdownBuffer = "";
       console.log("📝 [generateAIResponseStream] Exited markdown section, entered code section");
     }
 
     // Stream markdown content immediately as it comes in
-    if (inMarkdownSection && markdownBuffer.length > 0) {
-      const content = markdownBuffer.trim();
-      if (content && content.length > 10) { // Only yield if we have substantial content
-        console.log("📝 [generateAIResponseStream] Yielding streaming markdown:", content.substring(0, 100) + "...");
-        yield { type: "analysis", content };
-        markdownBuffer = "";
+    if (inMarkdownSection) {
+      // Yield the new content immediately for real-time streaming
+      const newContent = value;
+      if (newContent.trim()) {
+        console.log("📝 [generateAIResponseStream] Yielding new content:", newContent.substring(0, 50) + "...");
+        yield { type: "analysis", content: newContent };
       }
     }
 

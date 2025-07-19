@@ -55,10 +55,13 @@ export default function EditorPageClient({
   // Callback for when AI finishes streaming
   const handleAIFinish = useCallback(() => {
     console.log("🎯 [EditorPageClient] AI finished, triggering iframe reload");
+    console.log("🎯 [EditorPageClient] Current reload trigger value:", useEditorStore.getState().reloadTrigger);
     triggerReload();
+    console.log("🎯 [EditorPageClient] Reload trigger called, new value:", useEditorStore.getState().reloadTrigger);
 
     // Clear loading state after a delay to allow iframe to load
     setTimeout(() => {
+      console.log("🎯 [EditorPageClient] Clearing loading state");
       useEditorStore.getState().setLoading(false);
     }, 3000);
   }, [triggerReload]);

@@ -187,7 +187,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         },
       };
     }),
-  triggerReload: () => set((state) => ({ reloadTrigger: state.reloadTrigger + 1 })), // Increment reload trigger
+  triggerReload: () => {
+    console.log("🔄 [EditorStore] Triggering reload, current trigger:", get().reloadTrigger);
+    set((state) => ({ reloadTrigger: state.reloadTrigger + 1 }));
+    console.log("🔄 [EditorStore] Reload triggered, new value:", get().reloadTrigger);
+  },
   clearReloadTrigger: () => set((state) => ({ reloadTrigger: 0 })), // Clear reload trigger
   setLoading: (loading) => set({ isLoading: loading }), // Set loading state
 }));

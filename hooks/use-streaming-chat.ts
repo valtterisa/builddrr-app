@@ -62,6 +62,8 @@ export const useStreamingChat = () => {
 
                                 if (data.type === 'analysis') {
                                     console.log(`📝 [useStreamingChat] Processing analysis chunk #${chunkCount}:`, data.content?.substring(0, 30) + "...");
+                                    console.log(`📝 [useStreamingChat] Chunk content:`, data.content);
+                                    console.log(`📝 [useStreamingChat] Chunk length:`, data.content?.length);
                                     // Stream each chunk immediately instead of accumulating
                                     updateStream(data.content || '');
                                     console.log(`📝 [useStreamingChat] Updated stream with content length:`, (data.content || '').length);

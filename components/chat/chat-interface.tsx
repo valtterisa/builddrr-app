@@ -32,6 +32,16 @@ export default function ChatInterface({
   isAutoProcessing = false,
 }: ChatInterfaceProps) {
   const { isStreaming, streamedContent, messages } = useChatStreamStore();
+
+  // Debug logging for streaming state
+  useEffect(() => {
+    console.log("🔍 [ChatInterface] Streaming state changed:", {
+      isStreaming,
+      streamedContentLength: streamedContent?.length || 0,
+      streamedContentPreview: streamedContent?.substring(0, 50) + "...",
+      hasStreamedContent: !!streamedContent
+    });
+  }, [isStreaming, streamedContent]);
   const [inputValue, setInputValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,7 +64,15 @@ export default function ChatInterface({
 
   // Detect when AI finishes streaming and call callback
   useEffect(() => {
+    console.log("🔍 [ChatInterface] AI finish detection:", {
+      isStreaming,
+      hasStreamedContent: !!streamedContent,
+      streamedContentLength: streamedContent?.length || 0,
+      hasOnAIFinish: !!onAIFinish
+    });
+
     if (!isStreaming && streamedContent && onAIFinish) {
+      console.log("🎯 [ChatInterface] AI finished, calling onAIFinish callback");
       // Small delay to ensure content is fully processed
       const timer = setTimeout(() => {
         onAIFinish();
@@ -190,23 +208,29 @@ export default function ChatInterface({
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-lg p-3 bg-muted">
                 <div className="text-sm prose prose-sm max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ node, ...props }) => <h1 className="text-lg font-bold mb-2" {...props} />,
-                      h2: ({ node, ...props }) => <h2 className="text-base font-semibold mb-2" {...props} />,
-                      h3: ({ node, ...props }) => <h3 className="text-sm font-semibold mb-1" {...props} />,
-                      p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2" {...props} />,
-                      ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2" {...props} />,
-                      li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                      strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
-                      em: ({ node, ...props }) => <em className="italic" {...props} />,
-                      code: ({ node, ...props }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props} />,
-                      pre: ({ node, ...props }) => <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mb-2" {...props} />,
-                    }}
-                  >
-                    {streamedContent}
-                  </ReactMarkdown>
+                  {isStreaming ? (
+                    // Show as plain text during streaming for smoother experience
+                    <div className="whitespace-pre-wrap">{streamedContent}</div>
+                  ) : (
+                    // Show as markdown when streaming is complete
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ node, ...props }) => <h1 className="text-lg font-bold mb-2" {...props} />,
+                        h2: ({ node, ...props }) => <h2 className="text-base font-semibold mb-2" {...props} />,
+                        h3: ({ node, ...props }) => <h3 className="text-sm font-semibold mb-1" {...props} />,
+                        p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2" {...props} />,
+                        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                        em: ({ node, ...props }) => <em className="italic" {...props} />,
+                        code: ({ node, ...props }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props} />,
+                        pre: ({ node, ...props }) => <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mb-2" {...props} />,
+                      }}
+                    >
+                      {streamedContent}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             </div>
