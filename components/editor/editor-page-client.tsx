@@ -257,35 +257,12 @@ export default function EditorPageClient({
       });
       console.log("📢 [EditorPageClient] Showed toast notification");
     } else if (!prompt && !hasAutoTriggered) {
-      // If no prompt exists, show a welcome message and suggest starting
+      // If no prompt exists, just set the flag to prevent re-running
       console.log(
-        "👋 [EditorPageClient] No prompt found, checking if welcome message needed"
+        "⏭️ [EditorPageClient] No prompt found, setting hasAutoTriggered flag"
       );
 
       setHasAutoTriggered(true);
-
-      // Only show welcome message if there are no existing messages
-      const existingMessages = useChatStreamStore.getState().messages;
-      if (existingMessages.length === 0) {
-        console.log("👋 [EditorPageClient] No existing messages, showing welcome message");
-
-        const welcomeMsg = {
-          id: Date.now().toString(),
-          content:
-            "👋 Welcome to Builddrr! I'm your AI website builder. Tell me what kind of website you'd like to create, and I'll build it for you in real-time. For example: 'Create a landing page for a coffee shop' or 'Build a portfolio website for a photographer'.",
-          isUser: false,
-          timestamp: new Date().toISOString(),
-        };
-
-        console.log("💬 [EditorPageClient] Adding welcome message to chat");
-        addMessage(welcomeMsg);
-        if (userId && id) {
-          console.log("💾 [EditorPageClient] Saving welcome message to Redis");
-          sendChatMessage(userId, id, welcomeMsg.content, false);
-        }
-      } else {
-        console.log("⏭️ [EditorPageClient] Existing messages found, skipping welcome message");
-      }
     } else {
       console.log("⏭️ [EditorPageClient] Skipping auto-trigger:", {
         hasPrompt: !!prompt,

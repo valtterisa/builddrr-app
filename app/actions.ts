@@ -586,10 +586,8 @@ export async function* generateAIResponseStream(
 
         if (content.length > MAX_BLOCK_SIZE) {
           content = content.slice(0, MAX_BLOCK_SIZE);
-          yield {
-            type: "warning",
-            message: `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`,
-          };
+          console.warn(`[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`);
+          // Don't yield warning to chat - just log it
         }
         collectedFiles[file.startsWith("/") ? file.substring(1) : file] =
           content;
@@ -629,10 +627,7 @@ export async function* generateAIResponseStream(
       let content = writeMatch[2];
       if (content.length > MAX_BLOCK_SIZE) {
         content = content.slice(0, MAX_BLOCK_SIZE);
-        yield {
-          type: "warning",
-          message: `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`,
-        };
+        console.warn(`[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`);
       }
       collectedFiles[file.startsWith("/") ? file.substring(1) : file] = content;
     }
@@ -641,24 +636,18 @@ export async function* generateAIResponseStream(
 
   // Warn if no <builddrr-code> block was found
   if (!foundCodeBlock) {
-    yield {
-      type: "warning",
-      message: `[generateAIResponseStream] No <builddrr-code> block found in the stream.`,
-    };
+    console.warn(`[generateAIResponseStream] No <builddrr-code> block found in the stream.`);
+    // Don't yield warning to chat - just log it
   }
 
   // Warn if any unprocessed content remains
   if (buffer.trim().length > 0) {
-    yield {
-      type: "warning",
-      message: `[generateAIResponseStream] Unprocessed content at end of stream: ${buffer.slice(0, 200)}${buffer.length > 200 ? "..." : ""}`,
-    };
+    console.warn(`[generateAIResponseStream] Unprocessed content at end of stream: ${buffer.slice(0, 200)}${buffer.length > 200 ? "..." : ""}`);
+    // Don't yield warning to chat - just log it
   }
   if (unexpectedContentBuffer.trim().length > 0) {
-    yield {
-      type: "warning",
-      message: `[generateAIResponseStream] Unexpected content outside tags: ${unexpectedContentBuffer.slice(0, 200)}${unexpectedContentBuffer.length > 200 ? "..." : ""}`,
-    };
+    console.warn(`[generateAIResponseStream] Unexpected content outside tags: ${unexpectedContentBuffer.slice(0, 200)}${unexpectedContentBuffer.length > 200 ? "..." : ""}`);
+    // Don't yield warning to chat - just log it
   }
 
   // After streaming, deploy if files were collected

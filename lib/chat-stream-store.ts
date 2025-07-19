@@ -39,12 +39,7 @@ export const useChatStreamStore = create<Store>((set, get) => ({
     },
     updateStream: (chunk) => {
         const currentState = get();
-        console.log("📝 [ChatStore] Updating stream, current length:", currentState.streamedContent.length, "new chunk length:", chunk.length);
-        console.log("📝 [ChatStore] New chunk preview:", chunk.substring(0, 50) + "...");
-        console.log("📝 [ChatStore] Full chunk content:", chunk);
         set((s) => ({ streamedContent: s.streamedContent + chunk }));
-        console.log("📝 [ChatStore] Stream updated, new total length:", get().streamedContent.length);
-        console.log("📝 [ChatStore] New total content preview:", get().streamedContent.substring(0, 100) + "...");
     },
     finishStream: () => {
         const currentState = get();

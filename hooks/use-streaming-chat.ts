@@ -1,9 +1,28 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useChatStreamStore } from '@/lib/chat-stream-store';
 
 export const useStreamingChat = () => {
     const [isLoading, setIsLoading] = useState(false);
     const { startStream, updateStream, finishStream } = useChatStreamStore();
+
+    // Debouncing for streaming updates
+    const streamBufferRef = useRef("");
+    const streamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const debouncedUpdateStream = useCallback((chunk: string) => {
+        streamBufferRef.current += chunk;
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+        }
+
+        streamTimeoutRef.current = setTimeout(() => {
+            if (streamBufferRef.current) {
+                updateStream(streamBufferRef.current);
+                streamBufferRef.current = "";
+            }
+        }, 50); // 50ms debounce
+    }, [updateStream]);
 
     const sendMessage = useCallback(
         async (message: string, appName: string, machineId: string) => {
@@ -61,25 +80,21 @@ export const useStreamingChat = () => {
                                 chunkCount++;
 
                                 if (data.type === 'analysis') {
-                                    console.log(`📝 [useStreamingChat] Processing analysis chunk #${chunkCount}:`, data.content?.substring(0, 30) + "...");
-                                    console.log(`📝 [useStreamingChat] Chunk content:`, data.content);
-                                    console.log(`📝 [useStreamingChat] Chunk length:`, data.content?.length);
-                                    // Stream each chunk immediately instead of accumulating
-                                    updateStream(data.content || '');
-                                    console.log(`📝 [useStreamingChat] Updated stream with content length:`, (data.content || '').length);
+                                    // Use debounced update for smoother streaming
+                                    debouncedUpdateStream(data.content || '');
                                 } else if (data.type === 'progress') {
                                     console.log(`🚀 [useStreamingChat] Deployment progress:`, data.status, data.files);
                                     if (data.status === 'deploying') {
-                                        updateStream(`\n\n**🚀 Deploying your website...**\n\n`);
+                                        debouncedUpdateStream(`\n\n**🚀 Deploying your website...**\n\n`);
                                     } else if (data.status === 'deployed') {
-                                        updateStream(`\n\n**✅ Deployment completed successfully!**\n\n`);
+                                        debouncedUpdateStream(`\n\n**✅ Deployment completed successfully!**\n\n`);
                                     }
                                 } else if (data.type === 'error') {
                                     console.error('❌ [useStreamingChat] Streaming error:', data.error);
-                                    updateStream(`\n\n**Error:** ${data.error}\n\n`);
+                                    debouncedUpdateStream(`\n\n**Error:** ${data.error}\n\n`);
                                 } else if (data.type === 'warning') {
                                     console.warn('⚠️ [useStreamingChat] Streaming warning:', data.message);
-                                    updateStream(`\n\n**Warning:** ${data.message}\n\n`);
+                                    debouncedUpdateStream(`\n\n**Warning:** ${data.message}\n\n`);
                                 } else {
                                     console.log(`🔍 [useStreamingChat] Unknown data type:`, data.type, data);
                                 }
@@ -93,7 +108,7 @@ export const useStreamingChat = () => {
                 console.log(`✅ [useStreamingChat] Stream processing completed. Total chunks: ${chunkCount}`);
             } catch (error) {
                 console.error('❌ [useStreamingChat] Streaming chat error:', error);
-                updateStream(`\n\n**Error:** ${error instanceof Error ? error.message : 'Unknown error'}`);
+                debouncedUpdateStream(`\n\n**Error:** ${error instanceof Error ? error.message : 'Unknown error'}`);
             } finally {
                 console.log("🏁 [useStreamingChat] Finishing stream and clearing loading state");
                 setIsLoading(false);

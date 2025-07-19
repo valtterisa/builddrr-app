@@ -11,6 +11,9 @@ const auth = createAppAuth({
 // Retrieve JSON Web Token (JWT) to authenticate as app
 const appAuthentication = await auth({ type: "app" });
 
+console.log("App authentication:", appAuthentication.token);
+
+
 const octokit = new Octokit({
   auth: appAuthentication.token,
 });
@@ -21,7 +24,7 @@ const TEMPLATE_REPO = "https://github.com/valtterisa/plain-nextjs-app";
 export async function createRepoFromTemplate(appName: string): Promise<string> {
   const repoName = `builddrr-user-site-${appName}`;
   const { data } = await octokit.repos.createUsingTemplate({
-    template_owner: ORG,
+    template_owner: "valtterisa",
     template_repo: TEMPLATE_REPO,
     owner: ORG,
     name: repoName,
