@@ -36,6 +36,8 @@ export default function PromptTool({ user }: { user: any }) {
         .eq("status", "non-active")
         .limit(1);
 
+      console.log("previewData", previewData);
+
       if (previewError) throw previewError;
       if (!previewData || previewData.length === 0) {
         throw new Error("No available preview environments");

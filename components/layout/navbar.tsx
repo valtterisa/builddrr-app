@@ -25,7 +25,6 @@ import { logout } from "@/app/(auth)/actions";
 import { useState, useEffect } from "react";
 
 export default function Navbar({ user }: any) {
-  console.log("user:", user);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
