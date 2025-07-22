@@ -95,7 +95,7 @@ export function DashboardShell({
   return (
     <SidebarProvider>
       <div className="flex min-h-screen p-2 md:p-4 w-full">
-        <AppSidebar className="hidden md:flex pt-2" user={user} />
+        <AppSidebar className="hidden md:flex" user={user} />
         <SidebarInset className="rounded-3xl min-w-0 flex-1">
           {children}
         </SidebarInset>

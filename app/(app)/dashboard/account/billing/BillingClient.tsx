@@ -26,8 +26,6 @@ const BillingClient: React.FC<BillingClientProps> = ({
   products,
   customerPortalUrl,
 }) => {
-  console.log("products", products);
-  console.log("subscription", subscription);
   return (
     <div className="px-4 md:px-6">
       <SiteHeader title="Billing" />
@@ -57,8 +55,8 @@ const BillingClient: React.FC<BillingClientProps> = ({
                   <CardContent>
                     <div className="text-2xl font-bold">
                       {product.prices &&
-                      product.prices[0] &&
-                      product.prices[0].priceAmount
+                        product.prices[0] &&
+                        product.prices[0].priceAmount
                         ? `${product.prices[0].priceAmount / 100} ${product.prices[0].priceCurrency.toUpperCase()}`
                         : "Free"}
                     </div>

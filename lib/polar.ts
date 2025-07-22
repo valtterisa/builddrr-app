@@ -15,7 +15,9 @@ export async function getPolarSubscriptionByExternalId(externalId: string) {
   });
   if (!customer || !customer.id) return null;
 
-  const subscriptionId = customer.activeSubscriptions?.[0]?.id;
+  const subscriptionId = customer?.activeSubscriptions?.[0]?.id;
+
+  if (!subscriptionId) return null;
 
   const subscription = await polar.subscriptions.get({
     id: subscriptionId,
