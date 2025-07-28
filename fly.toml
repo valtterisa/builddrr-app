@@ -1,13 +1,17 @@
-# fly.toml app configuration file generated for app-cc77b0eca1a942b8b9200041941bd7c7 on 2025-06-09T15:10:03+03:00
+# fly.toml app configuration file generated for builddrr-preview-f6a29fa92a3245c3b91d4c2dd8c2d172 on 2025-07-28T15:18:05+03:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'app-cc77b0eca1a942b8b9200041941bd7c7'
+app = 'builddrr-preview-f6a29fa92a3245c3b91d4c2dd8c2d172'
 primary_region = 'arn'
 
 [build]
   image = 'docker.io/valzuxxx/plain-nextjs-app:latest'
+
+[[mounts]]
+  source = 'user_volume'
+  destination = '/app/data'
 
 [http_service]
   internal_port = 8080
@@ -18,6 +22,6 @@ primary_region = 'arn'
   processes = ['app']
 
 [[vm]]
-  memory = '512mb'
+  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
