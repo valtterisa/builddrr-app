@@ -107,7 +107,6 @@ export default function AdminClient({
   };
 
   const getStatusText = (status: string) => {
-    console.log(status);
     switch (status) {
       case "active":
         return "Assigned";

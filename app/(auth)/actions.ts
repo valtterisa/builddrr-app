@@ -159,7 +159,6 @@ export async function signUpWithOAuth(provider: Provider) {
 
   // If OAuth returns a URL, redirect to it (OAuth flow not yet complete)
   if (data.url) {
-    console.log("data.url", data.url);
     redirect(data.url);
   }
 

@@ -42,7 +42,6 @@ function getProxy(appName: string) {
   proxyCache.set(appName, proxy);
   proxyLastUsed.set(appName, now);
 
-  console.log(`[PROXY] Created new proxy for app: ${appName}`);
   return proxy;
 }
 
@@ -60,7 +59,6 @@ setInterval(() => {
   for (const appName of toDelete) {
     proxyCache.delete(appName);
     proxyLastUsed.delete(appName);
-    console.log(`[PROXY] Cleaned up proxy for app: ${appName}`);
   }
 }, CACHE_CLEANUP_INTERVAL);
 
@@ -92,14 +90,14 @@ nextApp.prepare().then(() => {
         return getProxy(appName)(req, res, (err: any) => {
           if (err) {
             console.error(`[PROXY] Error proxying to ${appName}:`, err);
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end('Proxy error');
+            res.writeHead(502, { "Content-Type": "text/plain" });
+            res.end("Proxy error");
           }
         });
       } catch (error) {
         console.error(`[PROXY] Failed to proxy to ${appName}:`, error);
-        res.writeHead(502, { 'Content-Type': 'text/plain' });
-        res.end('Proxy setup error');
+        res.writeHead(502, { "Content-Type": "text/plain" });
+        res.end("Proxy setup error");
       }
     }
     return handle(req, res, parse(url, true));
@@ -107,8 +105,5 @@ nextApp.prepare().then(() => {
 
   server.listen(port, () => {
     console.log(`> Server ready on http://localhost:${port}`);
-    console.log(
-      `> Use /api/preview/<appName>/<path> to proxy to https://<appName>.fly.dev/<path>`
-    );
   });
 });
