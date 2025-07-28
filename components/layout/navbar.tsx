@@ -131,7 +131,7 @@ export default function Navbar({ user }: any) {
                 href="/signup"
                 className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
               >
-                Get Started
+                Start for Free
               </Button>
             </div>
           )}

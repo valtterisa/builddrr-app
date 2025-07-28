@@ -120,7 +120,7 @@ export function PricingTiers() {
                 variant="outline"
                 className="w-full text-base py-6"
               >
-                <Link href="/signup">Get Started</Link>
+                <Link href="/signup">Start for Free</Link>
               </Button>
             </CardFooter>
           </Card>

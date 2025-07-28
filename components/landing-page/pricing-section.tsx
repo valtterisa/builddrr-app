@@ -148,7 +148,7 @@ export default function Pricing() {
                     : "bg-purple-50 text-purple-600 hover:bg-purple-100"
                 }`}
               >
-                Get Started
+                Start for Free
               </Button>
             </motion.div>
           ))}
