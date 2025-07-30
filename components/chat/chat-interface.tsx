@@ -1,7 +1,6 @@
 "use client";
 
-import * as React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUp } from "lucide-react";
 
@@ -9,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { useChatStreamStore, ChatMessage } from "@/lib/chat-stream-store";
 
 // Memoized chat message component to prevent unnecessary re-renders
-const ChatMessageComponent = React.memo(
+const ChatMessageComponent = memo(
   ({
     message,
     isStreaming = false,
@@ -19,44 +18,39 @@ const ChatMessageComponent = React.memo(
     isStreaming?: boolean;
     isStreamedContent?: boolean;
   }) => {
-    const markdownComponents = React.useMemo(
-      () => ({
-        h1: ({ node, ...props }: any) => (
-          <h1 className="text-lg font-bold mb-2" {...props} />
-        ),
-        h2: ({ node, ...props }: any) => (
-          <h2 className="text-base font-semibold mb-2" {...props} />
-        ),
-        h3: ({ node, ...props }: any) => (
-          <h3 className="text-sm font-semibold mb-1" {...props} />
-        ),
-        p: ({ node, ...props }: any) => <p className="mb-2" {...props} />,
-        ul: ({ node, ...props }: any) => (
-          <ul className="list-disc list-inside mb-2" {...props} />
-        ),
-        ol: ({ node, ...props }: any) => (
-          <ol className="list-decimal list-inside mb-2" {...props} />
-        ),
-        li: ({ node, ...props }: any) => <li className="mb-1" {...props} />,
-        strong: ({ node, ...props }: any) => (
-          <strong className="font-semibold" {...props} />
-        ),
-        em: ({ node, ...props }: any) => <em className="italic" {...props} />,
-        code: ({ node, ...props }: any) => (
-          <code
-            className="bg-gray-100 px-1 py-0.5 rounded text-xs"
-            {...props}
-          />
-        ),
-        pre: ({ node, ...props }: any) => (
-          <pre
-            className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mb-2"
-            {...props}
-          />
-        ),
-      }),
-      []
-    );
+    // Remove useMemo - object creation is cheap and this only runs once anyway
+    const markdownComponents = {
+      h1: ({ node, ...props }: any) => (
+        <h1 className="text-lg font-bold mb-2" {...props} />
+      ),
+      h2: ({ node, ...props }: any) => (
+        <h2 className="text-base font-semibold mb-2" {...props} />
+      ),
+      h3: ({ node, ...props }: any) => (
+        <h3 className="text-sm font-semibold mb-1" {...props} />
+      ),
+      p: ({ node, ...props }: any) => <p className="mb-2" {...props} />,
+      ul: ({ node, ...props }: any) => (
+        <ul className="list-disc list-inside mb-2" {...props} />
+      ),
+      ol: ({ node, ...props }: any) => (
+        <ol className="list-decimal list-inside mb-2" {...props} />
+      ),
+      li: ({ node, ...props }: any) => <li className="mb-1" {...props} />,
+      strong: ({ node, ...props }: any) => (
+        <strong className="font-semibold" {...props} />
+      ),
+      em: ({ node, ...props }: any) => <em className="italic" {...props} />,
+      code: ({ node, ...props }: any) => (
+        <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props} />
+      ),
+      pre: ({ node, ...props }: any) => (
+        <pre
+          className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mb-2"
+          {...props}
+        />
+      ),
+    };
 
     return (
       <div
@@ -94,8 +88,7 @@ const ChatMessageComponent = React.memo(
 
 ChatMessageComponent.displayName = "ChatMessageComponent";
 
-// Memoized loading component for AI generation
-const AILoadingComponent = React.memo(() => {
+const AILoadingComponent = () => {
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%] rounded-lg p-3 bg-muted">
@@ -119,9 +112,7 @@ const AILoadingComponent = React.memo(() => {
       </div>
     </div>
   );
-});
-
-AILoadingComponent.displayName = "AILoadingComponent";
+};
 
 interface ChatInterfaceProps {
   className?: string;
@@ -222,6 +213,13 @@ export default function ChatInterface({
       textareaRef.current.style.height = Math.min(scrollHeight) + "px";
     }
   }, [inputValue]);
+
+  useEffect(() => {
+    if (!messagesContainerRef.current || messages.length === 0) return;
+
+    messagesContainerRef.current.scrollTop =
+      messagesContainerRef.current.scrollHeight;
+  }, [messages.length]);
 
   return (
     <div
