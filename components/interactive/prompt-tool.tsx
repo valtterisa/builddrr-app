@@ -202,8 +202,8 @@ export default function PromptTool({ user }: { user: any }) {
             onChange={(e) => setPrompt(e.target.value)}
             disabled={isLoading}
           />
-          <div className="flex items-center justify-between mt-1">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end mt-1">
+            {/* <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -212,7 +212,7 @@ export default function PromptTool({ user }: { user: any }) {
                 <Paperclip className="h-4 w-4 mr-1" />{" "}
                 <span className="text-xs">Attach</span>
               </Button>
-            </div>
+            </div> */}
             <div className="flex items-center gap-1">
               <Button
                 size="icon"
