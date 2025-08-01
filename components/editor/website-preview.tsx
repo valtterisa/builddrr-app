@@ -9,6 +9,7 @@ import {
   buildClassName,
   replaceClassInGroup,
 } from "@/lib/editor-store";
+import { useChatStreamStore } from "@/lib/chat-stream-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
 
 interface EditorChange {
@@ -121,9 +122,12 @@ export default function WebsitePreview({
 
   const selectElement = useEditorStore((s: EditorState) => s.selectElement);
   const elements = useEditorStore((s: EditorState) => s.elements);
-  const reloadTrigger = useEditorStore((s: EditorState) => s.reloadTrigger); // Add reload trigger
-  const isLoading = useEditorStore((s: EditorState) => s.isLoading); // Add loading state
-  const setLoading = useEditorStore((s: EditorState) => s.setLoading); // Add loading setter
+  const reloadTrigger = useEditorStore((s: EditorState) => s.reloadTrigger);
+  const isLoading = useEditorStore((s: EditorState) => s.isLoading);
+  const setLoading = useEditorStore((s: EditorState) => s.setLoading);
+
+  // Chat streaming state
+  const isStreaming = useChatStreamStore((s) => s.isStreaming);
 
   // Store handler references for clean removal
   const eventHandlersRef = useRef<{
@@ -762,75 +766,62 @@ export default function WebsitePreview({
     }
   }
 
-  useEffect(() => {
-    let cancelled = false;
+  // Simplified preview polling function
+  const checkPreviewReady = useCallback(async () => {
     if (!url) return;
+
+    try {
+      // If we have a machine with ipv4, use direct URL
+      if (machine && machine.ipv4) {
+        console.log("🔍 [WebsitePreview] Using direct machine URL:", `http://${machine.ipv4}`);
+        dispatch({ type: "SET_IFRAME_READY", value: true });
+        setTimeout(() => {
+          initializeEditor();
+        }, 500);
+        return;
+      }
+
+      // Otherwise, poll the preview endpoint
+      const res = await fetch(`/api/preview/${url}/`, { method: "GET" });
+      console.log("🔍 [WebsitePreview] Preview endpoint response:", res.status);
+
+      if (res.status === 200) {
+        dispatch({ type: "SET_IFRAME_READY", value: true });
+        setTimeout(() => {
+          initializeEditor();
+        }, 500);
+      } else if (res.status === 202) {
+        // Not ready, poll again
+        console.log("⏳ [WebsitePreview] Preview not ready, polling again...");
+        setTimeout(checkPreviewReady, 1500);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        console.error("❌ [WebsitePreview] Preview endpoint error:", res.status, data);
+        dispatch({
+          type: "SET_IFRAME_ERROR",
+          value: data.error || `Error: ${res.status}`,
+        });
+      }
+    } catch (err: any) {
+      console.error("❌ [WebsitePreview] Preview check failed:", err);
+      dispatch({
+        type: "SET_IFRAME_ERROR",
+        value: err.message || "Unknown error",
+      });
+    }
+  }, [url, machine]);
+
+  // Poll for preview when AI stops streaming or on page load/refresh
+  useEffect(() => {
+    if (!hasMounted) return;
+
+    // Reset state when starting new poll
     dispatch({ type: "SET_IFRAME_READY", value: false });
     dispatch({ type: "SET_IFRAME_ERROR", value: null });
 
-    const checkReady = async () => {
-      try {
-        // First check if we have a machine with ipv4 - if so, use direct URL
-        if (machine && machine.ipv4) {
-          console.log(
-            "🔍 [WebsitePreview] Using direct machine URL:",
-            `http://${machine.ipv4}`
-          );
-          dispatch({ type: "SET_IFRAME_READY", value: true });
-          setTimeout(() => {
-            if (!cancelled) initializeEditor();
-          }, 500);
-          return;
-        }
-
-        // Otherwise, poll the preview endpoint
-        const res = await fetch(`/api/preview/${url}/`, { method: "GET" });
-        console.log(
-          "🔍 [WebsitePreview] Preview endpoint response:",
-          res.status
-        );
-
-        if (res.status === 200) {
-          if (!cancelled) {
-            dispatch({ type: "SET_IFRAME_READY", value: true });
-            // Initialize editor after iframe is ready
-            setTimeout(() => {
-              if (!cancelled) initializeEditor();
-            }, 500);
-          }
-        } else if (res.status === 202) {
-          // Not ready, poll again
-          console.log(
-            "⏳ [WebsitePreview] Preview not ready, polling again..."
-          );
-          setTimeout(checkReady, 1500);
-        } else {
-          const data = await res.json().catch(() => ({}));
-          console.error(
-            "❌ [WebsitePreview] Preview endpoint error:",
-            res.status,
-            data
-          );
-          if (!cancelled)
-            dispatch({
-              type: "SET_IFRAME_ERROR",
-              value: data.error || `Error: ${res.status}`,
-            });
-        }
-      } catch (err: any) {
-        console.error("❌ [WebsitePreview] Preview check failed:", err);
-        if (!cancelled)
-          dispatch({
-            type: "SET_IFRAME_ERROR",
-            value: err.message || "Unknown error",
-          });
-      }
-    };
-    checkReady();
-    return () => {
-      cancelled = true;
-    };
-  }, [url, machine]);
+    // Start polling
+    checkPreviewReady();
+  }, [hasMounted, isStreaming, reloadTrigger, checkPreviewReady]);
 
   // Add event listener for iframe load
   useEffect(() => {
@@ -903,9 +894,7 @@ export default function WebsitePreview({
     });
 
     if (reloadTrigger > 0) {
-      console.log(
-        "🔄 [WebsitePreview] Reload trigger detected, reloading iframe"
-      );
+      console.log("🔄 [WebsitePreview] Reload trigger detected, reloading iframe");
       setLoading(true);
 
       // Reset iframe ready state to force re-initialization
@@ -973,9 +962,6 @@ export default function WebsitePreview({
             {/* Browser Address Bar */}
             <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
               <div className="flex items-center space-x-2">
-                <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200">
-                  /
-                </div>
                 <button
                   onClick={reloadIframe}
                   className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
@@ -989,23 +975,15 @@ export default function WebsitePreview({
                     />
                   </svg>
                 </button>
+                <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200">
+                  /
+                </div>
+
               </div>
             </div>
 
             {/* Browser Content Area */}
             <div className="relative h-full">
-              {/* Loading overlay */}
-              {isLoading && (
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <p className="text-sm text-muted-foreground">
-                      Reloading website...
-                    </p>
-                  </div>
-                </div>
-              )}
-
               <iframe
                 ref={iframeRef}
                 src={previewUrl}
