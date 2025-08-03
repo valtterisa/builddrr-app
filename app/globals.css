@@ -11,6 +11,74 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  
+  /* Mobile blocker utilities */
+  .mobile-blocker {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-900 to-black;
+  }
+  
+  .mobile-blocker-content {
+    @apply relative max-w-lg mx-4 p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl text-center border border-gray-200 dark:border-gray-700;
+  }
+  
+  /* Responsive visibility utilities */
+  .hidden-mobile {
+    @apply hidden md:block;
+  }
+  
+  .hidden-tablet {
+    @apply hidden lg:block;
+  }
+  
+  .hidden-desktop {
+    @apply block md:hidden;
+  }
+  
+  .show-mobile-only {
+    @apply block md:hidden;
+  }
+  
+  .show-tablet-and-up {
+    @apply hidden md:block;
+  }
+  
+  .show-desktop-only {
+    @apply hidden lg:block;
+  }
+  
+  /* Instant mobile blocking - CSS only */
+  .mobile-blocker-instant {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-900 to-black;
+    display: flex;
+  }
+  
+  /* Hide content on mobile by default, show on larger screens */
+  .content-desktop-only {
+    @apply hidden md:block;
+  }
+  
+  .content-tablet-and-up {
+    @apply hidden md:block;
+  }
+  
+  /* Mobile blocker that shows immediately on small screens */
+  @media (max-width: 767px) {
+    .mobile-blocker-instant {
+      display: flex !important;
+    }
+    
+    .content-desktop-only,
+    .content-tablet-and-up {
+      display: none !important;
+    }
+  }
+  
+  /* Hide mobile blocker on larger screens */
+  @media (min-width: 768px) {
+    .mobile-blocker-instant {
+      display: none !important;
+    }
+  }
 }
 
 @layer base {
