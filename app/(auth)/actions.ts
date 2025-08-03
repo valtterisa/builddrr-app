@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { polar } from "@/lib/polar";
+import { getPublicUrl } from "@/lib/env-config";
 
 import { createClient } from "@/lib/supabase/server";
 import { Provider } from "@supabase/supabase-js";
@@ -120,7 +121,7 @@ export async function signup(formData: FormData) {
   const checkout = await polar.checkouts.create({
     products: ["20800f87-e007-4cea-a836-93f87f00ea40"],
     customerEmail: validatedData.email,
-    successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard`,
+    successUrl: `${getPublicUrl()}/dashboard`,
   });
 
   revalidatePath("/", "layout");
@@ -144,7 +145,7 @@ export async function signUpWithOAuth(provider: Provider) {
   const supabase = await createClient();
 
   const nextUrl = "/post-oauth"; // or any other post-auth page you want
-  const callbackUrl = `${process.env.NEXT_PUBLIC_URL}/api/auth/callback?next=${encodeURIComponent(nextUrl)}`;
+  const callbackUrl = `${getPublicUrl()}/api/auth/callback?next=${encodeURIComponent(nextUrl)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -164,7 +165,7 @@ export async function signUpWithOAuth(provider: Provider) {
 
   // If for some reason we get here, just redirect to dashboard
   redirect("/dashboard");
-  }
+}
 
 export async function signInWithOAuth(provider: Provider) {
   const supabase = await createClient();
@@ -172,7 +173,7 @@ export async function signInWithOAuth(provider: Provider) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_URL}/api/auth/callback`,
+      redirectTo: `${getPublicUrl()}/api/auth/callback`,
     },
   });
 

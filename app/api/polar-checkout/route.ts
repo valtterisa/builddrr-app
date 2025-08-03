@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { polar } from "@/lib/polar";
+import { getPublicUrl } from "@/lib/env-config";
 
 export async function GET(request: Request) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
       const checkout = await polar.checkouts.create({
         products: ["20800f87-e007-4cea-a836-93f87f00ea40"],
         customerEmail: user.email,
-        successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard`,
+        successUrl: `${getPublicUrl()}/dashboard`,
       });
 
       console.log("API: Checkout created successfully:", checkout.url);
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
       const checkout = await polar.checkouts.create({
         products: [productId],
         customerEmail: user.email,
-        successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard`,
+        successUrl: `${getPublicUrl()}/dashboard`,
       });
 
       console.log("API: Checkout created successfully:", checkout.url);
