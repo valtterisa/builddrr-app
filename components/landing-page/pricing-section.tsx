@@ -234,7 +234,7 @@ export default function Pricing({ user }: { user: User | null }) {
                   <span className="text-4xl font-bold">
                     {plan.price[billingCycle]}
                   </span>
-                  {plan.price[billingCycle] !== "Free" && <span className="text-gray-500">/{billingCycle}</span>}
+                  {plan.price[billingCycle] !== "Free" && plan.name !== "Enterprise" && <span className="text-gray-500">/{billingCycle}</span>}
                 </div>
                 <ul className="space-y-4">
                   {plan.features.map((feature) => (
