@@ -224,7 +224,7 @@ export default function ChatInterface({
   return (
     <div
       className={cn(
-        "flex flex-col min-h-0 w-full max-h-[calc(100vh-5rem)]",
+        "flex flex-col min-h-0 w-full max-h-[calc(100vh-6rem)]",
         className
       )}
     >

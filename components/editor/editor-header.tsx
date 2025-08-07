@@ -131,7 +131,7 @@ function EditorHeader({ id }: { id: string }) {
   };
 
   return (
-    <div className="h-10 border-b flex items-center px-4 gap-2">
+    <div className="h-12 border-b flex items-center px-4 gap-2">
       <Link
         href="/dashboard"
         className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
