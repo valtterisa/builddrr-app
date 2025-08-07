@@ -8,19 +8,12 @@ export async function PUT(req: Request) {
     apiToken: process.env.CLOUDFLARE_ACCOUNT_TOKEN!,
   });
 
-  // Test worker script content
   const workerScript = `
-export default {
+  export default {
   async fetch(request, env, ctx) {
-    return new Response("Hello from Cloudflare Worker!", {
-      headers: {
-        "Content-Type": "text/plain",
-        "Access-Control-Allow-Origin": "*"
-      }
-    });
+    return new Response(env.MESSAGE, { status: 200 });
   }
-};
-`;
+};`;
 
   try {
     await client.workers.scripts.update(`${user.id}-builddrr-prod`, {
@@ -28,13 +21,14 @@ export default {
       metadata: {
         main_module: "worker.js",
       },
-      files: [
-        {
-          name: "worker.js",
-          content: workerScript,
+      files: {
+        "worker.js": new File([workerScript], "worker.js", {
           type: "application/javascript+module",
-        },
-      ] as any,
+        }),
+        // [scriptFileName]: await toFile(Buffer.from(scriptContent), scriptFileName, {
+        //   type: 'application/javascript+module',
+        // }),
+      },
     });
 
     return NextResponse.json({ message: "Script updated" }, { status: 200 });
