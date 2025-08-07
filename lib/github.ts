@@ -6,18 +6,25 @@ const TEMPLATE_OWNER = "builddrr-user-sites";
 const TEMPLATE_REPO = "plain-nextjs-app";
 
 // Read more: https://github.com/orgs/community/discussions/26333
-async function waitForRepoReady(octokit: Octokit, org: string, repo: string, timeout = 5000) {
+async function waitForRepoReady(
+  octokit: Octokit,
+  org: string,
+  repo: string,
+  timeout = 60000
+) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     try {
-      await octokit.request('GET /repos/{owner}/{repo}', { owner: org, repo });
-      return;
+      const response = await octokit.request(`GET /repos/${org}/${repo}`, {
+        owner: org,
+        repo,
+      });
     } catch (e) {
       if (e instanceof Error && "status" in e && e.status !== 404) throw e;
-      await new Promise(res => setTimeout(res, 1000));
+      console.log(`Waiting for repository ${repo} to be ready...`);
+      await new Promise((res) => setTimeout(res, 1000));
     }
   }
-  return;
 }
 
 // Set up Octokit with installation authentication
@@ -36,17 +43,31 @@ async function getOctokitAsInstallation() {
 export async function createRepoFromTemplate(appName: string): Promise<string> {
   console.log("Creating repo from template", TEMPLATE_REPO, appName);
   const octokit = await getOctokitAsInstallation();
-  const { data } = await octokit.request(
-    `POST /repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`,
-    {
-      owner: ORG,
-      name: appName,
-      private: true,
-    }
-  );
-  await waitForRepoReady(octokit, ORG, appName);
-  return data.html_url;
+
+  try {
+    const { data } = await octokit.request(
+      `POST /repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`,
+      {
+        owner: ORG,
+        name: appName,
+        private: true,
+      }
+    );
+
+    console.log(
+      `Repository ${appName} created successfully, waiting for it to be ready...`
+    );
+    await waitForRepoReady(octokit, ORG, appName);
+    console.log(`Repository ${appName} is now ready for file uploads`);
+
+    return data.html_url;
+  } catch (error) {
+    console.error(`Failed to create repository ${appName}:`, error);
+    throw error;
+  }
 }
+
+// Repository is now properly initialized with template content before file uploads
 
 export async function uploadFilesToRepo(
   repo: string,
@@ -54,20 +75,60 @@ export async function uploadFilesToRepo(
 ): Promise<void> {
   console.log("Uploading files to repo", repo);
   const octokit = await getOctokitAsInstallation();
+
   for (const [path, content] of Object.entries(files)) {
-    await octokit.request(`PUT /repos/${ORG}/${repo}/contents/${path}`, {
-      owner: ORG,
-      repo: repo,
-      path: path,
-      message: `Add ${path}`,
-      content: Buffer.from(content).toString("base64"),
-      committer: {
-        name: "Builddrr Deploy Bot",
-        email: "deploy-bot@builddrr.com",
-      },
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
+    try {
+      // First, try to get the current file's SHA if it exists
+      let currentSha: string | undefined;
+      try {
+        const fileResponse = await octokit.request(
+          `GET /repos/${ORG}/${repo}/contents/${path}`,
+          {
+            owner: ORG,
+            repo: repo,
+            path: path,
+          }
+        );
+        currentSha = fileResponse.data.sha;
+        console.log(`File ${path} exists, current SHA: ${currentSha}`);
+      } catch (fileError: any) {
+        if (fileError.status === 404) {
+          console.log(`File ${path} does not exist, will create new file`);
+        } else {
+          console.error(`Failed to get file ${path}:`, fileError);
+        }
+      }
+
+      // Prepare the request payload
+      const payload: any = {
+        owner: ORG,
+        repo: repo,
+        path: path,
+        message: currentSha ? `Update ${path}` : `Add ${path}`,
+        content: Buffer.from(content).toString("base64"),
+        committer: {
+          name: "Builddrr Deploy Bot",
+          email: "deploy-bot@builddrr.com",
+        },
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      };
+
+      // Add SHA if file exists (required for updates)
+      if (currentSha) {
+        payload.sha = currentSha;
+      }
+
+      await octokit.request(
+        `PUT /repos/${ORG}/${repo}/contents/${path}`,
+        payload
+      );
+      console.log(
+        `Successfully ${currentSha ? "updated" : "uploaded"} ${path} to ${repo}`
+      );
+    } catch (error) {
+      console.error(`Failed to upload ${path} to ${repo}:`, error);
+    }
   }
 }

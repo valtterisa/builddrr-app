@@ -24,6 +24,8 @@ function EditorHeader({ id }: { id: string }) {
 
   const { toast } = useToast();
 
+  // Commented out publish logic
+  /*
   const handlePublish = async (useCustomDomain: boolean = false) => {
     setIsDeploying(true);
     setShowPublishMenu(false);
@@ -77,6 +79,36 @@ function EditorHeader({ id }: { id: string }) {
     }
     setIsDeploying(false);
   };
+  */
+
+  // Download handler
+  const handleDownload = async () => {
+    try {
+      const repo = id; // expects 'username/repo' format
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo }),
+      });
+      if (!response.ok) throw new Error("Failed to download");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${repo.replace("/", "-")}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Download started", variant: "default" });
+    } catch (e: any) {
+      toast({
+        title: "Download failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="h-10 border-b flex items-center px-4 gap-2">
@@ -89,6 +121,10 @@ function EditorHeader({ id }: { id: string }) {
       </Link>
 
       <div className="flex items-center space-x-2 ml-auto">
+        <Button size="sm" variant="outline" onClick={handleDownload}>
+          Download
+        </Button>
+        {/*
         {deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
             <DropdownMenuTrigger asChild>
@@ -164,6 +200,7 @@ function EditorHeader({ id }: { id: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        */}
       </div>
     </div>
   );

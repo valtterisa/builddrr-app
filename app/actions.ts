@@ -679,11 +679,10 @@ export async function* generateAIResponseStream(
           content: `\n\n**✅ Your website is ready!**\n\nI've created a beautiful website with:\n${friendlyComponents.map((component) => `- ${component}`).join("\n")}\n\nYour website is now live and ready to view! 🎉\n\n`,
         };
       }
-      // Upload files to GitHub. Not awaited so it doesn't block the thread.
-      createRepoFromTemplate(appName);
+      const repoUrl = await createRepoFromTemplate(appName);
       const repoName = `${appName}`;
 
-      uploadFilesToRepo(repoName, collectedFiles);
+      await uploadFilesToRepo(repoName, collectedFiles);
     } catch (err: any) {
       yield { type: "error", error: err?.message || String(err) };
     }

@@ -8,11 +8,12 @@ export default async function EditorPage({
 }) {
   const { websiteID } = await params;
 
-  console.log("🔍 [EditorPage] Params:", params);
   console.log("🔍 [EditorPage] websiteID:", websiteID);
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let machine: any;
 
@@ -31,15 +32,12 @@ export default async function EditorPage({
   if (Array.isArray(machineArray) && machineArray.length > 0) {
     machine = machineArray[0];
   } else {
-    console.error("[ERROR] No machines found for app:", websiteID, machineArray);
+    console.error(
+      "[ERROR] No machines found for app:",
+      websiteID,
+      machineArray
+    );
   }
 
-  return (
-    <EditorPageClient
-      id={websiteID}
-      user={user}
-      machine={machine}
-    />
-  );
+  return <EditorPageClient id={websiteID} user={user} machine={machine} />;
 }
-
