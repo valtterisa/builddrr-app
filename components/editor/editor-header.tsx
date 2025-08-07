@@ -6,6 +6,7 @@ import {
   Globe,
   Link as LinkIcon,
   ArrowLeft,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
@@ -107,6 +108,7 @@ function EditorHeader({ id }: { id: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repo: repoName }),
       });
+      if (!response.ok) throw new Error("Failed to download");
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -116,15 +118,11 @@ function EditorHeader({ id }: { id: string }) {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      toast({
-        title: "Download completed",
-        description: "Your website is downloaded.",
-        variant: "default",
-      });
+      toast({ title: "Download started", variant: "default" });
     } catch (e: any) {
       toast({
         title: "Download failed",
-        description: "Try again later.",
+        description: e.message,
         variant: "destructive",
       });
     } finally {
@@ -170,9 +168,13 @@ function EditorHeader({ id }: { id: string }) {
               Downloading...
             </>
           ) : (
-            "Download"
+            <>
+              <Download className="h-3 w-3 mr-1" />
+              Download
+            </>
           )}
         </Button>
+
         {/*
         {deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
