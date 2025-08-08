@@ -7,6 +7,46 @@ import { ArrowUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useChatStreamStore, ChatMessage } from "@/lib/chat-stream-store";
 
+// Remove code from AI responses and optionally surface friendly file creation lines
+function sanitizeAIContent(raw: string): string {
+  if (!raw) return raw;
+
+  // Replace any <builddrr-write file="...">...</builddrr-write> with a friendly line
+  const replacedWrites = raw.replace(
+    /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write\s*>/gi,
+    (_match, filePath: string) => {
+      const fileName = (filePath || "").split("/").pop() || filePath || "file";
+      return `\nCreating file ${fileName}\n`;
+    }
+  );
+
+  // Strip any <builddrr-code>...</builddrr-code> blocks entirely
+  const withoutBuilddrrCode = replacedWrites.replace(
+    /<builddrr-code\s*>[\s\S]*?<\/builddrr-code\s*>/gi,
+    ""
+  );
+
+  // Remove generic HTML code/pre tags
+  const withoutHtmlCode = withoutBuilddrrCode
+    .replace(/<pre[\s\S]*?<\/pre>/gi, "")
+    .replace(/<code[\s\S]*?<\/code>/gi, "");
+
+  // Remove fenced code blocks ```...``` and ~~~...~~~
+  const withoutFenced = withoutHtmlCode
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/~~~[\s\S]*?~~~/g, "");
+
+  // Remove inline code `...`
+  const withoutInline = withoutFenced.replace(/`[^`]*`/g, "");
+
+  // Remove indentation-based code blocks (lines starting with 4+ spaces or a tab)
+  const lines = withoutInline
+    .split(/\r?\n/)
+    .filter((line) => !/^([\t]|\s{4,})/.test(line))
+    .join("\n");
+  return lines;
+}
+
 // Memoized chat message component to prevent unnecessary re-renders
 const ChatMessageComponent = memo(
   ({
@@ -41,15 +81,9 @@ const ChatMessageComponent = memo(
         <strong className="font-semibold" {...props} />
       ),
       em: ({ node, ...props }: any) => <em className="italic" {...props} />,
-      code: ({ node, ...props }: any) => (
-        <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props} />
-      ),
-      pre: ({ node, ...props }: any) => (
-        <pre
-          className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mb-2"
-          {...props}
-        />
-      ),
+      // Do not render code/pre blocks for AI output
+      code: ({ node, ...props }: any) => null,
+      pre: ({ node, ...props }: any) => null,
     };
 
     return (
@@ -65,9 +99,9 @@ const ChatMessageComponent = memo(
             {message.isUser ? (
               <div className="whitespace-pre-wrap">{message.content}</div>
             ) : (
-              // Always render AI messages as markdown for consistent experience
+              // Render AI messages with code stripped and friendly file lines
               <ReactMarkdown components={markdownComponents}>
-                {message.content}
+                {sanitizeAIContent(message.content)}
               </ReactMarkdown>
             )}
           </div>
