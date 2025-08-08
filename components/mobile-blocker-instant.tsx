@@ -9,10 +9,10 @@ export const MobileBlockerInstant: React.FC = () => {
                         <X className="w-10 h-10 text-red-600 dark:text-red-400" />
                     </div>
                     <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                        Mobile not supported, yet. :)
+                        Mobile not supported yet since I have a life too.
                     </h2>
                     <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
-                        We don't support mobile devices yet. Please access this site on a desktop or tablet with a screen width of at least 768px.
+                        Access this site on a desktop e.g your laptop or desktop computer.
                     </p>
                 </div>
 

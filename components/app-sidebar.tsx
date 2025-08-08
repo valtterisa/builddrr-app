@@ -111,12 +111,12 @@ export function AppSidebar({
       url: withTeam("/dashboard/website/create"),
       icon: PlusCircle,
     },
-    {
-      type: "item" as const,
-      title: "Settings",
-      url: withTeam("/dashboard/settings"),
-      icon: Settings,
-    },
+    // {
+    //   type: "item" as const,
+    //   title: "Settings",
+    //   url: withTeam("/dashboard/settings"),
+    //   icon: Settings,
+    // },
     // {
     //   type: "item" as const,
     //   title: "Team",
