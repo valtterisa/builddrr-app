@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ButtonHTMLAttributes } from "react";
@@ -22,6 +23,7 @@ export function OAuthButton({
   action = "sign-in",
   className,
 }: OAuthButtonProps) {
+  const [isLoading, setIsLoading] = useState(false);
   const getButtonText = () => {
     const actionText = {
       "sign-in": "Sign in with",
@@ -116,28 +118,42 @@ export function OAuthButton({
     }
   };
 
+  const handleOAuthClick = async () => {
+    if (isLoading) return; // Prevent multiple clicks
+
+    setIsLoading(true);
+    try {
+      if (action === "sign-in") {
+        await signInWithOAuth(provider);
+      } else {
+        await signUpWithOAuth(provider);
+      }
+    } catch (error) {
+      console.error("OAuth error:", error);
+      setIsLoading(false); // Reset loading state on error
+    }
+  };
+
   return (
     <Button
       type="button"
+      disabled={isLoading}
       variant={
         (provider === "apple" && variant === "dark") ||
-        (provider === "github" && variant === "dark") ||
-        provider === "facebook"
+          (provider === "github" && variant === "dark") ||
+          provider === "facebook"
           ? "default"
           : "outline"
       }
       className={cn(
         "flex items-center justify-center gap-2 h-10 w-full border-purple-100 hover:bg-purple-50 hover:border-purple-200 transition-colors",
+        isLoading && "opacity-50 cursor-not-allowed",
         className
       )}
-      onClick={() =>
-        action === "sign-in"
-          ? signInWithOAuth(provider)
-          : signUpWithOAuth(provider)
-      }
+      onClick={handleOAuthClick}
     >
       <ProviderLogo />
-      <span>{getButtonText()}</span>
+      <span>{isLoading ? "Signing in..." : getButtonText()}</span>
     </Button>
   );
 }
