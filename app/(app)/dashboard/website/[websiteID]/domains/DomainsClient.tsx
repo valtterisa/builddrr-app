@@ -123,7 +123,6 @@ export default function DomainsClient() {
     const router = useRouter();
     const params = useParams();
     const { toast } = useToast();
-    const [isLoading, setIsLoading] = useState(true);
     const [plan, setPlan] = useState<"starter" | "pro" | "enterprise">("pro");
     const [showAddDomainDialog, setShowAddDomainDialog] = useState(false);
     const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
@@ -186,7 +185,6 @@ export default function DomainsClient() {
             ]);
         }
 
-        setIsLoading(false);
     }, [plan, websiteId]);
 
     const handleAddDNSRecord = () => {
