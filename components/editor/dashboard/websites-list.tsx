@@ -57,12 +57,19 @@ export function WebsitesList({ websites }: WebsitesListProps) {
                 {website.name}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="items-center justify-center flex gap-2">
               <Link
                 href={`/dashboard/website/${website?.previewDetail?.app_name}/editor`}
               >
                 <Button variant="outline" size="sm" className="mt-2">
                   Edit
+                </Button>
+              </Link>
+              <Link
+                href={`/dashboard/website/${website?.previewDetail?.app_name}/domains`}
+              >
+                <Button variant="outline" size="sm" className="mt-2">
+                  Domains
                 </Button>
               </Link>
             </CardContent>
