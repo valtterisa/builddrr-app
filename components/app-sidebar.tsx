@@ -15,6 +15,7 @@ import {
   Settings,
   SettingsIcon,
   UsersIcon,
+  Network,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -110,6 +111,12 @@ export function AppSidebar({
       title: "Create Website",
       url: withTeam("/dashboard/website/create"),
       icon: PlusCircle,
+    },
+    {
+      type: "item" as const,
+      title: "Domains",
+      url: withTeam("/dashboard/domains"),
+      icon: Network,
     },
     // {
     //   type: "item" as const,

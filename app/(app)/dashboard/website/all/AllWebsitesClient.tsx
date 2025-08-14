@@ -54,15 +54,6 @@ export function AllWebsitesClient({ websites }: WebsitesListProps) {
                 </Button>
               </Link>
             </CardContent>
-            <CardContent>
-              <Link
-                href={`/dashboard/website/${website?.previewDetail?.app_name}/domains`}
-              >
-                <Button variant="outline" size="sm" className="mt-2">
-                  Domains
-                </Button>
-              </Link>
-            </CardContent>
           </Card>
         ))}
       </div>
