@@ -198,7 +198,14 @@ export default function PromptTool({ user }: { user: any }) {
   }, [displayedPlaceholder, isErasing, currentPromptIndex, promptPlaceholders]);
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] w-full flex flex-col items-center justify-center pb-8 pt-12 md:pt-8 px-2 relative">
+    <div
+      className="min-h-[calc(100vh-6rem)] w-full flex flex-col items-center justify-center pb-8 pt-12 md:pt-8 px-2 relative"
+      style={{
+        backgroundImage: `radial-gradient(circle, rgba(107, 114, 128, 0.2) 1px, transparent 1px)`,
+        backgroundSize: "20px 20px",
+        backgroundColor: "#ffffff",
+      }}
+    >
       <div className="relative z-10 w-full flex flex-col items-center">
         {/* Loading overlay removed; editor/chat will show progress */}
         <h1 className="pt-4 flex items-center text-2xl md:text-5xl font-bold text-gray-900 text-center ">

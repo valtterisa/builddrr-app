@@ -37,7 +37,7 @@ export default function Navbar({ user }: any) {
 
   return (
     <motion.header
-      className={`fixed w-screen top-9 left-0 right-0 z-50 transition-all duration-300 ease-in-out
+      className={`fixed w-screen top-9 left-0 right-0 z-50 transition-all duration-300 ease-in-out border-b border-gray-200
         ${scrolled ? "bg-white/80 backdrop-blur-sm shadow-md border-b border-gray-200" : "bg-transparent"}
       `}
     >
