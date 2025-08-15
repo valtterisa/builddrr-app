@@ -15,7 +15,7 @@ export default async function LandingPage() {
   return (
     <>
       <MigrationWarning />
-      <div className="pt-32">
+      <div className="pt-24">
         <div className="relative">
           <Navbar user={user?.user_metadata} />
           <PromptTool user={user} />

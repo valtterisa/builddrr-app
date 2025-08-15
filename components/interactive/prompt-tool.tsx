@@ -1,7 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, ArrowUpRight, ArrowDown, ChevronDown } from "lucide-react";
+import {
+  Paperclip,
+  ArrowUpRight,
+  ArrowDown,
+  ChevronDown,
+  Book,
+  Camera,
+  Landmark,
+  Coffee,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
@@ -21,14 +30,14 @@ export default function PromptTool({ user }: { user: any }) {
     const handleStart = () => setIsLoading(true);
     const handleStop = () => setIsLoading(false);
 
-    window.addEventListener('next-route-start', handleStart);
-    window.addEventListener('next-route-complete', handleStop);
-    window.addEventListener('next-route-error', handleStop);
+    window.addEventListener("next-route-start", handleStart);
+    window.addEventListener("next-route-complete", handleStop);
+    window.addEventListener("next-route-error", handleStop);
 
     return () => {
-      window.removeEventListener('next-route-start', handleStart);
-      window.removeEventListener('next-route-complete', handleStop);
-      window.removeEventListener('next-route-error', handleStop);
+      window.removeEventListener("next-route-start", handleStart);
+      window.removeEventListener("next-route-complete", handleStop);
+      window.removeEventListener("next-route-error", handleStop);
     };
   }, []);
 
@@ -98,7 +107,7 @@ export default function PromptTool({ user }: { user: any }) {
 
       console.log("redirecting to editor:", app_name);
       // Manually dispatch a route start event
-      window.dispatchEvent(new Event('next-route-start'));
+      window.dispatchEvent(new Event("next-route-start"));
       router.push(`/dashboard/website/${app_name}/editor`);
     } catch (error) {
       console.error("Error in handleSend:", error);
@@ -114,19 +123,27 @@ export default function PromptTool({ user }: { user: any }) {
   const examples = [
     {
       name: "Cafe website",
-      prompt: "Make a simple website for my cafe",
+      prompt:
+        "Make a simple website for my cafe. It should have a menu, a contact form, and a about page. It should be a single page website.",
+      icon: <Coffee className="w-4 h-4" />,
     },
     {
       name: "Landing page for a software startup",
-      prompt: "Make a landing page for my software startup",
+      prompt:
+        "Make a landing page for my software startup. It should have a hero section, a features section, a pricing section, and a contact form. It should be a single page website.",
+      icon: <Landmark className="w-4 h-4" />,
     },
     {
       name: "Portfolio website for a photographer",
-      prompt: "Make a portfolio website for my photography business",
+      prompt:
+        "Make a portfolio website for my photography business. It should have a hero section, a features section, a pricing section, and a contact form. It should be a single page website.",
+      icon: <Camera className="w-4 h-4" />,
     },
     {
       name: "Blog website",
-      prompt: "Make a blog website for my blog",
+      prompt:
+        "Make a blog website for my blog. It should have a hero section, a features section, a blog section, and a contact form. It should be a single page website.",
+      icon: <Book className="w-4 h-4" />,
     },
   ];
 
@@ -181,7 +198,7 @@ export default function PromptTool({ user }: { user: any }) {
   }, [displayedPlaceholder, isErasing, currentPromptIndex, promptPlaceholders]);
 
   return (
-    <div className="min-h-[100vh] w-full flex flex-col items-center justify-center pb-8 pt-12 md:pt-8 px-2 relative">
+    <div className="min-h-[calc(100vh-8rem)] w-full flex flex-col items-center justify-center pb-8 pt-12 md:pt-8 px-2 relative">
       <div className="relative z-10 w-full flex flex-col items-center">
         {/* Loading overlay removed; editor/chat will show progress */}
         <h1 className="pt-4 flex items-center text-2xl md:text-5xl font-bold text-gray-900 text-center ">
@@ -249,6 +266,7 @@ export default function PromptTool({ user }: { user: any }) {
               size="sm"
               onClick={() => setPrompt(example.prompt)}
             >
+              {example.icon}
               {example.name}
             </Button>
           ))}
