@@ -218,7 +218,7 @@ function EditorHeader({ id }: { id: string }) {
             </svg>
             <span className="hidden sm:inline">Loading...</span>
           </Button>
-        ) : deployUrl ? (
+        ) : !deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" onClick={() => setShowMenu((v) => !v)}>
@@ -228,15 +228,73 @@ function EditorHeader({ id }: { id: string }) {
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem asChild>
-                <a href={deployUrl} target="_blank" rel="noopener noreferrer">
-                  View Deployment
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowMenu(false)}>
-                Close
-              </DropdownMenuItem>
+            <DropdownMenuContent align="start" className="w-80 p-0">
+              <div className="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-green-700 dark:text-green-300 uppercase tracking-wide">
+                    Live
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  Your site is deployed!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Site is live and accessible worldwide
+                </p>
+              </div>
+
+              <div className="p-2">
+                <DropdownMenuItem asChild className="p-0">
+                  <a
+                    href={deployUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <div className="flex items-center min-w-0 flex-1">
+                      <div className="flex items-center justify-center h-8 w-8 bg-blue-100 dark:bg-blue-900/30 rounded-md mr-3 flex-shrink-0">
+                        <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {deployUrl?.replace("https://", "")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Click to open site
+                        </p>
+                      </div>
+                    </div>
+                    <svg
+                      className="h-4 w-4 ml-2 flex-shrink-0 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </a>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem className="p-3 hover:bg-accent hover:text-accent-foreground transition-colors">
+                  <div className="flex items-center justify-center h-8 w-8 bg-purple-100 dark:bg-purple-900/30 rounded-md mr-3 flex-shrink-0">
+                    <LinkIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Add Custom Domain
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Use your own domain name
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
