@@ -111,11 +111,10 @@ export async function createSiteForUser(name: string) {
           .update({
             status: "deployed",
             primary_url: deploymentUrl,
-            subdomain: subdomain.name,
             last_deployed: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", name);
+          .eq("name", name);
       } catch (dbError) {
         console.error("Failed to save deployment status to database:", dbError);
         // Don't fail the deployment if saving status fails
@@ -136,7 +135,3 @@ export async function createSiteForUser(name: string) {
     return { ok: false, error: "Failed to create site" };
   }
 }
-
-// wait for deployment to be ready and then show user the correct url.
-// MAke the editor header show the correct url. Needs check for cloudflare pages i guess.
-// Update template project with cloudflare stuff seen in "...abd" project
