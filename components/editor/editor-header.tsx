@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { usePathname } from "next/navigation";
+import { createSiteForUser } from "@/lib/cloudflare/cloudflare";
 
 function EditorHeader({ id }: { id: string }) {
   const [isDeploying, setIsDeploying] = useState(false);
@@ -52,40 +53,28 @@ function EditorHeader({ id }: { id: string }) {
     });
 
     try {
-      const deployResult = await fetch("/api/deploy-project", {
-        method: "POST",
-        body: JSON.stringify({
-          projectName: id,
-        }),
-      });
+      const { ok, project, deployment, subdomain } =
+        await createSiteForUser(id);
 
-      console.log("[deployResult]", deployResult);
-
-      const { url, deploymentId } = await deployResult.json();
-
-      console.log("[url]", url);
-      console.log("[deploymentId]", deploymentId);
-
-      const isDeployed = await fetch(`/api/deploy-project`, {
-        method: "POST",
-        body: JSON.stringify({
-          projectName: id,
-        }),
-      });
-
-      console.log("[isDeployed]", isDeployed);
-
-      const { status } = await isDeployed.json();
-
-      if (status === "READY") {
+      if (!ok) {
         toast({
-          title: "Success",
-          description: "Website deployed successfully.",
-          variant: "default",
+          title: "Error",
+          description: "Failed to create site. Please try again.",
+          variant: "destructive",
         });
-        setDeployUrl("https://placeholder-url.vercel.app");
-        setShowMenu(true);
+        setIsDeploying(false);
+        return;
       }
+
+      toast({
+        title: "Success",
+        description: "Website deployed successfully.",
+        variant: "default",
+      });
+
+      setDeployUrl(subdomain?.name ?? null);
+      setShowMenu(true);
+      setIsDeploying(false);
     } catch (error) {
       console.error("Error deploying website:", error);
       toast({
@@ -175,7 +164,6 @@ function EditorHeader({ id }: { id: string }) {
           )}
         </Button>
 
-
         {deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
             <DropdownMenuTrigger asChild>
@@ -251,7 +239,6 @@ function EditorHeader({ id }: { id: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-
       </div>
     </div>
   );
