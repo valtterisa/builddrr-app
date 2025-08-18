@@ -1,6 +1,7 @@
 "use server";
 
 import Cloudflare from "cloudflare";
+import { createServiceClient } from "@/lib/supabase/server";
 
 const client = new Cloudflare({
   apiToken: process.env.CLOUDFLARE_ACCOUNT_TOKEN!,
@@ -54,6 +55,30 @@ async function addSubdomain(name: string) {
     proxied: false,
   });
 
+  // Poll domain status until it becomes active
+  const domainName = `${name}.builddrr.com`;
+  let domainStatus = subdomain?.status;
+
+  while (domainStatus !== "active") {
+    // Wait 2 seconds before next check
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    try {
+      const domainInfo = await client.pages.projects.domains.get(
+        name,
+        domainName,
+        {
+          account_id: process.env.CLOUDFLARE_ACCOUNT_ID!,
+        }
+      );
+      domainStatus = domainInfo?.status;
+      console.log(`Domain ${domainName} status: ${domainStatus}`);
+    } catch (error) {
+      console.error(`Error polling domain status for ${domainName}:`, error);
+      return { ok: false, error: "Failed to add subdomain" };
+    }
+  }
+
   return subdomain;
 }
 
@@ -71,9 +96,47 @@ export async function createSiteForUser(name: string) {
     const project = await createProject(name);
     const deployment = await createDeployment(name);
     const subdomain = await addSubdomain(name);
-    return { ok: true, project, deployment, subdomain };
+
+    // Check if subdomain was created successfully
+    if (subdomain && typeof subdomain === "object" && "name" in subdomain) {
+      const deploymentUrl = `https://${subdomain.name}`;
+
+      // Save deployment status to Supabase
+      try {
+        const supabase = await createServiceClient();
+
+        // Use service role to update website directly without auth check
+        await supabase
+          .from("websites")
+          .update({
+            status: "deployed",
+            primary_url: deploymentUrl,
+            subdomain: subdomain.name,
+            last_deployed: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", name);
+      } catch (dbError) {
+        console.error("Failed to save deployment status to database:", dbError);
+        // Don't fail the deployment if saving status fails
+      }
+
+      return {
+        ok: true,
+        project,
+        deployment,
+        subdomain,
+        deploymentUrl,
+      };
+    }
+
+    return { ok: false, error: "Failed to create subdomain" };
   } catch (error) {
     console.error(error);
     return { ok: false, error: "Failed to create site" };
   }
 }
+
+// wait for deployment to be ready and then show user the correct url.
+// MAke the editor header show the correct url. Needs check for cloudflare pages i guess.
+// Update template project with cloudflare stuff seen in "...abd" project

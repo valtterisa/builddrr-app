@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { usePathname } from "next/navigation";
 import { createSiteForUser } from "@/lib/cloudflare/cloudflare";
+import { createClient } from "@/lib/supabase/client";
 
 function EditorHeader({ id }: { id: string }) {
   const [isDeploying, setIsDeploying] = useState(false);
@@ -25,9 +26,41 @@ function EditorHeader({ id }: { id: string }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showPublishMenu, setShowPublishMenu] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isLoadingDeployment, setIsLoadingDeployment] = useState(true);
   const pathname = usePathname();
 
   const { toast } = useToast();
+
+  // Fetch deployment status on component mount
+  useEffect(() => {
+    const fetchDeploymentStatus = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data, error } = await supabase
+            .from("websites")
+            .select("primary_url, status")
+            .eq("id", id)
+            .eq("user_id", user.id)
+            .single();
+
+          if (!error && data?.primary_url) {
+            setDeployUrl(data.primary_url);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch deployment status:", error);
+      } finally {
+        setIsLoadingDeployment(false);
+      }
+    };
+
+    fetchDeploymentStatus();
+  }, [id]);
 
   // Extract repo name from URL path
   const getRepoNameFromUrl = () => {
@@ -53,10 +86,9 @@ function EditorHeader({ id }: { id: string }) {
     });
 
     try {
-      const { ok, project, deployment, subdomain } =
-        await createSiteForUser(id);
+      const result = await createSiteForUser(id);
 
-      if (!ok) {
+      if (!result.ok) {
         toast({
           title: "Error",
           description: "Failed to create site. Please try again.",
@@ -66,13 +98,15 @@ function EditorHeader({ id }: { id: string }) {
         return;
       }
 
+      const { deploymentUrl } = result;
+
       toast({
         title: "Success",
         description: "Website deployed successfully.",
         variant: "default",
       });
 
-      setDeployUrl(subdomain?.name ?? null);
+      setDeployUrl(deploymentUrl ?? null);
       setShowMenu(true);
       setIsDeploying(false);
     } catch (error) {
@@ -164,7 +198,27 @@ function EditorHeader({ id }: { id: string }) {
           )}
         </Button>
 
-        {deployUrl ? (
+        {isLoadingDeployment ? (
+          <Button size="sm" disabled>
+            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+            <span className="hidden sm:inline">Loading...</span>
+          </Button>
+        ) : deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" onClick={() => setShowMenu((v) => !v)}>
