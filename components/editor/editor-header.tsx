@@ -44,7 +44,7 @@ function EditorHeader({ id }: { id: string }) {
           const { data, error } = await supabase
             .from("websites")
             .select("primary_url, status")
-            .eq("id", id)
+            .eq("name", id)
             .eq("user_id", user.id)
             .single();
 
@@ -104,7 +104,7 @@ function EditorHeader({ id }: { id: string }) {
 
       toast({
         title: "🎉 Website is live!",
-        description: `Your website is now available on the internet${useCustomDomain ? '. You can now connect your custom domain.' : ' with a free domain!'}`,
+        description: `Your website is now available on the internet${useCustomDomain ? ". You can now connect your custom domain." : " with a free domain!"}`,
         variant: "default",
       });
 
@@ -222,11 +222,13 @@ function EditorHeader({ id }: { id: string }) {
         ) : deployUrl ? (
           <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" onClick={() => setShowMenu((v) => !v)} className="bg-green-600 hover:bg-green-700">
+              <Button
+                size="sm"
+                onClick={() => setShowMenu((v) => !v)}
+                className="bg-green-600 hover:bg-green-700"
+              >
                 <Globe className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline flex items-center">
-                  Live
-                </span>
+                <span className="hidden sm:inline flex items-center">Live</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-80 p-0">
@@ -308,8 +310,18 @@ function EditorHeader({ id }: { id: string }) {
                   }}
                 >
                   <div className="flex items-center justify-center h-8 w-8 bg-gray-100 dark:bg-gray-900/30 rounded-md mr-3 flex-shrink-0">
-                    <svg className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className="h-4 w-4 text-gray-600 dark:text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
