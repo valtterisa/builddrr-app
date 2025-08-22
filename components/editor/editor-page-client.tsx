@@ -14,8 +14,6 @@ import { useEditorStore } from "@/lib/editor-store";
 import type { EditorState } from "@/lib/editor-store";
 import { useChatStreamStore } from "@/lib/chat-stream-store";
 import { useStreamingChat } from "@/hooks/use-streaming-chat";
-import { Sandbox } from "@vercel/sandbox";
-import { deploySandbox } from "@/app/actions";
 
 export default function EditorPageClient({
   id,
@@ -24,10 +22,8 @@ export default function EditorPageClient({
   id: string;
   user: any;
 }) {
-  const [appName, setAppName] = useState<string>(id);
   const isEditMode = useEditorStore((s: EditorState) => s.isEditMode);
   const setEditMode = useEditorStore((s: EditorState) => s.setEditMode);
-  const [websiteUrl, setWebsiteUrl] = useState<string | null>(id);
   const [activeTab, setActiveTab] = useState<string>("chat");
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoProcessing, setIsAutoProcessing] = useState(false);
@@ -35,8 +31,7 @@ export default function EditorPageClient({
   const { toast } = useToast();
 
   // Zustand chat state
-  const { setMessages, addMessage, streamedContent, deploymentUrl } =
-    useChatStreamStore();
+  const { setMessages, addMessage, streamedContent } = useChatStreamStore();
 
   // Streaming chat hook
   const { sendMessage: sendStreamingMessage, isLoading: isStreamingLoading } =
@@ -50,42 +45,17 @@ export default function EditorPageClient({
 
   // Callback for when AI finishes streaming
   const handleAIFinish = useCallback(() => {
-    console.log("🎯 [EditorPageClient] AI finished, triggering iframe reload");
-    console.log(
-      "🎯 [EditorPageClient] Current reload trigger value:",
-      useEditorStore.getState().reloadTrigger
-    );
-
     triggerReload();
-    console.log(
-      "🎯 [EditorPageClient] Reload trigger called, new value:",
-      useEditorStore.getState().reloadTrigger
-    );
-
-    // Clear loading state after a delay to allow iframe to load
     setTimeout(() => {
-      console.log("🎯 [EditorPageClient] Clearing loading state");
       useEditorStore.getState().setLoading(false);
     }, 3000);
   }, [triggerReload]);
-
-  // Debug logging for props and state
-  useEffect(() => {
-    console.log("🔍 [EditorPageClient] Props and state:", {
-      id,
-      appName,
-      userId,
-      hasUser: !!user,
-      userData: user?.data,
-    });
-  }, [id, appName, userId, user]);
 
   // Hydrate Zustand from Redis on mount
   useEffect(() => {
     if (userId && id) {
       getChatMessages(userId, id)
         .then((messages) => {
-          console.log("Chat messages loaded:", messages.length, "messages");
           setMessages(messages);
         })
         .catch((error) => {
@@ -96,11 +66,6 @@ export default function EditorPageClient({
 
   const handleSendMessage = useCallback(
     async (message: string) => {
-      console.log(
-        "🚀 [handleSendMessage] Starting message processing:",
-        message.substring(0, 50) + "..."
-      );
-
       const userMsg = {
         id: Date.now().toString(),
         content: message,
@@ -119,30 +84,17 @@ export default function EditorPageClient({
         if (!saveResult.success) {
           console.error("Failed to save user message:", saveResult.error);
         } else {
-          console.log("✅ [handleSendMessage] User message saved to Redis");
         }
       }
 
       // Step 1: Stream the analysis to chat interface and trigger deployment via backend
-      console.log("🌊 [handleSendMessage] Starting streaming process...");
       await sendStreamingMessage(message, id);
 
       // Step 2: Get the final streamed content and save it as an AI message
       const finalStreamedContent =
         useChatStreamStore.getState().streamedContent;
-      console.log(
-        "📝 [handleSendMessage] Final streamed content length:",
-        finalStreamedContent?.length || 0
-      );
-      console.log(
-        "📝 [handleSendMessage] Final streamed content preview:",
-        finalStreamedContent?.substring(0, 100) + "..."
-      );
 
       if (finalStreamedContent && finalStreamedContent.trim()) {
-        console.log(
-          "💾 [handleSendMessage] Saving AI response to chat history"
-        );
         const aiMsg = {
           id: Date.now().toString(),
           content: finalStreamedContent,
@@ -161,17 +113,12 @@ export default function EditorPageClient({
           if (!aiSaveResult.success) {
             console.error("Failed to save AI message:", aiSaveResult.error);
           } else {
-            console.log("✅ [handleSendMessage] AI message saved to Redis");
           }
         }
 
         // Clear the streamed content after saving it
         useChatStreamStore.getState().clearStreamedContent();
-        console.log("🗑️ [handleSendMessage] Cleared streamed content");
       } else {
-        console.warn(
-          "⚠️ [handleSendMessage] No streamed content found, using fallback message"
-        );
         // Fallback message if no content was streamed
         const aiMsg = {
           id: Date.now().toString(),
@@ -191,65 +138,33 @@ export default function EditorPageClient({
           if (!aiSaveResult.success) {
             console.error("Failed to save AI message:", aiSaveResult.error);
           } else {
-            console.log(
-              "✅ [handleSendMessage] Fallback AI message saved to Redis"
-            );
           }
         }
       }
 
       // Clear auto-processing state
       setIsAutoProcessing(false);
-      console.log("🏁 [handleSendMessage] Message processing completed");
     },
     [userId, id, addMessage, sendChatMessage, sendStreamingMessage]
   );
 
-  // Debug logging for ChatInterface props
-  useEffect(() => {
-    console.log("🔍 [EditorPageClient] ChatInterface props:", {
-      appName,
-      userId,
-      hasOnSendMessage: !!handleSendMessage,
-      isAutoProcessing,
-    });
-  }, [appName, userId, handleSendMessage, isAutoProcessing]);
-
   useEffect(() => {
     // Only run when user is loaded
     if (!userId) {
-      console.log("⏳ [EditorPageClient] Waiting for user to load...", {
-        hasUser: !!userId,
-      });
       return;
     }
-
-    console.log("🔍 [EditorPageClient] Checking for auto-trigger prompt...", {
-      hasUser: !!userId,
-      hasAutoTriggered,
-      isAutoProcessing,
-    });
 
     const prompt = sessionStorage.getItem("builddrr_generation_prompt");
 
     if (prompt && !hasAutoTriggered) {
-      console.log(
-        "🔄 [EditorPageClient] Auto-triggering AI creation with prompt:",
-        prompt.substring(0, 50) + "..."
-      );
-
       // Set flags to prevent multiple triggers and show loading
       setHasAutoTriggered(true);
       setIsAutoProcessing(true);
 
       // Clear the prompt from sessionStorage to prevent re-triggering
       sessionStorage.removeItem("builddrr_generation_prompt");
-      console.log("🗑️ [EditorPageClient] Cleared prompt from sessionStorage");
 
       // Automatically send the prompt to trigger AI creation
-      console.log(
-        "🚀 [EditorPageClient] Calling handleSendMessage for auto-trigger"
-      );
       handleSendMessage(prompt);
 
       toast({
@@ -257,21 +172,9 @@ export default function EditorPageClient({
         description:
           "AI is analyzing your requirements and building your site...",
       });
-      console.log("📢 [EditorPageClient] Showed toast notification");
     } else if (!prompt && !hasAutoTriggered) {
       // If no prompt exists, just set the flag to prevent re-running
-      console.log(
-        "⏭️ [EditorPageClient] No prompt found, setting hasAutoTriggered flag"
-      );
-
       setHasAutoTriggered(true);
-    } else {
-      console.log("⏭️ [EditorPageClient] Skipping auto-trigger:", {
-        hasPrompt: !!prompt,
-        hasUser: !!userId,
-        hasAutoTriggered,
-        isAutoProcessing,
-      });
     }
   }, [
     userId,
@@ -339,7 +242,7 @@ export default function EditorPageClient({
         <div className="flex flex-col flex-1 min-w-0 h-full bg-background rounded-3xl">
           <WebsitePreview
             isEditMode={isEditMode}
-            initialUrl={sandboxUrl || undefined}
+            initialUrl={undefined}
             id={id}
           />
         </div>

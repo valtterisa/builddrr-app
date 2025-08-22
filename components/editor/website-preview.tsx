@@ -11,6 +11,7 @@ import {
 } from "@/lib/editor-store";
 import { useChatStreamStore } from "@/lib/chat-stream-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
+import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
 
 interface EditorChange {
   targetId: string;
@@ -39,6 +40,11 @@ interface EditorReducerState {
   canRemoveStandalone: boolean;
   selectedElement: HTMLElement | null;
   activeTextColor: string | null;
+  // Sandbox state
+  sandboxUrl: string | null;
+  isSandboxLoading: boolean;
+  sandboxError: string | null;
+  deploymentStep: string;
 }
 
 type EditorReducerAction =
@@ -54,7 +60,11 @@ type EditorReducerAction =
   | { type: "SET_CAN_MAKE_STANDALONE"; value: boolean }
   | { type: "SET_CAN_REMOVE_STANDALONE"; value: boolean }
   | { type: "SET_SELECTED_ELEMENT"; value: HTMLElement | null }
-  | { type: "SET_ACTIVE_TEXT_COLOR"; value: string | null };
+  | { type: "SET_ACTIVE_TEXT_COLOR"; value: string | null }
+  | { type: "SET_SANDBOX_URL"; value: string | null }
+  | { type: "SET_SANDBOX_LOADING"; value: boolean }
+  | { type: "SET_SANDBOX_ERROR"; value: string | null }
+  | { type: "SET_DEPLOYMENT_STEP"; value: string };
 
 const initialEditorState: EditorReducerState = {
   iframeReady: false,
@@ -68,6 +78,11 @@ const initialEditorState: EditorReducerState = {
   canRemoveStandalone: false,
   selectedElement: null,
   activeTextColor: null,
+  // Sandbox state
+  sandboxUrl: null,
+  isSandboxLoading: true,
+  sandboxError: null,
+  deploymentStep: "Initializing...",
 };
 
 function editorReducer(
@@ -104,6 +119,14 @@ function editorReducer(
       return { ...state, selectedElement: action.value };
     case "SET_ACTIVE_TEXT_COLOR":
       return { ...state, activeTextColor: action.value };
+    case "SET_SANDBOX_URL":
+      return { ...state, sandboxUrl: action.value };
+    case "SET_SANDBOX_LOADING":
+      return { ...state, isSandboxLoading: action.value };
+    case "SET_SANDBOX_ERROR":
+      return { ...state, sandboxError: action.value };
+    case "SET_DEPLOYMENT_STEP":
+      return { ...state, deploymentStep: action.value };
     default:
       return state;
   }
@@ -140,7 +163,6 @@ export default function WebsitePreview({
 
   // Chat streaming state
   const isStreaming = useChatStreamStore((s) => s.isStreaming);
-  const deploymentUrl = useChatStreamStore((s) => s.deploymentUrl);
 
   // Store handler references for clean removal
   const eventHandlersRef = useRef<{
@@ -159,7 +181,154 @@ export default function WebsitePreview({
     setHasMounted(true);
   }, []);
 
-  const previewUrl = deploymentUrl;
+  const previewUrl = editorState.sandboxUrl || initialUrl;
+
+  // Initialize sandbox deployment and polling
+  const initializeSandbox = useCallback(async () => {
+    let isMounted = true;
+    let pollInterval: NodeJS.Timeout;
+
+    try {
+      dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+      dispatch({ type: "SET_SANDBOX_ERROR", value: null });
+      dispatch({
+        type: "SET_DEPLOYMENT_STEP",
+        value: "Creating sandbox environment...",
+      });
+
+      // Call the server action to deploy sandbox
+      const { url, sandboxId } = await deploySandboxAndStopExisting(id);
+
+      if (!isMounted) return;
+
+      dispatch({
+        type: "SET_DEPLOYMENT_STEP",
+        value: "Waiting for sandbox to be ready...",
+      });
+
+      // Start polling for sandbox status
+      pollInterval = setInterval(async () => {
+        try {
+          // Get sandbox status using the API route
+          const statusResponse = await fetch("/api/sandbox-status", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ sandboxId, id }),
+          });
+
+          if (!statusResponse.ok) {
+            throw new Error("Failed to fetch sandbox status");
+          }
+
+          const result = await statusResponse.json();
+
+          if (result.success) {
+            const status = result.status;
+
+            if (isMounted) {
+              if (status === "running") {
+                dispatch({ type: "SET_SANDBOX_URL", value: result.url || url });
+                dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+                clearInterval(pollInterval);
+                toast({
+                  title: "Sandbox Ready!",
+                  description: "Your development environment is now available.",
+                });
+              } else if (status === "failed") {
+                clearInterval(pollInterval);
+                dispatch({
+                  type: "SET_SANDBOX_ERROR",
+                  value: "Sandbox deployment failed. Please try again.",
+                });
+                dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+              } else {
+                // Update the step to show current status
+                const statusMessages = {
+                  pending: "Sandbox is being created...",
+                  running: "Sandbox is starting up...",
+                  stopping: "Sandbox is stopping...",
+                  stopped: "Sandbox has stopped...",
+                  failed: "Sandbox deployment failed",
+                };
+                dispatch({
+                  type: "SET_DEPLOYMENT_STEP",
+                  value:
+                    statusMessages[status as keyof typeof statusMessages] ||
+                    `Sandbox status: ${status}...`,
+                });
+              }
+            }
+          } else {
+            throw new Error(result.error || "Failed to get sandbox status");
+          }
+        } catch (error) {
+          // Error getting status, continue polling
+          console.log("Error getting sandbox status, continuing to poll...");
+          if (isMounted) {
+            dispatch({
+              type: "SET_DEPLOYMENT_STEP",
+              value: "Checking sandbox status...",
+            });
+          }
+        }
+      }, 2000); // Poll every 2 seconds
+
+      // Set a timeout to stop polling after 5 minutes
+      setTimeout(
+        () => {
+          if (isMounted && editorState.isSandboxLoading) {
+            clearInterval(pollInterval);
+            dispatch({
+              type: "SET_SANDBOX_ERROR",
+              value: "Sandbox deployment timed out. Please try again.",
+            });
+            dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+          }
+        },
+        5 * 60 * 1000
+      );
+    } catch (error) {
+      if (isMounted) {
+        console.error("Failed to deploy sandbox:", error);
+        dispatch({
+          type: "SET_SANDBOX_ERROR",
+          value:
+            error instanceof Error ? error.message : "Failed to deploy sandbox",
+        });
+        dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [id]);
+
+  // Retry function for sandbox deployment
+  const retrySandbox = useCallback(() => {
+    dispatch({ type: "SET_SANDBOX_ERROR", value: null });
+    dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+    dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Initializing..." });
+    initializeSandbox();
+  }, [initializeSandbox]);
+
+  // Initialize sandbox on mount
+  useEffect(() => {
+    if (hasMounted && !editorState.sandboxUrl && !editorState.sandboxError) {
+      initializeSandbox();
+    }
+  }, [
+    hasMounted,
+    editorState.sandboxUrl,
+    editorState.sandboxError,
+    initializeSandbox,
+  ]);
 
   // Function to reload the iframe
   const reloadIframe = useCallback(() => {
@@ -183,18 +352,44 @@ export default function WebsitePreview({
     }
   }, [editorState.iframeReady]);
 
-  // Render fallback content when no URL is available
-  if (!previewUrl) {
+  // Render fallback content when no URL is available or sandbox is loading
+  if (!previewUrl || editorState.isSandboxLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
         <div className="text-center max-w-md">
           <h3 className="text-xl font-medium mb-2">Website Preview</h3>
-          <p className="text-gray-500 mb-4">
-            {editorState.iframeError
-              ? `Error loading preview: ${editorState.iframeError}`
-              : "Your website is being generated. The preview will appear here once it's ready."}
-          </p>
-          <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+          {editorState.isSandboxLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500 mb-4">Deploying Sandbox</p>
+              <p className="text-gray-600 text-sm">
+                {editorState.deploymentStep}
+              </p>
+            </>
+          ) : editorState.sandboxError ? (
+            <>
+              <div className="text-red-500 text-6xl mb-4">⚠️</div>
+              <p className="text-gray-500 mb-4">Deployment Failed</p>
+              <p className="text-gray-600 text-sm mb-4">
+                {editorState.sandboxError}
+              </p>
+              <button
+                onClick={retrySandbox}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 mb-4">
+                {editorState.iframeError
+                  ? `Error loading preview: ${editorState.iframeError}`
+                  : "Your website is being generated. The preview will appear here once it's ready."}
+              </p>
+              <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+            </>
+          )}
         </div>
       </div>
     );

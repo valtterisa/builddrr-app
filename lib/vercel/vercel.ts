@@ -7,6 +7,9 @@ import {
   updateDomain,
   findDomainByName,
 } from "@/lib/supabase/domains";
+import { createAppAuth } from "@octokit/auth-app";
+import { Sandbox } from "@vercel/sandbox";
+import ms from "ms";
 
 const vercel = new Vercel({
   bearerToken: process.env.VERCEL_TOKEN!,
@@ -455,5 +458,110 @@ export async function verifyDomainSetup({
     }
 
     throw error;
+  }
+}
+
+export async function deploySandboxAndStopExisting(appName: string) {
+  const auth = createAppAuth({
+    appId: process.env.GITHUB_APP_ID!,
+    privateKey: process.env.GITHUB_APP_PRIVATE_KEY!,
+    installationId: process.env.GITHUB_APP_INSTALLATION_ID!,
+  });
+
+  // Get the installation access token (not a JWT)
+  const { token } = await auth({ type: "installation" });
+
+  // check database if there is a sandbox and then check if its running.
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("preview_environments")
+    .select("sandbox_id")
+    .eq("app_name", appName)
+    .single();
+
+  if (data) {
+    const { sandbox_id } = data;
+
+    const sandbox = await getSandboxStatus(sandbox_id);
+    // If there is existing running sandbox we stop it.
+    if (sandbox.success) {
+      const sandbox = await Sandbox.get({
+        teamId: process.env.VERCEL_TEAM_ID!,
+        projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
+        token: process.env.VERCEL_TOKEN!,
+        sandboxId: sandbox_id,
+      });
+
+      if (sandbox.status === "running") {
+        await sandbox.stop();
+      }
+    }
+  }
+
+  const sandbox = await Sandbox.create({
+    teamId: process.env.VERCEL_TEAM_ID!,
+    projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
+    token: process.env.VERCEL_TOKEN!,
+    source: {
+      url: `https://github.com/builddrr-user-sites/${appName}.git`,
+      type: "git",
+      username: "x-access-token",
+      password: token, // Github App installation token
+    },
+    resources: { vcpus: 2 },
+    timeout: ms("5m"),
+    ports: [3000],
+    runtime: "node22",
+  });
+
+  const install = await sandbox.runCommand({
+    cmd: "npm",
+    args: ["install", "--loglevel", "info"],
+    stderr: process.stderr,
+    stdout: process.stdout,
+  });
+
+  if (install.exitCode != 0) {
+    process.exit(1);
+  }
+
+  await sandbox.runCommand({
+    cmd: "npm",
+    args: ["run", "dev"],
+    stderr: process.stderr,
+    stdout: process.stdout,
+    detached: true,
+  });
+
+  // save the sandbox id to database so we know what sandbox to stop before updating files.
+  await supabase
+    .from("preview_environments")
+    .update({ sandbox_id: sandbox.sandboxId })
+    .eq("app_name", appName);
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const url = sandbox.domain(3000);
+
+  return { url: url, sandboxId: sandbox.sandboxId };
+}
+
+export async function getSandboxStatus(sandboxId: string) {
+  try {
+    const sandbox = await Sandbox.get({
+      teamId: process.env.VERCEL_TEAM_ID!,
+      projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
+      token: process.env.VERCEL_TOKEN!,
+      sandboxId: sandboxId,
+    });
+    return {
+      success: true,
+      status: sandbox.status,
+      url: sandbox.domain(3000),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to get sandbox status",
+    };
   }
 }

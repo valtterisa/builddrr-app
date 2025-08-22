@@ -6,9 +6,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { redis } from "@/lib/redis";
 import { createRepoFromTemplate, uploadFilesToRepo } from "@/lib/github";
-import { Sandbox } from "@vercel/sandbox";
-import ms from "ms";
-import { createAppAuth } from "@octokit/auth-app";
+import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
 
 export type Operation = {
   operation: "write" | "update" | "delete" | "code" | "rename" | "dependency";
@@ -170,79 +168,6 @@ export async function sendChatMessage(
       error: error instanceof Error ? error.message : "Failed to save message",
     };
   }
-}
-
-export async function deploySandbox(appName: string) {
-  console.log("deploying sandbox for:", appName);
-  const auth = createAppAuth({
-    appId: process.env.GITHUB_APP_ID!,
-    privateKey: process.env.GITHUB_APP_PRIVATE_KEY!,
-    installationId: process.env.GITHUB_APP_INSTALLATION_ID!,
-  });
-
-  console.log("auth", auth);
-
-  // Get the installation access token (not a JWT)
-  const { token } = await auth({ type: "installation" });
-
-  console.log("token", token);
-
-  const sandbox = await Sandbox.create({
-    teamId: process.env.VERCEL_TEAM_ID!,
-    projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
-    token: process.env.VERCEL_TOKEN!,
-    source: {
-      url: `https://github.com/builddrr-user-sites/${appName}.git`,
-      type: "git",
-      username: "x-access-token",
-      password: token, // Github App installation token
-    },
-    resources: { vcpus: 2 },
-    timeout: ms("5m"),
-    ports: [3000],
-    runtime: "node22",
-  });
-
-  console.log("sandbox created:", sandbox);
-
-  const install = await sandbox.runCommand({
-    cmd: "npm",
-    args: ["install", "--loglevel", "info"],
-    stderr: process.stderr,
-    stdout: process.stdout,
-  });
-
-  if (install.exitCode != 0) {
-    console.log("installing packages failed");
-    process.exit(1);
-  }
-
-  console.log(`Starting the development server...`);
-  await sandbox.runCommand({
-    cmd: "npm",
-    args: ["run", "dev"],
-    stderr: process.stderr,
-    stdout: process.stdout,
-    detached: true,
-  });
-
-  // Save sandboxId to supabase so we can retrieve based on appName
-  const sandboxId = sandbox.sandboxId;
-
-  console.log("sandboxId", sandboxId);
-
-  const supabase = await createClient();
-  await supabase
-    .from("preview_environments")
-    .update({
-      sandbox_id: sandboxId,
-    })
-    .eq("app_name", appName);
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const url = sandbox.domain(3000);
-
-  return url;
 }
 
 export async function* generateAIResponseStream(
@@ -640,8 +565,7 @@ export async function* generateAIResponseStream(
 
       await uploadFilesToRepo(appName, collectedFiles);
 
-      const url = await deploySandbox(appName);
-      console.log("url", url);
+      const { url } = await deploySandboxAndStopExisting(appName);
       if (url) {
         yield {
           type: "progress",
