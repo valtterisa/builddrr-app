@@ -5,7 +5,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Suspense } from "react";
 import { PostHogProvider } from "@/components/PostHogProvider";
-import { MobileBlockerInstant } from "@/components/mobile-blocker-instant";
 
 export const metadata: Metadata = {
   title: "Builddrr",
@@ -24,7 +23,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geist.className}`}>
-        <MobileBlockerInstant />
         <PostHogProvider>
           <Suspense fallback={null}>{children}</Suspense>
           <Toaster />

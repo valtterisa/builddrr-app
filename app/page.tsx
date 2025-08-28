@@ -14,17 +14,14 @@ export default async function LandingPage() {
 
   return (
     <>
-      <MigrationWarning />
-      <div className="pt-24">
-        <div className="relative">
-          <Navbar user={user?.user_metadata} />
-          <PromptTool user={user} />
-        </div>
-
-        {/* <DemoVideo /> */}
-        <Pricing user={user} />
-        <Footer />
+      <div className="relative">
+        <Navbar user={user?.user_metadata} />
+        <PromptTool user={user} />
       </div>
+
+      {/* <DemoVideo /> */}
+      <Pricing user={user} />
+      <Footer />
     </>
   );
 }

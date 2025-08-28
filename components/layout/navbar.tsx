@@ -8,6 +8,8 @@ import {
   CreditCardIcon,
   LogOutIcon,
   LayoutDashboard,
+  Menu,
+  X,
 } from "lucide-react";
 import Logo from "../logo";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -23,9 +25,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/app/(auth)/actions";
 import { useState, useEffect } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 
 export default function Navbar({ user }: any) {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -35,20 +39,25 @@ export default function Navbar({ user }: any) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <motion.header
-      className={`fixed w-screen top-9 left-0 right-0 z-50 transition-all duration-300 ease-in-out border-b border-gray-200
+      className={`fixed w-screen left-0 right-0 z-50 transition-all duration-300 ease-in-out border-b border-gray-200
         ${scrolled ? "bg-white/90 backdrop-blur-sm shadow-md border-b border-gray-300" : "bg-transparent"}
       `}
     >
       <div className="max-w-screen-xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Desktop */}
+        {/* Logo */}
         <div className="flex items-center gap-1">
           <Logo className="h-4 w-4 md:h-8 md:w-8" />
-
-          <span className="text-2xl font-bold text-black">Builddrr</span>
+          <span className="text-xl md:text-2xl font-bold text-black">Builddrr</span>
         </div>
-        <div className="flex items-center gap-4">
+
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-4">
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -67,7 +76,7 @@ export default function Navbar({ user }: any) {
                       {user.name?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="hidden md:block text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-gray-900">
                     {user.name}
                   </span>
                   <MoreVerticalIcon className="ml-1 size-4" />
@@ -123,17 +132,122 @@ export default function Navbar({ user }: any) {
               <Button
                 href="/login"
                 variant="outline"
-                className="hidden md:flex text-purple-600  hover:bg-purple-50"
+                className="text-purple-600 hover:bg-purple-50"
               >
                 Sign In
               </Button>
               <Button
                 href="/signup"
-                className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+                className="bg-black text-white hover:bg-gray-800"
               >
                 Start for Free
               </Button>
             </div>
+          )}
+        </div>
+
+        {/* Mobile Menu Button */}
+        <div className="md:hidden">
+          {user ? (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-2">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80" title="Menu">
+                <SheetHeader>
+                  <SheetTitle className="text-left"></SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-4">
+                  {/* User Info */}
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Avatar className="h-12 w-12 rounded-lg">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback className="rounded-lg">
+                        {user.name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-gray-900">{user.name}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="space-y-2">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <LayoutDashboard className="h-5 w-5" />
+                      <span>Dashboard</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/account"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <UserCircleIcon className="h-5 w-5" />
+                      <span>Account</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/account/billing"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <CreditCardIcon className="h-5 w-5" />
+                      <span>Billing</span>
+                    </Link>
+                  </div>
+
+                  {/* Logout Button */}
+                  <div className="pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        logout();
+                        closeMobileMenu();
+                      }}
+                    >
+                      <LogOutIcon className="mr-3 h-5 w-5" />
+                      Log out
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-2">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80 pt-16" title="Menu">
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <Button
+                      href="/login"
+                      variant="outline"
+                      className="w-full justify-center text-purple-600 hover:bg-purple-50"
+                      onClick={closeMobileMenu}
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      href="/signup"
+                      className="w-full justify-center bg-black text-white hover:bg-gray-800"
+                      onClick={closeMobileMenu}
+                    >
+                      Start for Free
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           )}
         </div>
       </div>
