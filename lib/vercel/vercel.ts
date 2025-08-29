@@ -516,6 +516,11 @@ export async function deploySandboxAndStopExisting(appName: string) {
     runtime: "node22",
   });
 
+  console.log(
+    "🔍 [DEBUG] Sandbox repo",
+    `https://github.com/builddrr-user-sites/${appName}.git`
+  );
+
   console.log("🔍 [DEBUG] Running install");
   const install = await sandbox.runCommand({
     cmd: "npm",
@@ -526,12 +531,14 @@ export async function deploySandboxAndStopExisting(appName: string) {
     process.exit(1);
   }
 
-  console.log("🔍 [DEBUG] Running dev");
+  console.log("🔍 [DEBUG] Running start");
   await sandbox.runCommand({
     cmd: "npm",
     args: ["run", "dev"],
     detached: true,
   });
+
+  console.log("🔍 [DEBUG] Sandbox created", sandbox);
 
   // save the sandbox id to database so we know what sandbox to stop before updating files.
   await supabase

@@ -1094,7 +1094,7 @@ export default function WebsitePreview({
           <div className="relative h-full">
             <iframe
               src={previewUrl}
-              className="w-full h-full border-0 rounded-3xl"
+              className="w-full h-full border-0 focus:outline-none"
               onError={() => {
                 console.error("Failed to load preview");
               }}
