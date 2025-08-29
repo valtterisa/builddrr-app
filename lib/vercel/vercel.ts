@@ -479,24 +479,35 @@ export async function deploySandboxAndStopExisting(appName: string) {
     .eq("app_name", appName)
     .single();
 
-  // if (data) {
-  //   const { sandbox_id } = data;
+  // If an existing sandbox is recorded, try to reuse it
+  if (data && data.sandbox_id) {
+    try {
+      const existing = await Sandbox.get({
+        teamId: process.env.VERCEL_TEAM_ID!,
+        projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
+        token: process.env.VERCEL_TOKEN!,
+        sandboxId: data.sandbox_id,
+      });
 
-  //   const sandbox = await getSandboxStatus(sandbox_id);
-  //   // If there is existing running sandbox we stop it.
-  //   if (sandbox.success) {
-  //     const sandbox = await Sandbox.get({
-  //       teamId: process.env.VERCEL_TEAM_ID!,
-  //       projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
-  //       token: process.env.VERCEL_TOKEN!,
-  //       sandboxId: sandbox_id,
-  //     });
+      console.log("🔍 [DEBUG] Found existing sandbox", {
+        sandboxId: data.sandbox_id,
+        status: existing.status,
+      });
 
-  //     if (sandbox.status === "running") {
-  //       await sandbox.stop();
-  //     }
-  //   }
-  // }
+      // If existing sandbox is running or pending/starting, reuse it
+      if (existing.status === "running" || existing.status === "pending") {
+        const url = existing.domain(3000);
+        return { url, sandboxId: data.sandbox_id };
+      }
+
+      // If it's stopped or failed, we'll create a new one below
+    } catch (e) {
+      console.warn(
+        "⚠️ [DEBUG] Failed to fetch existing sandbox, creating new",
+        e
+      );
+    }
+  }
 
   console.log("🔍 [DEBUG] Creating new sandbox");
 
@@ -543,8 +554,9 @@ export async function deploySandboxAndStopExisting(appName: string) {
   // save the sandbox id to database so we know what sandbox to stop before updating files.
   await supabase
     .from("preview_environments")
-    .update({ sandbox_id: sandbox.sandboxId })
-    .eq("app_name", appName);
+    .upsert([{ app_name: appName, sandbox_id: sandbox.sandboxId }], {
+      onConflict: "app_name",
+    });
 
   await new Promise((resolve) => setTimeout(resolve, 500));
   const url = sandbox.domain(3000);
