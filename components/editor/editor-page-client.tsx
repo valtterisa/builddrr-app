@@ -260,13 +260,13 @@ export default function EditorPageClient({
       <Drawer shouldScaleBackground={false} snapPoints={[0.4, 0.7, 0.95]}>
         <DrawerTrigger asChild>
           <div className="md:hidden fixed bottom-1 left-0 right-0 z-40 flex justify-center">
-            <div className="h-6 px-4 rounded-full bg-muted/90 border shadow-sm flex items-center gap-2 active:scale-[0.99] transition">
+            <div className="h-10 px-4 rounded-full bg-muted/90 border shadow-sm flex items-center gap-2 active:scale-[0.99] transition">
               <div className="h-1.5 w-12 bg-muted-foreground/40 rounded-full" />
               <span className="text-xs text-muted-foreground">Chat</span>
             </div>
           </div>
         </DrawerTrigger>
-        <DrawerContent className="md:hidden h-[75vh] p-0">
+        <DrawerContent className="md:hidden h-[100vh] p-0">
           <DrawerTitle className="sr-only">Editor Chat</DrawerTitle>
           <div className="flex flex-col h-full">
             <div className="px-4 py-2 border-b">
