@@ -49,7 +49,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
+    <div className="container flex items-center justify-center min-h-screen py-10 md:px-4 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2">

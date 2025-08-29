@@ -71,7 +71,7 @@ export default function CreateBlogPostClient() {
   };
 
   return (
-    <div className="flex flex-col space-y-6 container py-10 px-4 md:px-6">
+    <div className="flex flex-col space-y-6 container py-10 md:px-4">
       <h2 className="text-2xl font-bold tracking-tight">Create Blog Post</h2>
 
       <form onSubmit={(e) => handleSubmit(e, false)}>

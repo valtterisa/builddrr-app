@@ -83,7 +83,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="container flex items-center justify-center min-h-screen py-10 px-4 md:px-6 bg-gradient-to-b from-purple-50 to-white">
+    <div className="container flex items-center justify-center min-h-screen py-10 md:px-4 bg-gradient-to-b from-purple-50 to-white">
       <div className="w-full max-w-md">
         <Card className="border-purple-100 shadow-lg">
           <CardHeader className="space-y-1">

@@ -29,7 +29,7 @@ export function AllWebsitesClient({ websites }: WebsitesListProps) {
   const visibleWebsites = websites
 
   return (
-    <div className="px-4 flex flex-col min-h-screen min-w-0">
+    <div className="md:px-4 flex flex-col min-h-screen min-w-0">
       <SiteHeader title="All Websites" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
         {visibleWebsites.map((website) => (

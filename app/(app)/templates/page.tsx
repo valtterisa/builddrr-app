@@ -123,7 +123,7 @@ export default function TemplatesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50">
-      <div className="container py-12 px-4 md:px-6">
+      <div className="container py-12 md:px-4">
         <Button
           variant="ghost"
           onClick={() => router.push("/")}
@@ -157,11 +157,10 @@ export default function TemplatesPage() {
               transition={{ duration: 0.5 }}
             >
               <Card
-                className={`overflow-hidden cursor-pointer transition-all duration-300 ${
-                  selectedTemplate === template.id
-                    ? "ring-2 ring-purple-500 shadow-lg"
-                    : "hover:shadow-xl"
-                }`}
+                className={`overflow-hidden cursor-pointer transition-all duration-300 ${selectedTemplate === template.id
+                  ? "ring-2 ring-purple-500 shadow-lg"
+                  : "hover:shadow-xl"
+                  }`}
                 onMouseEnter={() => setHoveredTemplate(template.id)}
                 onMouseLeave={() => setHoveredTemplate(null)}
               >

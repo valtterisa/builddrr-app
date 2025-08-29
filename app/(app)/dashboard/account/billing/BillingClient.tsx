@@ -27,7 +27,7 @@ const BillingClient: React.FC<BillingClientProps> = ({
   customerPortalUrl,
 }) => {
   return (
-    <div className="px-4 md:px-6">
+    <div className="md:px-4">
       <SiteHeader title="Billing" />
       <div className="space-y-6 pt-4">
         <Card>

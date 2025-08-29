@@ -18,7 +18,7 @@ export default function DashboardClient({
   user,
 }: DashboardClientProps) {
   return (
-    <div className="px-4 flex min-h-screen min-w-0">
+    <div className="md:px-4 flex min-h-screen min-w-0">
       <div className="flex-1 min-w-0">
         <SiteHeader title="Overview" />
         <div className="space-y-8 py-4">

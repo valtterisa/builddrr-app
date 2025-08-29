@@ -132,7 +132,7 @@ export default function AccountClient({ user }: { user: User }) {
     );
 
     return (
-        <div className="px-4 md:px-6">
+        <div className="md:px-4">
             <SiteHeader title="Account" />
             <div className="space-y-6 pt-4">
                 {/* Profile Settings Card */}

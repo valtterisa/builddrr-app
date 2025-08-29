@@ -85,7 +85,7 @@ export default function TemplatePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50">
-      <div className="container py-12 px-4 md:px-6">
+      <div className="container py-12 md:px-4">
         <Button
           variant="ghost"
           onClick={() => router.push("/templates")}
@@ -116,9 +116,8 @@ export default function TemplatePage() {
                   <button
                     key={index}
                     onClick={() => setActiveImage(index)}
-                    className={`relative aspect-video rounded-lg overflow-hidden transition-all ${
-                      activeImage === index ? "ring-2 ring-purple-500" : ""
-                    }`}
+                    className={`relative aspect-video rounded-lg overflow-hidden transition-all ${activeImage === index ? "ring-2 ring-purple-500" : ""
+                      }`}
                   >
                     <Image
                       src={image}

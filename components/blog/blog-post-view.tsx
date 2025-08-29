@@ -68,7 +68,7 @@ export default function BlogPostView({ postId }: BlogPostViewProps) {
   };
 
   return (
-    <div className="space-y-6 container py-10 px-4 md:px-6">
+    <div className="space-y-6 container py-10 md:px-4">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"

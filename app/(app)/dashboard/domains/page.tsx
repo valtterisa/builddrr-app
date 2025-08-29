@@ -3,7 +3,7 @@ import DomainsListClient from "./DomainsListClient";
 
 export default function DomainsPage() {
     return (
-        <div className="px-4 md:px-6">
+        <div className="md:px-4">
             <SiteHeader title="Domains" />
             <div className="pt-4">
                 <DomainsListClient />
