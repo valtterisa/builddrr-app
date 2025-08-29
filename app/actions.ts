@@ -564,7 +564,7 @@ export async function* generateAIResponseStream(
       await createRepoFromTemplate(appName);
 
       await uploadFilesToRepo(appName, collectedFiles);
-
+      console.log("🔍 [DEBUG] Deploying sandbox and stopping existing");
       const { url } = await deploySandboxAndStopExisting(appName);
       if (url) {
         yield {

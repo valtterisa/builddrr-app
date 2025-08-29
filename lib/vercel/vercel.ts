@@ -479,24 +479,26 @@ export async function deploySandboxAndStopExisting(appName: string) {
     .eq("app_name", appName)
     .single();
 
-  if (data) {
-    const { sandbox_id } = data;
+  // if (data) {
+  //   const { sandbox_id } = data;
 
-    const sandbox = await getSandboxStatus(sandbox_id);
-    // If there is existing running sandbox we stop it.
-    if (sandbox.success) {
-      const sandbox = await Sandbox.get({
-        teamId: process.env.VERCEL_TEAM_ID!,
-        projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
-        token: process.env.VERCEL_TOKEN!,
-        sandboxId: sandbox_id,
-      });
+  //   const sandbox = await getSandboxStatus(sandbox_id);
+  //   // If there is existing running sandbox we stop it.
+  //   if (sandbox.success) {
+  //     const sandbox = await Sandbox.get({
+  //       teamId: process.env.VERCEL_TEAM_ID!,
+  //       projectId: process.env.VERCEL_SANDBOX_TEMPLATE_PROJECT_ID!,
+  //       token: process.env.VERCEL_TOKEN!,
+  //       sandboxId: sandbox_id,
+  //     });
 
-      if (sandbox.status === "running") {
-        await sandbox.stop();
-      }
-    }
-  }
+  //     if (sandbox.status === "running") {
+  //       await sandbox.stop();
+  //     }
+  //   }
+  // }
+
+  console.log("🔍 [DEBUG] Creating new sandbox");
 
   const sandbox = await Sandbox.create({
     teamId: process.env.VERCEL_TEAM_ID!,
@@ -514,22 +516,20 @@ export async function deploySandboxAndStopExisting(appName: string) {
     runtime: "node22",
   });
 
+  console.log("🔍 [DEBUG] Running install");
   const install = await sandbox.runCommand({
     cmd: "npm",
     args: ["install", "--loglevel", "info"],
-    stderr: process.stderr,
-    stdout: process.stdout,
   });
 
   if (install.exitCode != 0) {
     process.exit(1);
   }
 
+  console.log("🔍 [DEBUG] Running dev");
   await sandbox.runCommand({
     cmd: "npm",
     args: ["run", "dev"],
-    stderr: process.stderr,
-    stdout: process.stdout,
     detached: true,
   });
 
@@ -541,6 +541,7 @@ export async function deploySandboxAndStopExisting(appName: string) {
 
   await new Promise((resolve) => setTimeout(resolve, 500));
   const url = sandbox.domain(3000);
+  console.log("🔍 [DEBUG] Sandbox created", url);
 
   return { url: url, sandboxId: sandbox.sandboxId };
 }

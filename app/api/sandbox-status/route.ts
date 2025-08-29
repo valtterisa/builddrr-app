@@ -14,11 +14,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const success = await rateLimit(10, "1m", user.id);
-  if (!success) {
-    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
-  }
-
   try {
     const { sandboxId } = await request.json();
 
@@ -31,7 +26,13 @@ export async function POST(request: NextRequest) {
 
     const result = await getSandboxStatus(sandboxId);
 
-    if (result.success) {
+    if (result.status === "stopped") {
+      return NextResponse.json({ error: "Sandbox stopped" }, { status: 400 });
+    }
+
+    console.log("🔍 [DEBUG] Sandbox status", result);
+
+    if (result.success && result.status === "running") {
       return NextResponse.json(result);
     } else {
       return NextResponse.json({ error: result.error }, { status: 500 });
