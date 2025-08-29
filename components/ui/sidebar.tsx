@@ -229,7 +229,7 @@ const Sidebar = React.forwardRef<
         {/* This is what handles the sidebar gap on desktop */}
         <div
           className={cn(
-            "duration-200 relative h-svh bg-transparent transition-[width] ease-linear",
+            "duration-200 relative h-dvh md:h-svh bg-transparent transition-[width] ease-linear",
             "group-data-[collapsible=offcanvas]:w-0",
             isMobile ? "w-0" : `w-[--sidebar-width]`,
             "group-data-[side=right]:rotate-180",

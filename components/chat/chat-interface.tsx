@@ -91,9 +91,8 @@ const ChatMessageComponent = memo(
         className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
       >
         <div
-          className={`max-w-[80%] rounded-lg p-3 ${
-            message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
-          }`}
+          className={`max-w-[80%] rounded-lg p-3 ${message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+            }`}
         >
           <div className="text-sm prose prose-sm max-w-none">
             {message.isUser ? (
@@ -106,11 +105,10 @@ const ChatMessageComponent = memo(
             )}
           </div>
           <div
-            className={`text-xs mt-1 ${
-              message.isUser
+            className={`text-xs mt-1 ${message.isUser
                 ? "text-primary-foreground/70"
                 : "text-muted-foreground"
-            }`}
+              }`}
           >
             {new Date(message.timestamp).toLocaleTimeString()}
           </div>
@@ -258,7 +256,7 @@ export default function ChatInterface({
   return (
     <div
       className={cn(
-        "flex flex-col min-h-0 w-full max-h-[calc(100vh-6rem)]",
+        "flex flex-col min-h-0 w-full max-h-[calc(100dvh-6rem)]",
         className
       )}
     >
