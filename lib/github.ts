@@ -40,6 +40,25 @@ async function getOctokitAsInstallation() {
   return new Octokit({ auth: token });
 }
 
+export async function checkRepoExists(appName: string): Promise<boolean> {
+  try {
+    const octokit = await getOctokitAsInstallation();
+    await octokit.request(`GET /repos/${ORG}/${appName}`, {
+      owner: ORG,
+      repo: appName,
+    });
+    console.log(`Repository ${appName} already exists`);
+    return true;
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.log(`Repository ${appName} does not exist`);
+      return false;
+    }
+    console.error(`Error checking repository ${appName}:`, error);
+    return false;
+  }
+}
+
 export async function createRepoFromTemplate(appName: string): Promise<string> {
   console.log("Creating repo from template", TEMPLATE_REPO, appName);
   const octokit = await getOctokitAsInstallation();

@@ -6,6 +6,10 @@ import { ArrowUp } from "lucide-react";
 
 import ReactMarkdown from "react-markdown";
 import { useChatStreamStore, ChatMessage } from "@/lib/chat-stream-store";
+import { useAIUsage } from "@/hooks/use-ai-usage";
+import { trackAIUsage } from "@/lib/ai-usage-tracker";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 
 // Remove code from AI responses and optionally surface friendly file creation lines
 function sanitizeAIContent(raw: string): string {
@@ -91,8 +95,9 @@ const ChatMessageComponent = memo(
         className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
       >
         <div
-          className={`max-w-[80%] rounded-lg p-3 ${message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
-            }`}
+          className={`max-w-[80%] rounded-lg p-3 ${
+            message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+          }`}
         >
           <div className="text-sm prose prose-sm max-w-none">
             {message.isUser ? (
@@ -105,10 +110,11 @@ const ChatMessageComponent = memo(
             )}
           </div>
           <div
-            className={`text-xs mt-1 ${message.isUser
+            className={`text-xs mt-1 ${
+              message.isUser
                 ? "text-primary-foreground/70"
                 : "text-muted-foreground"
-              }`}
+            }`}
           >
             {new Date(message.timestamp).toLocaleTimeString()}
           </div>
@@ -166,10 +172,15 @@ export default function ChatInterface({
   const { isStreaming, streamedContent, messages } = useChatStreamStore();
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [trackingResult, setTrackingResult] = useState<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // AI usage tracking
+  const { limits, isLoading: limitsLoading } = useAIUsage();
+  const hasExceededLimits = limits.some((limit) => limit.is_exceeded);
 
   // Auto-scroll state management
   const [userScrolling, setUserScrolling] = useState(false);
@@ -319,10 +330,51 @@ export default function ChatInterface({
           {/* Invisible div for auto-scrolling */}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Show limit exceeded warning or tracking result above input */}
+        {(hasExceededLimits || trackingResult) && (
+          <div className="px-4 pb-2">
+            {hasExceededLimits && (
+              <div className="flex justify-center">
+                <Badge variant="destructive" className="text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Chat Limit Exceeded - Please Upgrade Your Plan
+                </Badge>
+              </div>
+            )}
+            {trackingResult && !hasExceededLimits && (
+              <div
+                className={`p-2 rounded-lg border text-xs ${
+                  trackingResult.success
+                    ? "bg-green-50 border-green-200 text-green-800"
+                    : "bg-red-50 border-red-200 text-red-800"
+                }`}
+              >
+                {trackingResult.success ? (
+                  <div className="flex justify-between items-center">
+                    <span>✅ Usage tracked successfully</span>
+                    <span>
+                      Supabase: {trackingResult.supabaseTracked ? "✅" : "❌"} |
+                      Polar: {trackingResult.polarTracked ? "✅" : "❌"}
+                    </span>
+                  </div>
+                ) : (
+                  <div>❌ {trackingResult.error}</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!inputValue.trim() || isStreaming || isAutoProcessing) {
+            if (
+              !inputValue.trim() ||
+              isStreaming ||
+              isAutoProcessing ||
+              hasExceededLimits
+            ) {
               return;
             }
 
@@ -330,9 +382,19 @@ export default function ChatInterface({
             const messageToSend = inputValue;
             setInputValue("");
             setIsThinking(true);
+            setTrackingResult(null);
 
             try {
-              if (onSendMessage) await onSendMessage(messageToSend);
+              // Track AI usage
+              const estimatedTokens = Math.round(messageToSend.length * 1.3);
+              const trackResult = await trackAIUsage("chat", estimatedTokens);
+              setTrackingResult(trackResult);
+
+              if (trackResult.success && onSendMessage) {
+                await onSendMessage(messageToSend);
+              } else if (!trackResult.success) {
+                setIsThinking(false);
+              }
             } catch (error) {
               console.error("Error in onSendMessage:", error);
               setIsThinking(false);
@@ -357,9 +419,13 @@ export default function ChatInterface({
               rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask a follow up..."
+              placeholder={
+                hasExceededLimits
+                  ? "Chat limit exceeded - please upgrade"
+                  : "Ask a follow up..."
+              }
               spellCheck={false}
-              disabled={isStreaming || isAutoProcessing}
+              disabled={isStreaming || isAutoProcessing || hasExceededLimits}
               style={{
                 minHeight: "2.5rem",
                 overflow: "hidden",
@@ -369,7 +435,12 @@ export default function ChatInterface({
             <button
               type="submit"
               className="absolute bottom-1/2 translate-y-1/2 right-2 bg-primary text-white rounded-full p-2 shadow-sm hover:bg-primary/90 disabled:opacity-50 transition"
-              disabled={isStreaming || isAutoProcessing || !inputValue.trim()}
+              disabled={
+                isStreaming ||
+                isAutoProcessing ||
+                !inputValue.trim() ||
+                hasExceededLimits
+              }
               tabIndex={0}
               aria-label="Send"
             >

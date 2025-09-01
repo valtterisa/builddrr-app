@@ -172,7 +172,8 @@ export async function sendChatMessage(
 
 export async function* generateAIResponseStream(
   prompt: string,
-  appName: string
+  appName: string,
+  repoExists: boolean = false
 ): AsyncGenerator<
   | { type: "analysis"; content: string }
   | { type: "progress"; status: string; files?: string[]; url?: string }
@@ -561,7 +562,14 @@ export async function* generateAIResponseStream(
       files: Object.keys(collectedFiles),
     };
     try {
-      await createRepoFromTemplate(appName);
+      // Only create repo if it doesn't already exist
+      if (!repoExists) {
+        await createRepoFromTemplate(appName);
+      } else {
+        console.log(
+          `[generateAIResponseStream] Repo already exists for ${appName}, skipping creation`
+        );
+      }
 
       await uploadFilesToRepo(appName, collectedFiles);
       console.log("🔍 [DEBUG] Deploying sandbox and stopping existing");

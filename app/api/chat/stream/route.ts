@@ -4,7 +4,7 @@ import { rateLimit } from "@/lib/ratelimit";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest, context: NextFetchEvent) {
-  const { message, appName } = await req.json();
+  const { message, appName, repoExists = false } = await req.json();
 
   if (!message || !appName) {
     return NextResponse.json(
@@ -31,7 +31,11 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
     async start(controller) {
       const encoder = new TextEncoder();
       try {
-        for await (const chunk of generateAIResponseStream(message, appName)) {
+        for await (const chunk of generateAIResponseStream(
+          message,
+          appName,
+          repoExists
+        )) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
           );

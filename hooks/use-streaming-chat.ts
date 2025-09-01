@@ -15,7 +15,12 @@ export const useStreamingChat = () => {
   );
 
   const sendMessage = useCallback(
-    async (message: string, appName: string, machineId?: string) => {
+    async (
+      message: string,
+      appName: string,
+      machineId?: string,
+      repoExists: boolean = false
+    ) => {
       console.log(
         "🚀 [useStreamingChat] sendMessage called with:",
         message.substring(0, 50) + "..."
@@ -39,7 +44,7 @@ export const useStreamingChat = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ message, appName }),
+          body: JSON.stringify({ message, appName, repoExists }),
         });
         console.log(
           "🔄 [useStreamingChat] Stream response received:",

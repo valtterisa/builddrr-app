@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
+import { checkRepoExists } from "@/lib/github";
 
 export default function EditorPageClient({
   id,
@@ -95,8 +96,20 @@ export default function EditorPageClient({
         }
       }
 
+      // Check if repo exists before sending message
+      let repoExists = false;
+      try {
+        repoExists = await checkRepoExists(id);
+      } catch (error) {
+        console.warn(
+          "Failed to check repo existence, assuming it doesn't exist:",
+          error
+        );
+        repoExists = false;
+      }
+
       // Step 1: Stream the analysis to chat interface and trigger deployment via backend
-      await sendStreamingMessage(message, id);
+      await sendStreamingMessage(message, id, undefined, repoExists);
 
       // Step 2: Get the final streamed content and save it as an AI message
       const finalStreamedContent =

@@ -21,6 +21,7 @@ import {
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
+import { AIUsageSidebar } from "@/components/ai-usage-sidebar";
 import {
   Sidebar,
   SidebarContent,
@@ -156,6 +157,10 @@ export function AppSidebar({
 
       <SidebarContent className="flex-1 min-h-0 overflow-auto bg-sidebar">
         <NavMain items={navMain} handleMobileClose={handleMobileClose} />
+
+        {/* AI Usage Component */}
+        <AIUsageSidebar />
+
         <NavSecondary
           items={navSecondary}
           className="mt-auto bg-sidebar"
