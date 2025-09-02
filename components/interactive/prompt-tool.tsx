@@ -17,6 +17,7 @@ import { AuthModal } from "@/components/auth-modal";
 import Logo from "../logo";
 import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
+import { generateAndSaveProjectName } from "@/lib/actions/save-project-name";
 
 export default function PromptTool({ user }: { user: any }) {
   const [prompt, setPrompt] = useState("");
@@ -104,6 +105,19 @@ export default function PromptTool({ user }: { user: any }) {
 
       if (websiteUpdate.error) throw websiteUpdate.error;
       if (previewUpdate.error) throw previewUpdate.error;
+
+      // Generate and save a user-friendly project name using AI
+      try {
+        const nameResult = await generateAndSaveProjectName(app_name, prompt);
+        if (nameResult.success && nameResult.name) {
+          console.log("Generated project name:", nameResult.name);
+        } else {
+          console.warn("Failed to generate project name:", nameResult.error);
+        }
+      } catch (nameError) {
+        console.error("Error generating project name:", nameError);
+        // Don't fail the entire process if name generation fails
+      }
 
       console.log("redirecting to editor:", app_name);
       // Manually dispatch a route start event
