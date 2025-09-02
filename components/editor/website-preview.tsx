@@ -14,6 +14,7 @@ import { useChatStreamStore } from "@/lib/chat-stream-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
 import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
 import { Monitor, RefreshCw, Smartphone } from "lucide-react";
+import LoadingUI from "@/components/loading-ui";
 
 interface EditorChange {
   targetId: string;
@@ -1234,14 +1235,11 @@ export default function WebsitePreview({
 
           <div className="relative flex-1 min-h-0">
             {showOnlyLoader ? (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center max-w-md">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                  <p className="text-gray-500 mb-1">Preparing preview...</p>
-                  <p className="text-gray-600 text-sm">
-                    {editorState.deploymentStep}
-                  </p>
-                </div>
+              <div className="h-full bg-white dark:bg-black">
+                <LoadingUI
+                  message="Preparing preview..."
+                  submessage={editorState.deploymentStep}
+                />
               </div>
             ) : (
               <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar">
@@ -1259,6 +1257,14 @@ export default function WebsitePreview({
                       console.error("Failed to load preview");
                     }}
                   />
+                  {editorState.isSandboxLoading && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      <LoadingUI
+                        message="Starting sandbox..."
+                        submessage={editorState.deploymentStep}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
