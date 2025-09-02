@@ -146,6 +146,7 @@ export default function WebsitePreview({
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState(initialUrl);
+  const [iframeNonce, setIframeNonce] = useState(0);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [deploymentAttempted, setDeploymentAttempted] = useState(false);
 
@@ -192,6 +193,9 @@ export default function WebsitePreview({
 
   const previewUrl =
     url || editorState.sandboxUrl || deploymentUrl || initialUrl;
+  const iframeSrc = previewUrl
+    ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}v=${iframeNonce}`
+    : undefined;
 
   // Initialize sandbox deployment and polling
   const initializeSandbox = useCallback(async () => {
@@ -358,16 +362,11 @@ export default function WebsitePreview({
   // Function to reload the iframe
   const reloadIframe = useCallback(() => {
     const iframe = iframeRef.current;
-    if (iframe && url) {
-      // Simply reload the iframe by setting src to the same URL
-      // This will force a fresh load without query parameters
-      const currentSrc = iframe.src;
-      iframe.src = "";
-      setTimeout(() => {
-        iframe.src = currentSrc;
-      }, 10);
+    if (iframe && previewUrl) {
+      // Force reload via nonce bump to avoid cache and ensure latest build
+      setIframeNonce((n) => n + 1);
     }
-  }, [url]);
+  }, [previewUrl]);
 
   const handleManualRefresh = useCallback(async () => {
     // Ask the server for the current status and URL; allow resolving by app id if sandboxId missing
@@ -383,6 +382,7 @@ export default function WebsitePreview({
           if (result.success && result.url) {
             if (result.url !== url) {
               setUrl(result.url);
+              setIframeNonce((n) => n + 1);
             } else {
               reloadIframe();
             }
@@ -422,6 +422,13 @@ export default function WebsitePreview({
     url,
   ]);
 
+  // React to external reload triggers from the editor (e.g., after AI finishes)
+  useEffect(() => {
+    if (reloadTrigger > 0) {
+      handleManualRefresh();
+    }
+  }, [reloadTrigger, handleManualRefresh]);
+
   // When deployment URL changes, stage it as pending and swap only when sandbox is running
   useEffect(() => {
     if (!deploymentUrl) return;
@@ -445,16 +452,10 @@ export default function WebsitePreview({
           // Only switch when running to avoid flashing a broken preview
           if (result.url !== url) {
             setUrl(result.url);
+            setIframeNonce((n) => n + 1);
           } else {
             // Same URL, force refresh to pick up new build
-            const iframe = iframeRef.current;
-            if (iframe && iframe.src) {
-              const currentSrc = iframe.src;
-              iframe.src = "";
-              setTimeout(() => {
-                iframe.src = currentSrc;
-              }, 10);
-            }
+            setIframeNonce((n) => n + 1);
           }
           setPendingUrl(null);
         }
@@ -1193,19 +1194,6 @@ export default function WebsitePreview({
   //   );
   // }
 
-  if (showOnlyLoader) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
-        <div className="text-center max-w-md">
-          <h3 className="text-xl font-medium mb-2">Website Preview</h3>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-500 mb-2">Preparing preview...</p>
-          <p className="text-gray-600 text-sm">{editorState.deploymentStep}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
       <div className="relative w-full h-full overflow-hidden">
@@ -1214,7 +1202,7 @@ export default function WebsitePreview({
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200 truncate">
                 {pendingUrl
-                  ? `${previewUrl} → (updating...)`
+                  ? `${previewUrl || "/"} → (updating...)`
                   : previewUrl || "/"}
               </div>
               <Button
@@ -1228,19 +1216,26 @@ export default function WebsitePreview({
           </div>
 
           <div className="relative h-full">
-            <iframe
-              key={previewUrl || "preview"}
-              src={previewUrl || undefined}
-              className="w-full h-full border-0 focus:outline-none"
-              onError={() => {
-                console.error("Failed to load preview");
-              }}
-            />
-
-            {pendingUrl && (
-              <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1 rounded-md shadow">
-                Deploying... switching preview when ready
+            {showOnlyLoader ? (
+              <div className="flex items-center justify-center h-full bg-gray-50">
+                <div className="text-center max-w-md">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                  <p className="text-gray-500 mb-1">Preparing preview...</p>
+                  <p className="text-gray-600 text-sm">
+                    {editorState.deploymentStep}
+                  </p>
+                </div>
               </div>
+            ) : (
+              <iframe
+                ref={iframeRef}
+                key={iframeSrc || "preview"}
+                src={iframeSrc}
+                className="w-full h-full border-0 focus:outline-none"
+                onError={() => {
+                  console.error("Failed to load preview");
+                }}
+              />
             )}
           </div>
         </div>

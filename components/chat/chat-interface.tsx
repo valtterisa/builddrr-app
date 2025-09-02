@@ -15,23 +15,15 @@ import { AlertTriangle } from "lucide-react";
 function sanitizeAIContent(raw: string): string {
   if (!raw) return raw;
 
-  // Replace any <builddrr-write file="...">...</builddrr-write> with a friendly line
-  const replacedWrites = raw.replace(
-    /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write\s*>/gi,
-    (_match, filePath: string) => {
-      const fileName = (filePath || "").split("/").pop() || filePath || "file";
-      return `\nCreating file ${fileName}\n`;
-    }
-  );
-
-  // Strip any <builddrr-code>...</builddrr-code> blocks entirely
-  const withoutBuilddrrCode = replacedWrites.replace(
-    /<builddrr-code\s*>[\s\S]*?<\/builddrr-code\s*>/gi,
-    ""
-  );
+  // Strip any custom <builddrr-*>...</builddrr-*> blocks and standalone tags entirely
+  const withoutBuilddrr = raw
+    .replace(/<builddrr-[^>]*>[\s\S]*?<\/builddrr-[^>]*>/gi, "")
+    .replace(/<builddrr[^>]*\/>/gi, "")
+    .replace(/<builddrr[^>]*>/gi, "")
+    .replace(/<\/builddrr[^>]*>/gi, "");
 
   // Remove generic HTML code/pre tags
-  const withoutHtmlCode = withoutBuilddrrCode
+  const withoutHtmlCode = withoutBuilddrr
     .replace(/<pre[\s\S]*?<\/pre>/gi, "")
     .replace(/<code[\s\S]*?<\/code>/gi, "");
 
@@ -44,9 +36,28 @@ function sanitizeAIContent(raw: string): string {
   const withoutInline = withoutFenced.replace(/`[^`]*`/g, "");
 
   // Remove indentation-based code blocks (lines starting with 4+ spaces or a tab)
-  const lines = withoutInline
+  const cleaned = withoutInline
+    // Strip any remaining HTML-like tags just in case
+    .replace(/<[^>]+>/g, "")
+    // Remove any lingering builddrr tokens
+    .replace(/\b(?:builddrr|ddrr)[-\w]*>?/gi, "");
+
+  const lines = cleaned
     .split(/\r?\n/)
-    .filter((line) => !/^([\t]|\s{4,})/.test(line))
+    // Drop any lines that still contain builddrr artifacts
+    .filter((line) => !/(builddrr|\bddrr)/i.test(line))
+    // Normalize list markers so markdown recognizes them
+    .map((line) =>
+      line
+        // Ensure dash lists have a space after '-'
+        .replace(/^-(\S)/, "- $1")
+        // Ensure star lists have a space after '*'
+        .replace(/^\*(\S)/, "* $1")
+        // Ensure plus lists have a space after '+'
+        .replace(/^\+(\S)/, "+ $1")
+    )
+    // Remove lines that are now just stray symbols
+    .filter((line) => line.trim() !== ">" && line.trim() !== "-")
     .join("\n");
   return lines;
 }
@@ -65,27 +76,63 @@ const ChatMessageComponent = memo(
     // Remove useMemo - object creation is cheap and this only runs once anyway
     const markdownComponents = {
       h1: ({ node, ...props }: any) => (
-        <h1 className="text-lg font-bold mb-2" {...props} />
+        <h1
+          className="text-base font-semibold leading-6 tracking-tight text-black mt-1 mb-2 first:mt-0"
+          {...props}
+        />
       ),
       h2: ({ node, ...props }: any) => (
-        <h2 className="text-base font-semibold mb-2" {...props} />
+        <h2
+          className="text-[15px] font-semibold leading-6 tracking-tight text-black mt-1 mb-2 first:mt-0"
+          {...props}
+        />
       ),
       h3: ({ node, ...props }: any) => (
-        <h3 className="text-sm font-semibold mb-1" {...props} />
+        <h3
+          className="text-sm font-medium leading-5 tracking-tight text-black mt-1 mb-1 first:mt-0"
+          {...props}
+        />
       ),
-      p: ({ node, ...props }: any) => <p className="mb-2" {...props} />,
+      p: ({ node, ...props }: any) => (
+        <p className="mb-2 text-black" {...props} />
+      ),
       ul: ({ node, ...props }: any) => (
-        <ul className="list-disc list-inside mb-2" {...props} />
+        <ul
+          className="mb-2 ml-5 list-disc space-y-1.5 marker:text-neutral-600"
+          {...props}
+        />
       ),
       ol: ({ node, ...props }: any) => (
-        <ol className="list-decimal list-inside mb-2" {...props} />
+        <ol
+          className="mb-2 ml-5 list-decimal space-y-1.5 marker:text-neutral-600"
+          {...props}
+        />
       ),
-      li: ({ node, ...props }: any) => <li className="mb-1" {...props} />,
+      li: ({ node, ...props }: any) => (
+        <li className="pl-1 text-black" {...props} />
+      ),
       strong: ({ node, ...props }: any) => (
-        <strong className="font-semibold" {...props} />
+        <strong className="font-semibold text-black" {...props} />
       ),
-      em: ({ node, ...props }: any) => <em className="italic" {...props} />,
-      // Do not render code/pre blocks for AI output
+      em: ({ node, ...props }: any) => (
+        <em className="italic text-black" {...props} />
+      ),
+      a: ({ node, ...props }: any) => (
+        <a
+          className="text-blue-600 underline-offset-4 hover:underline break-words"
+          target="_blank"
+          rel="noreferrer noopener"
+          {...props}
+        />
+      ),
+      blockquote: ({ node, ...props }: any) => (
+        <blockquote
+          className="my-2 border-l-2 border-neutral-300 pl-3 text-neutral-700 bg-neutral-50 rounded-r"
+          {...props}
+        />
+      ),
+      hr: () => <hr className="my-3 border-t border-neutral-200" />,
+      br: () => <br />,
       code: ({ node, ...props }: any) => null,
       pre: ({ node, ...props }: any) => null,
     };
@@ -95,11 +142,13 @@ const ChatMessageComponent = memo(
         className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
       >
         <div
-          className={`max-w-[80%] rounded-lg p-3 ${
-            message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+          className={`max-w-[80%] rounded-xl p-3 border shadow-sm ${
+            message.isUser
+              ? "bg-primary/10 border-primary/20"
+              : "bg-white border-neutral-200"
           }`}
         >
-          <div className="text-sm prose prose-sm max-w-none">
+          <div className="text-sm leading-relaxed text-black space-y-2">
             {message.isUser ? (
               <div className="whitespace-pre-wrap">{message.content}</div>
             ) : (
@@ -111,9 +160,7 @@ const ChatMessageComponent = memo(
           </div>
           <div
             className={`text-xs mt-1 ${
-              message.isUser
-                ? "text-primary-foreground/70"
-                : "text-muted-foreground"
+              message.isUser ? "text-neutral-500" : "text-neutral-500"
             }`}
           >
             {new Date(message.timestamp).toLocaleTimeString()}
@@ -129,7 +176,7 @@ ChatMessageComponent.displayName = "ChatMessageComponent";
 const AILoadingComponent = () => {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+      <div className="max-w-[80%] rounded-xl p-3 bg-white border border-neutral-200 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex space-x-1">
             <div
@@ -145,7 +192,7 @@ const AILoadingComponent = () => {
               style={{ animationDelay: "300ms" }}
             ></div>
           </div>
-          <span className="text-sm text-muted-foreground">Thinking...</span>
+          <span className="text-sm text-neutral-600">Thinking...</span>
         </div>
       </div>
     </div>
@@ -234,9 +281,12 @@ export default function ChatInterface({
   }, [isThinking, isStreaming, streamedContent]);
 
   // Detect when AI finishes streaming and call callback
+  const prevIsStreamingRef = useRef<boolean>(false);
   useEffect(() => {
-    if (!isStreaming && streamedContent && onAIFinish) {
-      // Small delay to ensure content is fully processed
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+
+    if (wasStreaming && !isStreaming && onAIFinish) {
       const timer = setTimeout(() => {
         onAIFinish();
       }, 500);
@@ -245,7 +295,7 @@ export default function ChatInterface({
     if (isStreaming) {
       setIsThinking(false);
     }
-  }, [isStreaming, streamedContent, onAIFinish]);
+  }, [isStreaming, onAIFinish]);
 
   // Auto-grow textarea height
   useEffect(() => {
@@ -263,6 +313,47 @@ export default function ChatInterface({
     messagesContainerRef.current.scrollTop =
       messagesContainerRef.current.scrollHeight;
   }, [messages.length]);
+
+  const handleSubmit = useCallback(async () => {
+    if (
+      !inputValue.trim() ||
+      isStreaming ||
+      isAutoProcessing ||
+      hasExceededLimits
+    ) {
+      return;
+    }
+
+    // Clear input immediately and show thinking animation
+    const messageToSend = inputValue;
+    setInputValue("");
+    setIsThinking(true);
+    setTrackingResult(null);
+
+    try {
+      // Send immediately so message appears in chat right away
+      if (onSendMessage) {
+        await onSendMessage(messageToSend);
+      }
+
+      // Track AI usage in the background; do not block sending/rendering
+      const estimatedTokens = Math.round(messageToSend.length * 1.3);
+      void trackAIUsage("chat", estimatedTokens)
+        .then((res) => setTrackingResult(res))
+        .catch(() => {
+          // ignore tracking errors for UX; keep chat flowing
+        });
+    } catch (error) {
+      console.error("Error in onSendMessage:", error);
+      setIsThinking(false);
+    }
+  }, [
+    inputValue,
+    isStreaming,
+    isAutoProcessing,
+    hasExceededLimits,
+    onSendMessage,
+  ]);
 
   return (
     <div
@@ -360,36 +451,7 @@ export default function ChatInterface({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (
-              !inputValue.trim() ||
-              isStreaming ||
-              isAutoProcessing ||
-              hasExceededLimits
-            ) {
-              return;
-            }
-
-            // Clear input immediately and show thinking animation
-            const messageToSend = inputValue;
-            setInputValue("");
-            setIsThinking(true);
-            setTrackingResult(null);
-
-            try {
-              // Track AI usage
-              const estimatedTokens = Math.round(messageToSend.length * 1.3);
-              const trackResult = await trackAIUsage("chat", estimatedTokens);
-              setTrackingResult(trackResult);
-
-              if (trackResult.success && onSendMessage) {
-                await onSendMessage(messageToSend);
-              } else if (!trackResult.success) {
-                setIsThinking(false);
-              }
-            } catch (error) {
-              console.error("Error in onSendMessage:", error);
-              setIsThinking(false);
-            }
+            handleSubmit();
           }}
           className="flex items-end p-4 bg-background border-t"
           style={{ boxShadow: "0 -2px 8px 0 rgba(0,0,0,0.02)" }}
@@ -410,6 +472,12 @@ export default function ChatInterface({
               rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               placeholder={
                 hasExceededLimits
                   ? "Chat limit exceeded - please upgrade"
