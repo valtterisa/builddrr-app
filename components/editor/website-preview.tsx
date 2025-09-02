@@ -13,7 +13,7 @@ import {
 import { useChatStreamStore } from "@/lib/chat-stream-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
 import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
-import { RefreshCw } from "lucide-react";
+import { Monitor, RefreshCw, Smartphone } from "lucide-react";
 
 interface EditorChange {
   targetId: string;
@@ -147,6 +147,7 @@ export default function WebsitePreview({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState(initialUrl);
   const [iframeNonce, setIframeNonce] = useState(0);
+  const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [deploymentAttempted, setDeploymentAttempted] = useState(false);
 
@@ -1196,8 +1197,8 @@ export default function WebsitePreview({
 
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
-      <div className="relative w-full h-full overflow-hidden">
-        <div className="w-full h-full bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+      <div className="relative w-full h-full overflow-hidden flex flex-col">
+        <div className="w-full h-full bg-white rounded-t-lg shadow-lg overflow-hidden border border-gray-200 flex flex-col min-h-0">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200 truncate">
@@ -1205,17 +1206,33 @@ export default function WebsitePreview({
                   ? `${previewUrl || "/"} → (updating...)`
                   : previewUrl || "/"}
               </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleManualRefresh}
-              >
-                <RefreshCw />
-              </Button>
+              <div className="hidden sm:flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={viewport === "desktop" ? "default" : "secondary"}
+                  onClick={() => setViewport("desktop")}
+                >
+                  <Monitor />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={viewport === "mobile" ? "default" : "secondary"}
+                  onClick={() => setViewport("mobile")}
+                >
+                  <Smartphone />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleManualRefresh}
+                >
+                  <RefreshCw />
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="relative h-full">
+          <div className="relative flex-1 min-h-0">
             {showOnlyLoader ? (
               <div className="flex items-center justify-center h-full bg-gray-50">
                 <div className="text-center max-w-md">
@@ -1227,15 +1244,23 @@ export default function WebsitePreview({
                 </div>
               </div>
             ) : (
-              <iframe
-                ref={iframeRef}
-                key={iframeSrc || "preview"}
-                src={iframeSrc}
-                className="w-full h-full border-0 focus:outline-none"
-                onError={() => {
-                  console.error("Failed to load preview");
-                }}
-              />
+              <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar">
+                <div
+                  className={`${
+                    viewport === "mobile" ? "h-full w-[390px]" : "h-full w-full"
+                  } transition-[width] duration-300 ease-in-out`}
+                >
+                  <iframe
+                    ref={iframeRef}
+                    key={iframeSrc || "preview"}
+                    src={iframeSrc}
+                    className="w-full h-full border-0 focus:outline-none"
+                    onError={() => {
+                      console.error("Failed to load preview");
+                    }}
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>
