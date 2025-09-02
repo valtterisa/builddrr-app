@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Zap, MessageSquare, ArrowUpRight } from "lucide-react";
 import { AIUsageType } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 const usageTypeIcons = {
   chat: MessageSquare,
@@ -18,6 +19,7 @@ const usageTypeLabels = {
 export function AIUsageSidebar() {
   const { usage, limits, planLimits, isLoading, error } = useAIUsage();
   const { plan, isActive } = useSubscription();
+  const router = useRouter();
 
   if (isLoading) {
     return (
@@ -155,12 +157,22 @@ export function AIUsageSidebar() {
       {/* Action Buttons */}
       <div className="space-y-2 pt-2 border-t border-border">
         {hasExceededLimits ? (
-          <Button size="sm" className="w-full text-xs" variant="default">
+          <Button
+            size="sm"
+            className="w-full text-xs"
+            variant="default"
+            onClick={() => router.push("/dashboard/account/billing")}
+          >
             Upgrade Plan
             <ArrowUpRight className="ml-1 h-3 w-3" />
           </Button>
         ) : !isEnterprise ? (
-          <Button size="sm" className="w-full text-xs" variant="outline">
+          <Button
+            size="sm"
+            className="w-full text-xs"
+            variant="outline"
+            onClick={() => router.push("/dashboard/account/billing")}
+          >
             View Plans
             <ArrowUpRight className="ml-1 h-3 w-3" />
           </Button>

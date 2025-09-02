@@ -9,6 +9,9 @@ import { useChatStreamStore, ChatMessage } from "@/lib/chat-stream-store";
 import { useAIUsage } from "@/hooks/use-ai-usage";
 import { trackAIUsage } from "@/lib/ai-usage-tracker";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowUpRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 
 // Remove code from AI responses and optionally surface friendly file creation lines
@@ -216,6 +219,7 @@ export default function ChatInterface({
   userId,
   isAutoProcessing = false,
 }: ChatInterfaceProps) {
+  const router = useRouter();
   const { isStreaming, streamedContent, messages } = useChatStreamStore();
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -424,7 +428,7 @@ export default function ChatInterface({
 
         {/* Show limit exceeded warning or tracking result above input */}
         {(hasExceededLimits || trackingResult) && (
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-2 space-y-2">
             {hasExceededLimits && (
               <div className="flex justify-center">
                 <Badge variant="destructive" className="text-xs">
@@ -457,54 +461,67 @@ export default function ChatInterface({
           style={{ boxShadow: "0 -2px 8px 0 rgba(0,0,0,0.02)" }}
         >
           <div className="relative flex-1">
-            {/* Hidden shadow textarea for measuring height */}
-            <textarea
-              ref={shadowRef}
-              className="absolute z-[-1] top-0 left-0 w-full h-0 opacity-0 pointer-events-none resize-none"
-              tabIndex={-1}
-              aria-hidden="true"
-              rows={1}
-              readOnly
-            />
-            <textarea
-              ref={textareaRef}
-              className="flex-1 w-full rounded-xl bg-muted px-4 py-3 pr-10 text-sm shadow-none border-none outline-none focus:ring-0 focus:outline-none placeholder:text-muted-foreground/70 transition resize-none scrollbar-none"
-              rows={1}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder={
-                hasExceededLimits
-                  ? "Chat limit exceeded - please upgrade"
-                  : "Ask a follow up..."
-              }
-              spellCheck={false}
-              disabled={isStreaming || isAutoProcessing || hasExceededLimits}
-              style={{
-                minHeight: "2.5rem",
-                overflow: "hidden",
-                maxHeight: "none",
-              }}
-            />
-            <button
-              type="submit"
-              className="absolute bottom-1/2 translate-y-1/2 right-2 bg-primary text-white rounded-full p-2 shadow-sm hover:bg-primary/90 disabled:opacity-50 transition"
-              disabled={
-                isStreaming ||
-                isAutoProcessing ||
-                !inputValue.trim() ||
-                hasExceededLimits
-              }
-              tabIndex={0}
-              aria-label="Send"
-            >
-              <ArrowUp className="w-3 h-3" />
-            </button>
+            {hasExceededLimits ? (
+              <div className="flex items-center justify-between w-full rounded-xl bg-muted px-4 py-3 text-sm border border-neutral-200">
+                <div className="flex items-center gap-2 text-neutral-700">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  Chat limit exceeded
+                </div>
+                <Button
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => router.push("/dashboard/account/billing")}
+                  type="button"
+                >
+                  Upgrade Plan
+                  <ArrowUpRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Hidden shadow textarea for measuring height */}
+                <textarea
+                  ref={shadowRef}
+                  className="absolute z-[-1] top-0 left-0 w-full h-0 opacity-0 pointer-events-none resize-none"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  rows={1}
+                  readOnly
+                />
+                <textarea
+                  ref={textareaRef}
+                  className="flex-1 w-full rounded-xl bg-muted px-4 py-3 pr-10 text-sm shadow-none border-none outline-none focus:ring-0 focus:outline-none placeholder:text-muted-foreground/70 transition resize-none scrollbar-none"
+                  rows={1}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder={"Ask a follow up..."}
+                  spellCheck={false}
+                  disabled={isStreaming || isAutoProcessing}
+                  style={{
+                    minHeight: "2.5rem",
+                    overflow: "hidden",
+                    maxHeight: "none",
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="absolute bottom-1/2 translate-y-1/2 right-2 bg-primary text-white rounded-full p-2 shadow-sm hover:bg-primary/90 disabled:opacity-50 transition"
+                  disabled={
+                    isStreaming || isAutoProcessing || !inputValue.trim()
+                  }
+                  tabIndex={0}
+                  aria-label="Send"
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
