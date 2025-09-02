@@ -342,23 +342,14 @@ export default function ChatInterface({
                 </Badge>
               </div>
             )}
-            {trackingResult && !hasExceededLimits && (
+            {trackingResult && hasExceededLimits && !trackingResult.success && (
               <div
                 className={`p-2 rounded-lg border text-xs ${
-                  trackingResult.success
-                    ? "bg-green-50 border-green-200 text-green-800"
-                    : "bg-red-50 border-red-200 text-red-800"
+                  !trackingResult.success &&
+                  "bg-red-50 border-red-200 text-red-800"
                 }`}
               >
-                {trackingResult.success ? (
-                  <div className="flex justify-between items-center">
-                    <span>✅ Usage tracked successfully</span>
-                    <span>
-                      Supabase: {trackingResult.supabaseTracked ? "✅" : "❌"} |
-                      Polar: {trackingResult.polarTracked ? "✅" : "❌"}
-                    </span>
-                  </div>
-                ) : (
+                {!trackingResult.success && (
                   <div>❌ {trackingResult.error}</div>
                 )}
               </div>

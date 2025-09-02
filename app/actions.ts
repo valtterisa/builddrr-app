@@ -14,7 +14,7 @@ import {
   createRepoFromTemplate,
   uploadFilesToRepo,
 } from "@/lib/github";
-import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
+import { ensureSandboxRunning } from "@/lib/vercel/vercel";
 
 export type Operation = {
   operation: "write" | "update" | "delete" | "code" | "rename" | "dependency";
@@ -600,18 +600,21 @@ export async function* generateAIResponseStream(
         );
       }
 
+      // Push changes to GitHub to keep repo as source of truth
       await uploadFilesToRepo(appName, collectedFiles);
-      console.log("🔍 [DEBUG] Deploying sandbox and stopping existing");
-      const { url } = await deploySandboxAndStopExisting(appName);
+      // Ensure sandbox running (pull from GitHub) and emit URL
+      const ensure = await (
+        await import("@/lib/vercel/vercel")
+      ).ensureSandboxRunning(appName);
       // Invalidate context after deploy; next run rebuilds with fresh files
       try {
         await invalidateProjectContext(appName);
       } catch (_) {}
-      if (url) {
+      if (ensure?.url) {
         yield {
           type: "progress",
           status: "deployed",
-          url: url,
+          url: ensure.url,
         };
       } else {
         // Add final summary

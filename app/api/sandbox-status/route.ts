@@ -15,12 +15,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { sandboxId } = await request.json();
+    const { sandboxId: bodySandboxId, id: appName } = await request.json();
+    let sandboxId = bodySandboxId as string | undefined;
+
+    // Allow resolving sandboxId by appName if not provided
+    if (!sandboxId && appName) {
+      const { data } = await supabase
+        .from("preview_environments")
+        .select("sandbox_id")
+        .eq("app_name", appName)
+        .single();
+      sandboxId = data?.sandbox_id || undefined;
+    }
 
     if (!sandboxId) {
       return NextResponse.json(
-        { error: "sandboxId is required" },
-        { status: 400 }
+        { error: "sandboxId not found for app" },
+        { status: 404 }
       );
     }
 

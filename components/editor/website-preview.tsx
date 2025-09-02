@@ -3,6 +3,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, useReducer } from "react";
 import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 import {
   useEditorStore,
   addEditorElement,
@@ -12,6 +13,7 @@ import {
 import { useChatStreamStore } from "@/lib/chat-stream-store";
 import type { EditorState, EditorElement } from "@/lib/editor-store";
 import { deploySandboxAndStopExisting } from "@/lib/vercel/vercel";
+import { RefreshCw } from "lucide-react";
 
 interface EditorChange {
   targetId: string;
@@ -42,6 +44,7 @@ interface EditorReducerState {
   activeTextColor: string | null;
   // Sandbox state
   sandboxUrl: string | null;
+  sandboxId: string | null;
   isSandboxLoading: boolean;
   sandboxError: string | null;
   deploymentStep: string;
@@ -62,6 +65,7 @@ type EditorReducerAction =
   | { type: "SET_SELECTED_ELEMENT"; value: HTMLElement | null }
   | { type: "SET_ACTIVE_TEXT_COLOR"; value: string | null }
   | { type: "SET_SANDBOX_URL"; value: string | null }
+  | { type: "SET_SANDBOX_ID"; value: string | null }
   | { type: "SET_SANDBOX_LOADING"; value: boolean }
   | { type: "SET_SANDBOX_ERROR"; value: string | null }
   | { type: "SET_DEPLOYMENT_STEP"; value: string };
@@ -80,6 +84,7 @@ const initialEditorState: EditorReducerState = {
   activeTextColor: null,
   // Sandbox state
   sandboxUrl: null,
+  sandboxId: null,
   isSandboxLoading: true,
   sandboxError: null,
   deploymentStep: "Initializing...",
@@ -121,6 +126,8 @@ function editorReducer(
       return { ...state, activeTextColor: action.value };
     case "SET_SANDBOX_URL":
       return { ...state, sandboxUrl: action.value };
+    case "SET_SANDBOX_ID":
+      return { ...state, sandboxId: action.value };
     case "SET_SANDBOX_LOADING":
       return { ...state, isSandboxLoading: action.value };
     case "SET_SANDBOX_ERROR":
@@ -139,6 +146,7 @@ export default function WebsitePreview({
 }: IframeEditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState(initialUrl);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [deploymentAttempted, setDeploymentAttempted] = useState(false);
 
   // Update URL when initialUrl changes (e.g., when deployment URL becomes available)
@@ -161,8 +169,9 @@ export default function WebsitePreview({
   const isLoading = useEditorStore((s: EditorState) => s.isLoading);
   const setLoading = useEditorStore((s: EditorState) => s.setLoading);
 
-  // Chat streaming state
+  // Chat streaming state and deployment URL from stream
   const isStreaming = useChatStreamStore((s) => s.isStreaming);
+  const deploymentUrl = useChatStreamStore((s) => s.deploymentUrl);
 
   // Store handler references for clean removal
   const eventHandlersRef = useRef<{
@@ -181,7 +190,8 @@ export default function WebsitePreview({
     setHasMounted(true);
   }, []);
 
-  const previewUrl = editorState.sandboxUrl || initialUrl;
+  const previewUrl =
+    url || editorState.sandboxUrl || deploymentUrl || initialUrl;
 
   // Initialize sandbox deployment and polling
   const initializeSandbox = useCallback(async () => {
@@ -199,6 +209,7 @@ export default function WebsitePreview({
       // Call the server action to deploy sandbox and stop existing sandbox if there is one.
       // We should probably have some flag to see if new files are in or user just went to dashboard and came in again.
       const { url, sandboxId } = await deploySandboxAndStopExisting(id);
+      dispatch({ type: "SET_SANDBOX_ID", value: sandboxId });
 
       if (!isMounted) return;
 
@@ -319,13 +330,26 @@ export default function WebsitePreview({
     initializeSandbox();
   }, [initializeSandbox]);
 
-  // Initialize sandbox on mount
+  // Initialize sandbox on mount only if not streaming and no incoming deployment URL.
+  // Add small delay to avoid racing with AI flow that will create/reuse sandbox and emit URL.
   useEffect(() => {
-    if (hasMounted && !editorState.sandboxUrl && !editorState.sandboxError) {
-      initializeSandbox();
-    }
+    if (!hasMounted) return;
+    if (isStreaming) return; // AI flow will handle it and provide URL
+    if (deploymentUrl) return; // URL will be used for preview
+    if (editorState.sandboxUrl || editorState.sandboxError) return;
+
+    const timer = setTimeout(() => {
+      // Re-check before initializing to avoid races
+      if (!useChatStreamStore.getState().isStreaming && !deploymentUrl) {
+        initializeSandbox();
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
   }, [
     hasMounted,
+    isStreaming,
+    deploymentUrl,
     editorState.sandboxUrl,
     editorState.sandboxError,
     initializeSandbox,
@@ -345,6 +369,140 @@ export default function WebsitePreview({
     }
   }, [url]);
 
+  const handleManualRefresh = useCallback(async () => {
+    // Ask the server for the current status and URL; allow resolving by app id if sandboxId missing
+    if (editorState.sandboxId || id) {
+      try {
+        const statusResponse = await fetch("/api/sandbox-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sandboxId: editorState.sandboxId, id }),
+        });
+        if (statusResponse.ok) {
+          const result = await statusResponse.json();
+          if (result.success && result.url) {
+            if (result.url !== url) {
+              setUrl(result.url);
+            } else {
+              reloadIframe();
+            }
+            toast({
+              title: "Refreshing preview",
+              description: "Reloading sandbox iframe",
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        // fall through to generic path
+      }
+    }
+
+    if (editorState.sandboxUrl || deploymentUrl) {
+      reloadIframe();
+      toast({
+        title: "Refreshing preview",
+        description: "Reloading sandbox iframe",
+      });
+    } else {
+      toast({
+        title: "Sandbox not ready",
+        description: "Attempting to initialize sandbox...",
+      });
+      retrySandbox();
+    }
+  }, [
+    editorState.sandboxId,
+    editorState.sandboxUrl,
+    deploymentUrl,
+    reloadIframe,
+    retrySandbox,
+    toast,
+    id,
+    url,
+  ]);
+
+  // When deployment URL changes, stage it as pending and swap only when sandbox is running
+  useEffect(() => {
+    if (!deploymentUrl) return;
+    setPendingUrl(deploymentUrl);
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/sandbox-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) return;
+        const result = await res.json();
+        if (
+          !cancelled &&
+          result?.success &&
+          result.status === "running" &&
+          result.url
+        ) {
+          // Only switch when running to avoid flashing a broken preview
+          if (result.url !== url) {
+            setUrl(result.url);
+          } else {
+            // Same URL, force refresh to pick up new build
+            const iframe = iframeRef.current;
+            if (iframe && iframe.src) {
+              const currentSrc = iframe.src;
+              iframe.src = "";
+              setTimeout(() => {
+                iframe.src = currentSrc;
+              }, 10);
+            }
+          }
+          setPendingUrl(null);
+        }
+      } catch (_) {
+        // ignore one-off failures
+      }
+    };
+    // Poll a few times quickly, then back off
+    const i1 = setInterval(poll, 1500);
+    const timeout = setTimeout(() => {
+      clearInterval(i1);
+      if (!cancelled && pendingUrl) {
+        // If still pending after grace period, try one final poll
+        poll();
+      }
+    }, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(i1);
+      clearTimeout(timeout);
+    };
+  }, [deploymentUrl, id, pendingUrl, url]);
+
+  // Keep-alive ping while preview is visible to reduce auto-stop likelihood
+  useEffect(() => {
+    if (!url && !editorState.sandboxUrl) return;
+    let isActive = true;
+    const ping = async () => {
+      try {
+        await fetch("/api/sandbox-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, sandboxId: editorState.sandboxId }),
+        });
+      } catch (_) {}
+    };
+    const interval = setInterval(() => {
+      if (isActive) ping();
+    }, 60000); // 60s
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [id, url, editorState.sandboxUrl, editorState.sandboxId]);
+
+  // If server ensures/returns a sandbox URL before write, trust it immediately when stream reports deployed
+  // The hook already stores deploymentUrl from the stream, which flows here.
+
   // Handle iframe load
   const handleIframeLoad = useCallback(() => {
     // Initialize editor when iframe loads
@@ -353,48 +511,15 @@ export default function WebsitePreview({
     // }
   }, [editorState.iframeReady]);
 
-  // Render fallback content when no URL is available or sandbox is loading
-  // if (!previewUrl || editorState.isSandboxLoading) {
-  //   return (
-  //     <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
-  //       <div className="text-center max-w-md">
-  //         <h3 className="text-xl font-medium mb-2">Website Preview</h3>
-  //         {editorState.isSandboxLoading ? (
-  //           <>
-  //             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-  //             <p className="text-gray-500 mb-4">Deploying Sandbox</p>
-  //             <p className="text-gray-600 text-sm">
-  //               {editorState.deploymentStep}
-  //             </p>
-  //           </>
-  //         ) : editorState.sandboxError ? (
-  //           <>
-  //             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-  //             <p className="text-gray-500 mb-4">Deployment Failed</p>
-  //             <p className="text-gray-600 text-sm mb-4">
-  //               {editorState.sandboxError}
-  //             </p>
-  //             <button
-  //               onClick={retrySandbox}
-  //               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-  //             >
-  //               Retry
-  //             </button>
-  //           </>
-  //         ) : (
-  //           <>
-  //             <p className="text-gray-500 mb-4">
-  //               {editorState.iframeError
-  //                 ? `Error loading preview: ${editorState.iframeError}`
-  //                 : "Your website is being generated. The preview will appear here once it's ready."}
-  //             </p>
-  //             <div className="w-full h-64 bg-gray-200 rounded-lg animate-pulse"></div>
-  //           </>
-  //         )}
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  // If we have no URL at all, show loading; otherwise always show the last working preview and overlay a status banner
+  const showOnlyLoader = !previewUrl;
+
+  // Adopt sandboxUrl as the active url if none is set yet
+  useEffect(() => {
+    if (!url && editorState.sandboxUrl) {
+      setUrl(editorState.sandboxUrl);
+    }
+  }, [url, editorState.sandboxUrl]);
 
   // const getStorageKey = useCallback(() => `editorChanges-${url}`, [url]);
 
@@ -1068,28 +1193,55 @@ export default function WebsitePreview({
   //   );
   // }
 
+  if (showOnlyLoader) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-3xl p-8">
+        <div className="text-center max-w-md">
+          <h3 className="text-xl font-medium mb-2">Website Preview</h3>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500 mb-2">Preparing preview...</p>
+          <p className="text-gray-600 text-sm">{editorState.deploymentStep}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full w-full gap-4 rounded-3xl">
       <div className="relative w-full h-full overflow-hidden">
-
-
         <div className="w-full h-full bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-            <div className="flex items-center space-x-2">
-              <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200">
-                /
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200 truncate">
+                {pendingUrl
+                  ? `${previewUrl} → (updating...)`
+                  : previewUrl || "/"}
               </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleManualRefresh}
+              >
+                <RefreshCw />
+              </Button>
             </div>
           </div>
 
           <div className="relative h-full">
             <iframe
-              src={previewUrl}
+              key={previewUrl || "preview"}
+              src={previewUrl || undefined}
               className="w-full h-full border-0 focus:outline-none"
               onError={() => {
                 console.error("Failed to load preview");
               }}
             />
+
+            {pendingUrl && (
+              <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1 rounded-md shadow">
+                Deploying... switching preview when ready
+              </div>
+            )}
           </div>
         </div>
       </div>
