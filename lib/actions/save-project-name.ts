@@ -1,13 +1,13 @@
 "use server";
 
-import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { createClient } from "@/lib/supabase/server";
+import { anthropic } from "@ai-sdk/anthropic";
 
 export async function generateProjectName(userPrompt: string): Promise<string> {
   try {
     const { text } = await generateText({
-      model: openai("haiku-3"),
+      model: anthropic("claude-3-haiku-20240307"),
       prompt: `Based on this user request: "${userPrompt}"
 
 Generate a short, descriptive, and professional website name (2-4 words max) that captures the essence of what the user wants to build. The name should be:

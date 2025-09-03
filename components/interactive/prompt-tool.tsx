@@ -17,7 +17,8 @@ import { AuthModal } from "@/components/auth-modal";
 import Logo from "../logo";
 import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
-import { generateAndSaveProjectName } from "@/lib/actions/save-project-name";
+import { generateProjectName } from "@/lib/actions/save-project-name";
+import { generateAppName } from "@/lib/utils";
 
 export default function PromptTool({ user }: { user: any }) {
   const [prompt, setPrompt] = useState("");
@@ -64,60 +65,53 @@ export default function PromptTool({ user }: { user: any }) {
     sessionStorage.setItem("builddrr_generation_prompt", prompt);
 
     try {
-      // Get available preview environment
-      const { data: previewData, error: previewError } = await supabase
-        .from("preview_environments")
-        .select("*")
-        .eq("status", "non-active")
-        .limit(1);
+      // Generate unique app_name (slug) and friendly display_name
+      const app_name = generateAppName(user.id);
+      let display_name: string;
 
-      console.log("previewData", previewData);
-
-      if (previewError) throw previewError;
-      if (!previewData || previewData.length === 0) {
-        throw new Error("No available preview environments");
+      try {
+        const generatedName = await generateProjectName(prompt);
+        display_name =
+          generatedName && generatedName.length > 0 ? generatedName : app_name;
+      } catch (nameError) {
+        console.error("Error generating project name:", nameError);
+        display_name = app_name;
       }
 
-      const app_name = previewData[0].app_name;
-      const preview_id = previewData[0].preview_id;
-
-      // Update both tables in parallel
-      const [websiteUpdate, previewUpdate] = await Promise.all([
+      // Create both preview environment and website records
+      const [previewInsert, websiteInsert] = await Promise.all([
         supabase
-          .from("websites")
+          .from("preview_environments")
           .insert({
-            preview_id: preview_id,
-            user_id: user.id,
-            name: app_name,
-            created_at: new Date().toISOString(),
+            app_name,
+            id: user.id,
+            assigned_at: new Date().toISOString(),
           })
           .select()
           .single(),
         supabase
-          .from("preview_environments")
-          .update({
-            status: "active",
-            assigned_at: new Date().toISOString(),
-            id: user.id,
+          .from("websites")
+          .insert({
+            user_id: user.id,
+            name: app_name,
+            app_name: app_name,
+            display_name: display_name,
+            created_at: new Date().toISOString(),
           })
-          .eq("app_name", app_name),
+          .select()
+          .single(),
       ]);
 
-      if (websiteUpdate.error) throw websiteUpdate.error;
-      if (previewUpdate.error) throw previewUpdate.error;
+      if (previewInsert.error) throw previewInsert.error;
+      if (websiteInsert.error) throw websiteInsert.error;
 
-      // Generate and save a user-friendly project name using AI
-      try {
-        const nameResult = await generateAndSaveProjectName(app_name, prompt);
-        if (nameResult.success && nameResult.name) {
-          console.log("Generated project name:", nameResult.name);
-        } else {
-          console.warn("Failed to generate project name:", nameResult.error);
-        }
-      } catch (nameError) {
-        console.error("Error generating project name:", nameError);
-        // Don't fail the entire process if name generation fails
-      }
+      // Link the website to the preview environment
+      const { error: linkError } = await supabase
+        .from("websites")
+        .update({ preview_id: previewInsert.data.preview_id })
+        .eq("id", websiteInsert.data.id);
+
+      if (linkError) throw linkError;
 
       console.log("redirecting to editor:", app_name);
       // Manually dispatch a route start event
