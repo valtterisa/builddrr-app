@@ -19,6 +19,7 @@ import { OAuthButton } from "@/components/auth/oauth-button";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/logo";
+import { ChevronLeft } from "lucide-react";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -50,7 +51,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container flex items-center justify-center min-h-screen py-10 md:px-4 bg-gradient-to-b from-purple-50 to-white">
+    <div className="container relative flex items-center justify-center min-h-screen py-10 md:px-4">
+      <Link
+        href="/"
+        className="absolute left-4 top-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Go back"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back
+      </Link>
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <div className="h-12 flex items-center text-xl md:text-3xl font-bold text-gray-900 text-center ">

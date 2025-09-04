@@ -220,7 +220,7 @@ export default function PromptTool({ user }: { user: any }) {
 
   return (
     <div
-      className="min-h-[calc(100vh-6rem)] w-full flex flex-col items-center justify-center pb-12 pt-16 md:pt-8 px-2 relative"
+      className="min-h-[calc(100vh-6rem)] w-full flex h-screen flex-col items-center justify-center pb-12 pt-16 md:pt-8 px-2 relative"
       style={{
         backgroundImage: `radial-gradient(circle, rgba(107, 114, 128, 0.2) 1px, transparent 1px)`,
         backgroundSize: "20px 20px",
