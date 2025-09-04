@@ -425,32 +425,6 @@ export default function ChatInterface({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Show limit exceeded warning or tracking result above input */}
-        {(hasExceededLimits || trackingResult) && (
-          <div className="px-4 pb-2 space-y-2">
-            {hasExceededLimits && (
-              <div className="flex justify-center">
-                <Badge variant="destructive" className="text-xs">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Chat Limit Exceeded - Please Upgrade Your Plan
-                </Badge>
-              </div>
-            )}
-            {trackingResult && hasExceededLimits && !trackingResult.success && (
-              <div
-                className={`p-2 rounded-lg border text-xs ${
-                  !trackingResult.success &&
-                  "bg-red-50 border-red-200 text-red-800"
-                }`}
-              >
-                {!trackingResult.success && (
-                  <div>❌ {trackingResult.error}</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         <form
           onSubmit={async (e) => {
             e.preventDefault();

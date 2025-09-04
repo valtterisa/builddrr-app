@@ -233,10 +233,26 @@ export async function getWebsitesForUser(userId: string): Promise<Website[]> {
     );
 
     // Combine websites with their corresponding preview details
-    const websitesWithDetails = data.map((website) => ({
-      ...website,
-      previewDetail: detailsMap.get(website.preview_id) || null,
-    }));
+    const websitesWithDetails = data.map((website) => {
+      const previewDetail = detailsMap.get(website.preview_id) || null;
+      // Normalize status to simple buckets we can filter on
+      const normalizedStatus = ((): "deployed" | "preview" => {
+        if (
+          website.status === "deployed" ||
+          website.published ||
+          website.primary_domain
+        ) {
+          return "deployed";
+        }
+        return "preview";
+      })();
+
+      return {
+        ...website,
+        status: normalizedStatus,
+        previewDetail,
+      } as Website;
+    });
 
     // Ensure data is serialized into plain objects
     return JSON.parse(JSON.stringify(websitesWithDetails)) as any;

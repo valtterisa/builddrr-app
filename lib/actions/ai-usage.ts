@@ -188,9 +188,8 @@ export async function createWebsiteWithLimitCheck(
         .from("websites")
         .insert({
           user_id: user.id,
-          name: appName,
+          name: displayName,
           app_name: appName,
-          display_name: displayName,
           created_at: new Date().toISOString(),
         })
         .select()

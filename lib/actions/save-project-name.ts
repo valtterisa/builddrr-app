@@ -59,12 +59,26 @@ export async function generateAndSaveProjectName(
     // Generate a user-friendly name using AI
     const generatedName = await generateProjectName(userPrompt);
 
-    // Save the generated name to the database
+    // Save the generated name to the database using preview_environments.app_name
     const supabase = await createClient();
+
+    // Find preview_id by app_name in preview_environments
+    const { data: previewRow, error: previewErr } = await supabase
+      .from("preview_environments")
+      .select("preview_id")
+      .eq("app_name", appName)
+      .single();
+
+    if (previewErr || !previewRow?.preview_id) {
+      console.error("Failed to resolve preview by app_name:", previewErr);
+      return { success: false, error: "Preview not found for app name" };
+    }
+
+    // Update website name by matching preview_id
     const { error } = await supabase
       .from("websites")
-      .update({ display_name: generatedName })
-      .eq("app_name", appName);
+      .update({ name: generatedName })
+      .eq("preview_id", previewRow.preview_id);
 
     if (error) {
       console.error("Failed to save project name:", error);

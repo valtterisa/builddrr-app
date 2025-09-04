@@ -40,7 +40,6 @@ export async function getUserDomains(userId: string) {
         websites!inner(
           id,
           name,
-          display_name,
           project_id,
           user_id
         )

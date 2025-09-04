@@ -33,6 +33,12 @@ WHERE app_name IS NULL AND machine_id IS NOT NULL;
 -- Comment explaining purpose of update
 COMMENT ON COLUMN public.websites.app_name IS 'The Fly.io app name associated with this website';
 
+-- Add human-friendly name to preview environments while keeping app_name for routing
+ALTER TABLE public.preview_environments
+ADD COLUMN IF NOT EXISTS name TEXT;
+
+COMMENT ON COLUMN public.preview_environments.name IS 'Descriptive display name for the preview environment (separate from app_name)';
+
 -- AI Usage Limits Migration
 -- This migration adds tables and functionality to track AI usage based on subscription plans
 

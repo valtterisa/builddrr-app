@@ -95,21 +95,21 @@ export default function PromptTool({ user }: { user: any }) {
     sessionStorage.setItem("builddrr_generation_prompt", prompt);
 
     try {
-      // Generate unique app_name (slug) and friendly display_name
+      // Generate unique app_name (slug) and friendly name
       const app_name = generateAppName(user.id);
-      let display_name: string;
+      let name: string;
 
       try {
         const generatedName = await generateProjectName(prompt);
-        display_name =
+        name =
           generatedName && generatedName.length > 0 ? generatedName : app_name;
       } catch (nameError) {
         console.error("Error generating project name:", nameError);
-        display_name = app_name;
+        name = app_name;
       }
 
       // Use server action to create website with usage limit check
-      const result = await createWebsiteWithLimitCheck(app_name, display_name);
+      const result = await createWebsiteWithLimitCheck(app_name, name);
 
       if (!result.success) {
         if (result.error?.includes("usage limit exceeded")) {
