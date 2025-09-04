@@ -297,15 +297,8 @@ body {
   color: hsl(var(--primary) / 0.8);
 }
 
-/* Ensure proper height handling across all browsers */
-html, body {
-  height: 100%;
+html,
+body {
+  height: 100vh;
   height: 100dvh;
-}
-
-/* Fallback for browsers that don't support dvh */
-@supports not (height: 100dvh) {
-  html, body {
-    height: 100vh;
-  }
 }
