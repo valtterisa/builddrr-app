@@ -49,15 +49,22 @@ function EditorHeader({ id }: { id: string }) {
           data: { user },
         } = await supabase.auth.getUser();
 
+
+        console.log("user", user);
+        console.log("id", id);
         if (user) {
           const { data, error } = await supabase
             .from("websites")
             .select("primary_url, status")
-            .eq("name", id)
+            .eq("app_name", id)
             .eq("user_id", user.id)
             .single();
 
+          console.log("data", data);
+          console.log("error", error);
+
           if (!error && data?.primary_url) {
+            console.log("data", data);
             setDeployUrl(data.primary_url);
           }
         }
