@@ -1,10 +1,5 @@
-import PromptTool from "@/components/interactive/prompt-tool";
-import { DemoVideo } from "@/components/landing-page/demo-video";
-import Pricing from "@/components/landing-page/pricing-section";
-import Footer from "@/components/layout/footer";
-import Navbar from "@/components/layout/navbar";
-import { MigrationWarning } from "@/components/migration-warning";
 import { createClient } from "@/lib/supabase/server";
+import LandingPageClient from "@/components/landing-page/landing-page-client";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -12,16 +7,5 @@ export default async function LandingPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return (
-    <>
-      <div className="relative">
-        <Navbar user={user?.user_metadata} />
-        <PromptTool user={user} />
-      </div>
-
-      {/* <DemoVideo /> */}
-      <Pricing user={user} />
-      <Footer />
-    </>
-  );
+  return <LandingPageClient initialUser={user} />;
 }

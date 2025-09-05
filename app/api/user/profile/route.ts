@@ -7,7 +7,7 @@ export async function GET() {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser(); // TODO: fix this not safe without validating cookies
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

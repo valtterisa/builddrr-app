@@ -113,7 +113,8 @@ export async function signup(formData: FormData) {
   // No Polar customer creation needed for free plan
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  revalidatePath("/dashboard");
+  redirect("/");
 }
 
 export async function logout() {
@@ -132,7 +133,7 @@ export async function logout() {
 export async function signUpWithOAuth(provider: Provider) {
   const supabase = await createClient();
 
-  const nextUrl = "/dashboard";
+  const nextUrl = "/";
   const callbackUrl = `${getPublicUrl()}/api/auth/callback?next=${encodeURIComponent(nextUrl)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -151,8 +152,8 @@ export async function signUpWithOAuth(provider: Provider) {
     redirect(data.url);
   }
 
-  // If for some reason we get here, just redirect to dashboard
-  redirect("/dashboard");
+  // If for some reason we get here, just redirect to landing page
+  redirect("/");
 }
 
 export async function signInWithOAuth(provider: Provider) {
@@ -170,7 +171,7 @@ export async function signInWithOAuth(provider: Provider) {
   }
 
   revalidatePath("/", "layout");
-  data.url ? redirect(data.url) : redirect("/dashboard");
+  data.url ? redirect(data.url) : redirect("/");
 }
 
 export async function signOut() {
