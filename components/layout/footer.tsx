@@ -1,4 +1,4 @@
-import { Book } from "lucide-react";
+import { Book, Map } from "lucide-react";
 import Image from "next/image";
 import Logo from "../logo";
 
@@ -55,6 +55,17 @@ export default function Footer() {
                 >
                   <Book className="w-4 h-4" />
                   Documentation
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://builddrr.featurebase.app/"
+                  className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Map className="w-4 h-4" />
+                  Roadmap & Feedback
                 </a>
               </li>
               <li>

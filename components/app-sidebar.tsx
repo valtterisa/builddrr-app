@@ -11,10 +11,7 @@ import {
   LayoutDashboardIcon,
   MessageCircle,
   PlusCircle,
-  SearchIcon,
-  Settings,
-  SettingsIcon,
-  UsersIcon,
+  Map,
   Network,
 } from "lucide-react";
 
@@ -22,6 +19,8 @@ import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import { AIUsageSidebar } from "@/components/ai-usage-sidebar";
+import { FeedbackModal } from "@/components/feedback-modal";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -135,9 +134,10 @@ export function AppSidebar({
       icon: Book,
     },
     {
-      title: "Feedback",
-      url: withTeam("/feedback"),
-      icon: MessageCircle,
+      title: "Roadmap",
+      url: "https://builddrr.featurebase.app/",
+      target: "_blank",
+      icon: Map,
     },
     // {
     //   title: "Search",
@@ -172,6 +172,16 @@ export function AppSidebar({
           className="mt-auto bg-sidebar"
           handleMobileClose={handleMobileClose}
         />
+
+        {/* Quick Feedback Button */}
+        <div className="p-4 border-t border-sidebar-border">
+          <FeedbackModal>
+            <Button variant="outline" className="w-full justify-start">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Give Feedback
+            </Button>
+          </FeedbackModal>
+        </div>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

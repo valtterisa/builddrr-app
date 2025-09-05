@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 export function QuickActions() {
   const router = useRouter();
@@ -70,20 +71,27 @@ export function QuickActions() {
           <div className="rounded-full bg-primary/10 p-3 mb-2 text-primary">
             <MessageCircle className="h-7 w-7" />
           </div>
-          <CardTitle className="text-lg font-semibold">Feedback</CardTitle>
+          <CardTitle className="text-lg font-semibold">Roadmap</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
             Have ideas or issues? Let us know and help improve the platform.
           </p>
-          <a
-            href="https://feedback.yourdomain.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-md bg-muted text-primary font-medium hover:bg-primary/10 transition border border-primary/30"
-          >
-            Give Feedback
-          </a>
+          <div className="flex flex-col gap-2">
+            <FeedbackModal>
+              <Button className="px-4 py-2 rounded-md bg-primary text-white font-medium hover:bg-primary/90 transition">
+                Give Feedback
+              </Button>
+            </FeedbackModal>
+            <a
+              href="https://builddrr.featurebase.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-md bg-muted text-primary font-medium hover:bg-primary/10 transition border border-primary/30 text-sm"
+            >
+              View Roadmap
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
