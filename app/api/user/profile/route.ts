@@ -6,17 +6,17 @@ export async function GET() {
     const supabase = await createClient();
 
     const {
-      data: { session },
-    } = await supabase!.auth.getSession(); // TODO: fix this not safe without validating cookies
+      data: { user },
+    } = await supabase.auth.getUser(); // TODO: fix this not safe without validating cookies
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     if (error) {

@@ -65,25 +65,24 @@ export default function Pricing({ user }: { user: User | null }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
 
-  // Fetch current subscription from polar.sh
+  // Fetch current plan from Supabase
   useEffect(() => {
-    const fetchSubscription = async () => {
+    const fetchUserPlan = async () => {
       if (!user) return;
 
       try {
-        const response = await fetch(
-          `/api/polar-subscription?externalId=${user.id}`
-        );
+        const response = await fetch("/api/user/profile");
         if (response.ok) {
           const data = await response.json();
-          setCurrentSubscription(data.subscription);
+          console.log("User profile data:", data);
+          setCurrentSubscription({ plan: data.plan });
         }
       } catch (error) {
-        console.error("Error fetching subscription:", error);
+        console.error("Error fetching user plan:", error);
       }
     };
 
-    fetchSubscription();
+    fetchUserPlan();
   }, [user]);
 
   const handleCheckout = async (plan: any) => {
@@ -143,8 +142,21 @@ export default function Pricing({ user }: { user: User | null }) {
       return false;
     }
 
-    const isCurrent = currentSubscription.product?.id === plan.polarProductId;
-    return isCurrent;
+    // Map plan names to match Supabase plan values
+    const planMapping: { [key: string]: string } = {
+      "Free": "free",
+      "Pro": "pro",
+      "Enterprise": "enterprise"
+    };
+
+    const currentPlan = planMapping[plan.name];
+    console.log("Plan check:", {
+      planName: plan.name,
+      currentPlan,
+      userPlan: currentSubscription.plan,
+      isMatch: currentSubscription.plan === currentPlan
+    });
+    return currentSubscription.plan === currentPlan;
   };
 
   const getCurrentPlanDisplay = (plan: any) => {
