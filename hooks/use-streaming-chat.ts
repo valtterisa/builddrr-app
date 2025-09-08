@@ -1,167 +1,84 @@
-import { useState, useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { useChatStreamStore } from "@/lib/chat-stream-store";
 
 export const useStreamingChat = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { startStream, updateStream, finishStream, setDeploymentUrl } =
+  const { startStream, updateStream, finishStream, failStream, setStatus } =
     useChatStreamStore();
 
-  const updateStreamOptimized = useCallback(
-    (chunk: string) => {
-      // Immediate update for real-time feel
-      updateStream(chunk);
-    },
-    [updateStream]
-  );
-
   const sendMessage = useCallback(
-    async (
-      message: string,
-      appName: string,
-      machineId?: string,
-      repoExists: boolean = false
-    ) => {
-      console.log(
-        "🚀 [useStreamingChat] sendMessage called with:",
-        message.substring(0, 50) + "..."
-      );
-
+    async (message: string, appName: string, repoExists: boolean = false) => {
       if (!message.trim()) {
-        console.warn("⚠️ [useStreamingChat] Empty message, returning early");
         return;
       }
 
-      console.log(
-        "🔄 [useStreamingChat] Setting loading state and starting stream"
-      );
-      setIsLoading(true);
-      startStream();
+      setStatus("submitted");
 
       try {
-        console.log("🌐 [useStreamingChat] Making request to /api/chat/stream");
         const response = await fetch("/api/chat/stream", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message, appName, repoExists }),
         });
-        console.log(
-          "🔄 [useStreamingChat] Stream response received:",
-          response
-        );
+
         if (!response.ok) {
+          setStatus("error");
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        console.log(
-          "✅ [useStreamingChat] Stream response received, starting to read"
-        );
         const reader = response.body?.getReader();
         if (!reader) {
+          setStatus("error");
           throw new Error("No response body");
         }
 
         const decoder = new TextDecoder();
         let buffer = "";
-        let chunkCount = 0;
 
-        console.log("📖 [useStreamingChat] Starting to read stream chunks");
         while (true) {
           const { done, value } = await reader.read();
-          if (done) {
-            console.log("🏁 [useStreamingChat] Stream reading completed");
-            break;
-          }
+          if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                chunkCount++;
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
 
-                if (data.type === "analysis") {
-                  // Update stream with optimized approach
-                  updateStreamOptimized(data.content || "");
-                } else if (data.type === "progress") {
-                  console.log(
-                    `🚀 [useStreamingChat] Deployment progress:`,
-                    data.status,
-                    data.files
-                  );
-                  if (data.status === "deploying") {
-                    updateStreamOptimized(
-                      `\n\n**🚀 Deploying your website...**\n\n`
-                    );
-                  } else if (data.status === "deployed") {
-                    // Capture the deployment URL if provided
-                    if (data.url) {
-                      console.log(
-                        "🌐 [useStreamingChat] Capturing deployment URL:",
-                        data.url
-                      );
-                      setDeploymentUrl(data.url);
-                    }
-                    updateStreamOptimized(
-                      `\n\n**✅ Deployment completed successfully!**\n\n`
-                    );
-                  }
-                } else if (data.type === "error") {
-                  console.error(
-                    "❌ [useStreamingChat] Streaming error:",
-                    data.error
-                  );
-                  updateStreamOptimized(`\n\n**Error:** ${data.error}\n\n`);
-                } else if (data.type === "warning") {
-                  console.warn(
-                    "⚠️ [useStreamingChat] Streaming warning:",
-                    data.message
-                  );
-                  updateStreamOptimized(`\n\n**Warning:** ${data.message}\n\n`);
-                } else {
-                  console.log(
-                    `🔍 [useStreamingChat] Unknown data type:`,
-                    data.type,
-                    data
+              if (data.type === "status") {
+                if (data.value === "streaming") startStream();
+                else if (data.value === "ready") finishStream();
+                else if (data.value === "error") failStream();
+                else if (data.value === "submitted") setStatus("submitted");
+              } else if (data.type === "analysis") {
+                updateStream(data.content || "");
+              } else if (data.type === "progress") {
+                if (data.status === "deploying") {
+                  updateStream(`\n\n**🚀 Deploying your website...**\n\n`);
+                } else if (data.status === "deployed") {
+                  updateStream(
+                    `\n\n**✅ Deployment completed successfully!**\n\n`
                   );
                 }
-              } catch (parseError) {
-                console.error(
-                  "❌ [useStreamingChat] Failed to parse streaming data:",
-                  parseError,
-                  "Line:",
-                  line
-                );
+              } else if (data.type === "error") {
+                updateStream(`\n\n**Error streaming chat**`);
+                failStream();
               }
-            }
+            } catch {}
           }
         }
 
-        console.log(
-          `✅ [useStreamingChat] Stream processing completed. Total chunks: ${chunkCount}`
-        );
-      } catch (error) {
-        console.error("❌ [useStreamingChat] Streaming chat error:", error);
-        updateStreamOptimized(
-          `\n\n**Error:** ${error instanceof Error ? error.message : "Unknown error"}`
-        );
-      } finally {
-        console.log(
-          "🏁 [useStreamingChat] Finishing stream and clearing loading state"
-        );
-        setIsLoading(false);
+        // Ensure we end in ready if server closed cleanly without status frame
         finishStream();
+      } catch (error) {
+        updateStream(`\n\n**Error streaming chat**`);
+        failStream();
       }
     },
-    [startStream, updateStream, finishStream, setDeploymentUrl]
+    [startStream, updateStream, finishStream, failStream, setStatus]
   );
 
-  return {
-    sendMessage,
-    isLoading,
-  };
+  return { sendMessage };
 };

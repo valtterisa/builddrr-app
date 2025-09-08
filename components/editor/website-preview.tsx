@@ -83,12 +83,11 @@ const initialEditorState: EditorReducerState = {
   canRemoveStandalone: false,
   selectedElement: null,
   activeTextColor: null,
-  // Sandbox state
   sandboxUrl: null,
   sandboxId: null,
   isSandboxLoading: true,
   sandboxError: null,
-  deploymentStep: "Initializing...",
+  deploymentStep: "Initializing... this can take a few minutes",
 };
 
 function editorReducer(
@@ -172,7 +171,8 @@ export default function WebsitePreview({
   const setLoading = useEditorStore((s: EditorState) => s.setLoading);
 
   // Chat streaming state and deployment URL from stream
-  const isStreaming = useChatStreamStore((s) => s.isStreaming);
+  const status = useChatStreamStore((s) => s.status);
+  const isStreaming = status === "streaming";
   const deploymentUrl = useChatStreamStore((s) => s.deploymentUrl);
 
   // Store handler references for clean removal
@@ -345,7 +345,10 @@ export default function WebsitePreview({
 
     const timer = setTimeout(() => {
       // Re-check before initializing to avoid races
-      if (!useChatStreamStore.getState().isStreaming && !deploymentUrl) {
+      if (
+        useChatStreamStore.getState().status !== "streaming" &&
+        !deploymentUrl
+      ) {
         initializeSandbox();
       }
     }, 1200);
@@ -433,6 +436,8 @@ export default function WebsitePreview({
   // When deployment URL changes, stage it as pending and swap only when sandbox is running
   useEffect(() => {
     if (!deploymentUrl) return;
+    // Enter loading state on redeploy to show overlay until the new URL is running and rendered
+    dispatch({ type: "SET_SANDBOX_LOADING", value: true });
     setPendingUrl(deploymentUrl);
     let cancelled = false;
     const poll = async () => {
@@ -442,7 +447,11 @@ export default function WebsitePreview({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Keep loader visible when sandbox status returns 4xx/5xx
+          dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+          return;
+        }
         const result = await res.json();
         if (
           !cancelled &&
@@ -459,9 +468,12 @@ export default function WebsitePreview({
             setIframeNonce((n) => n + 1);
           }
           setPendingUrl(null);
+          // Loader will be removed after iframe load event fires
         }
       } catch (_) {
         // ignore one-off failures
+        // Stay in loading state while polling in case of transient errors
+        dispatch({ type: "SET_SANDBOX_LOADING", value: true });
       }
     };
     // Poll a few times quickly, then back off
@@ -491,7 +503,7 @@ export default function WebsitePreview({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, sandboxId: editorState.sandboxId }),
         });
-      } catch (_) { }
+      } catch (_) {}
     };
     const interval = setInterval(() => {
       if (isActive) ping();
@@ -507,11 +519,9 @@ export default function WebsitePreview({
 
   // Handle iframe load
   const handleIframeLoad = useCallback(() => {
-    // Initialize editor when iframe loads
-    // EDITOR DISABLED: if (editorState.iframeReady) {
-    //   initializeEditor();
-    // }
-  }, [editorState.iframeReady]);
+    // Hide sandbox loading overlay when the preview has successfully loaded
+    dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+  }, []);
 
   // If we have no URL at all, show loading; otherwise always show the last working preview and overlay a status banner
   const showOnlyLoader = !previewUrl;
@@ -1202,9 +1212,7 @@ export default function WebsitePreview({
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600 border border-gray-200 truncate">
-                {pendingUrl
-                  ? `${previewUrl || "/"}`
-                  : previewUrl || "/"}
+                {pendingUrl ? `${previewUrl || "/"}` : previewUrl || "/"}
               </div>
               <div className="hidden md:flex items-center gap-1">
                 <Button
@@ -1243,16 +1251,20 @@ export default function WebsitePreview({
             ) : (
               <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar">
                 <div
-                  className={`${viewport === "mobile" ? "h-full w-[390px]" : "h-full w-full"
-                    } transition-[width] duration-300 ease-in-out`}
+                  className={`${
+                    viewport === "mobile" ? "h-full w-[390px]" : "h-full w-full"
+                  } transition-[width] duration-300 ease-in-out`}
                 >
                   <iframe
                     ref={iframeRef}
                     key={iframeSrc || "preview"}
                     src={iframeSrc}
                     className="w-full h-full border-0 focus:outline-none"
+                    onLoad={handleIframeLoad}
                     onError={() => {
                       console.error("Failed to load preview");
+                      // Keep loader visible on iframe error
+                      dispatch({ type: "SET_SANDBOX_LOADING", value: true });
                     }}
                   />
                   {editorState.isSandboxLoading && (

@@ -40,11 +40,10 @@ export default function EditorPageClient({
   const { toast } = useToast();
 
   // Zustand chat state
-  const { setMessages, addMessage, streamedContent } = useChatStreamStore();
+  const { setMessages, addMessage } = useChatStreamStore();
 
   // Streaming chat hook
-  const { sendMessage: sendStreamingMessage, isLoading: isStreamingLoading } =
-    useStreamingChat();
+  const { sendMessage: sendStreamingMessage } = useStreamingChat();
 
   // Editor store for reload trigger
   const triggerReload = useEditorStore((s: EditorState) => s.triggerReload);
@@ -109,7 +108,7 @@ export default function EditorPageClient({
       }
 
       // Step 1: Stream the analysis to chat interface and trigger deployment via backend
-      await sendStreamingMessage(message, id, undefined, repoExists);
+      await sendStreamingMessage(message, id, repoExists);
 
       // Step 2: Get the final streamed content and save it as an AI message
       const finalStreamedContent =
@@ -220,7 +219,7 @@ export default function EditorPageClient({
 
       <div className="flex flex-row h-full ">
         {/* Desktop/Tablet chat sidebar */}
-        <div className="hidden md:flex md:w-[500px] flex-col h-full">
+        <div className="hidden md:flex md:w-[500px] flex-col h-full border-r border-gray-200">
           <Tabs
             value={activeTab}
             onValueChange={(tab) => {

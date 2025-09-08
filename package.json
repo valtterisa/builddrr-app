@@ -103,6 +103,7 @@
     "shadcn": "^2.4.1",
     "simple-git": "^3.27.0",
     "sonner": "^1.7.4",
+    "streamdown": "^1.2.0",
     "stripe": "latest",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

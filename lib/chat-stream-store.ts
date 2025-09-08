@@ -7,55 +7,50 @@ export type ChatMessage = {
   timestamp: string;
 };
 
+type ChatStatus = "ready" | "submitted" | "streaming" | "error";
+
 type Store = {
   messages: ChatMessage[];
-  isStreaming: boolean;
   streamedContent: string;
   deploymentUrl?: string;
+  status: ChatStatus;
   setMessages: (msgs: ChatMessage[]) => void;
   addMessage: (msg: ChatMessage) => void;
+  setStatus: (status: ChatStatus) => void;
   startStream: () => void;
   updateStream: (chunk: string) => void;
   finishStream: () => void;
-  setDeploymentUrl: (url: string) => void;
-  clear: () => void;
+  failStream: () => void;
   clearStreamedContent: () => void;
 };
 
 export const useChatStreamStore = create<Store>((set, get) => ({
   messages: [],
-  isStreaming: false,
   streamedContent: "",
   deploymentUrl: undefined,
+  status: "ready",
   setMessages: (msgs) => {
     set({ messages: msgs });
   },
   addMessage: (msg) => {
     set((s) => ({ messages: [...s.messages, msg] }));
   },
+  setStatus: (status) => {
+    set({ status });
+  },
   startStream: () => {
-    set({ isStreaming: true, streamedContent: "" });
+    set({ status: "streaming", streamedContent: "" });
   },
   updateStream: (chunk) => {
-    const currentState = get();
     set((s) => ({ streamedContent: s.streamedContent + chunk }));
   },
   finishStream: () => {
-    const currentState = get();
+    set({ status: "ready" });
+  },
+  failStream: () => {
+    set({ status: "error" });
+  },
 
-    set({ isStreaming: false });
-  },
-  setDeploymentUrl: (url) => {
-    set({ deploymentUrl: url });
-  },
-  clear: () => {
-    set({
-      messages: [],
-      streamedContent: "",
-      isStreaming: false,
-      deploymentUrl: undefined,
-    });
-  },
   clearStreamedContent: () => {
     set({ streamedContent: "" });
   },

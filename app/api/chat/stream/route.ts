@@ -35,6 +35,20 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
         // Track AI call usage
         await trackAICall();
 
+        // Emit submitted status immediately
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "status", value: "submitted" })}\n\n`
+          )
+        );
+
+        // Emit streaming status before starting chunks
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "status", value: "streaming" })}\n\n`
+          )
+        );
+
         for await (const chunk of generateAIResponseStream(
           message,
           appName,
@@ -44,6 +58,14 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
             encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
           );
         }
+
+        // Emit ready status before closing
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "status", value: "ready" })}\n\n`
+          )
+        );
+
         controller.close();
       } catch (error) {
         const errorData = JSON.stringify({
@@ -51,6 +73,12 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
           error: error instanceof Error ? error.message : "Unknown error",
         });
         controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
+        // Emit error status as well
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "status", value: "error" })}\n\n`
+          )
+        );
         controller.close();
       }
     },
@@ -60,7 +88,7 @@ export async function POST(req: NextRequest, context: NextFetchEvent) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }
