@@ -524,7 +524,7 @@ export async function deploySandboxAndStopExisting(appName: string) {
 
   const install = await sandbox.runCommand({
     cmd: "npm",
-    args: ["install", "--loglevel", "info"],
+    args: ["install", "--silent"],
   });
 
   if (install.exitCode != 0) {

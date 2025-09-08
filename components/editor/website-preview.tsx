@@ -159,6 +159,7 @@ export default function WebsitePreview({
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const isInitInFlightRef = useRef(false);
   const isReadyRef = useRef(false);
+  const isPollingRef = useRef(false);
 
   // Derive app name from URL path via Next.js usePathname: /dashboard/website/{app_name}/editor (fallback to id prop)
   const pathname = usePathname();
@@ -236,11 +237,11 @@ export default function WebsitePreview({
 
       isReadyRef.current = false;
 
-      // Step 1: Try to use existing running sandbox without recreating
+      // Step 1: Try to use existing running sandbox without server-side waiting
       let statusResponse = await fetch("/api/sandbox-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: appName || id, wait: true }),
+        body: JSON.stringify({ id: appName || id }),
       });
 
       // Step 2: If not ready, request recreate and wait
@@ -249,13 +250,12 @@ export default function WebsitePreview({
           type: "SET_DEPLOYMENT_STEP",
           value: "Preparing sandbox...",
         });
-        statusResponse = await fetch("/api/sandbox-status", {
+        await fetch("/api/sandbox-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: appName || id,
             recreate: true,
-            wait: true,
           }),
         });
       }
@@ -270,11 +270,47 @@ export default function WebsitePreview({
         setIframeNonce((n) => n + 1);
         isReadyRef.current = true;
       } else {
+        // Begin lightweight client-side polling until running
         dispatch({ type: "SET_SANDBOX_LOADING", value: true });
-        dispatch({
-          type: "SET_DEPLOYMENT_STEP",
-          value: "Preparing sandbox...",
-        });
+        dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Preparing sandbox..." });
+        // start polling in background
+        if (!isPollingRef.current) {
+          isPollingRef.current = true;
+          const deadline = Date.now() + 90_000;
+          (async () => {
+            try {
+              while (Date.now() < deadline && isMounted) {
+                const r = await fetch("/api/sandbox-status", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: appName || id }),
+                });
+                if (!r.ok && r.status !== 404) {
+                  const err = await r.json().catch(() => ({} as any));
+                  dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+                  dispatch({
+                    type: "SET_DEPLOYMENT_STEP",
+                    value:
+                      err?.error || `Preview error (${r.status}). Please try again.`,
+                  });
+                  break;
+                }
+                if (r.ok) {
+                  const d = await r.json();
+                  dispatch({ type: "SET_SANDBOX_URL", value: d.url });
+                  dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+                  dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Sandbox ready" });
+                  setIframeNonce((n) => n + 1);
+                  isReadyRef.current = true;
+                  break;
+                }
+                await new Promise((res) => setTimeout(res, 2000));
+              }
+            } finally {
+              isPollingRef.current = false;
+            }
+          })();
+        }
       }
     } catch (_) {
       if (!isMounted) return;
@@ -311,7 +347,7 @@ export default function WebsitePreview({
     if (shouldInit) {
       initializeSandbox();
     }
-    return () => {};
+    return () => { };
   }, [
     deploymentUrl,
     editorState.sandboxUrl,
@@ -332,14 +368,11 @@ export default function WebsitePreview({
   const handleManualRefresh = useCallback(async () => {
     try {
       dispatch({ type: "SET_SANDBOX_LOADING", value: true });
-      // Do NOT force recreate on manual refresh; just wait for existing to be ready
+      // Do NOT force recreate on manual refresh; query current status without server-side waiting
       const statusResponse = await fetch("/api/sandbox-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: appName || id,
-          wait: true,
-        }),
+        body: JSON.stringify({ id: appName || id }),
       });
       if (statusResponse.ok) {
         const result = await statusResponse.json();
@@ -351,6 +384,43 @@ export default function WebsitePreview({
             reloadIframe();
           }
           isReadyRef.current = true;
+        } else if (!isPollingRef.current) {
+          // start a short poll if not ready
+          isPollingRef.current = true;
+          const until = Date.now() + 30_000;
+          (async () => {
+            try {
+              while (Date.now() < until) {
+                const r = await fetch("/api/sandbox-status", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: appName || id }),
+                });
+                if (!r.ok && r.status !== 404) {
+                  const err = await r.json().catch(() => ({} as any));
+                  dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+                  dispatch({
+                    type: "SET_DEPLOYMENT_STEP",
+                    value:
+                      err?.error || `Preview error (${r.status}). Please try again.`,
+                  });
+                  break;
+                }
+                if (r.ok) {
+                  const d = await r.json();
+                  if (d?.url) {
+                    if (d.url !== url) setUrl(d.url);
+                    setIframeNonce((n) => n + 1);
+                    isReadyRef.current = true;
+                    break;
+                  }
+                }
+                await new Promise((res) => setTimeout(res, 2000));
+              }
+            } finally {
+              isPollingRef.current = false;
+            }
+          })();
         }
       }
     } catch (_) {
@@ -375,27 +445,47 @@ export default function WebsitePreview({
     (async () => {
       try {
         isReadyRef.current = false;
-        const res = await fetch("/api/sandbox-status", {
+        await fetch("/api/sandbox-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: appName || id,
             recreate: true,
-            wait: true,
           }),
         });
-        if (!cancelled && res.ok) {
-          const result = await res.json();
-          if (result?.url) {
-            if (result.url !== url) {
-              setUrl(result.url);
-              setIframeNonce((n) => n + 1);
-            } else {
-              setIframeNonce((n) => n + 1);
+        if (!cancelled && !isPollingRef.current) {
+          // Poll until the recreated sandbox is running
+          isPollingRef.current = true;
+          const deadline = Date.now() + 90_000;
+          while (!cancelled && Date.now() < deadline) {
+            const r = await fetch("/api/sandbox-status", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: appName || id }),
+            });
+            if (!r.ok && r.status !== 404) {
+              const err = await r.json().catch(() => ({} as any));
+              dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+              dispatch({
+                type: "SET_DEPLOYMENT_STEP",
+                value:
+                  err?.error || `Preview error (${r.status}). Please try again.`,
+              });
+              break;
             }
-            isReadyRef.current = true;
-            setPendingUrl(null);
+            if (r.ok) {
+              const d = await r.json();
+              if (d?.url) {
+                if (d.url !== url) setUrl(d.url);
+                setIframeNonce((n) => n + 1);
+                isReadyRef.current = true;
+                setPendingUrl(null);
+                break;
+              }
+            }
+            await new Promise((res) => setTimeout(res, 2000));
           }
+          isPollingRef.current = false;
         }
       } catch (_) {
         // keep loader visible
@@ -417,7 +507,7 @@ export default function WebsitePreview({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, sandboxId: editorState.sandboxId }),
         });
-      } catch (_) {}
+      } catch (_) { }
     };
     const interval = setInterval(() => {
       if (isActive) ping();
@@ -1165,9 +1255,8 @@ export default function WebsitePreview({
             ) : (
               <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar">
                 <div
-                  className={`${
-                    viewport === "mobile" ? "h-full w-[390px]" : "h-full w-full"
-                  } transition-[width] duration-300 ease-in-out`}
+                  className={`${viewport === "mobile" ? "h-full w-[390px]" : "h-full w-full"
+                    } transition-[width] duration-300 ease-in-out`}
                 >
                   <iframe
                     ref={iframeRef}

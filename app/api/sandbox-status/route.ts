@@ -6,8 +6,6 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 const MIN_RECREATE_INTERVAL_MS = 15_000; // backoff to avoid provider rate limits
-const MAX_WAIT_MS = 90_000;
-const WAIT_INTERVAL_MS = 2_000;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { id: appName, recreate, wait } = await request.json();
+    const { id: appName, recreate } = await request.json();
     if (!appName) {
       console.info("sandbox-status: missing appName in body");
       return NextResponse.json(
@@ -46,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch existing preview row
+    // Fetch existing preview row (always exists per data model)
     let { data: preview } = await supabase
       .from("preview_environments")
       .select("sandbox_id, updated_at")
@@ -58,30 +56,9 @@ export async function POST(request: NextRequest) {
       ? new Date(preview.updated_at).getTime()
       : 0;
 
-    // Helper: wait loop
-    const waitForRunning = async (sid: string | undefined) => {
-      const deadline = Date.now() + MAX_WAIT_MS;
-      while (sid && Date.now() < deadline) {
-        const r = await getSandboxStatus(sid);
-        if (r.success && r.status === "running" && r.url) {
-          console.info("sandbox-status: running (wait)", {
-            appName,
-            sandboxId: sid,
-            url: r.url,
-          });
-          return NextResponse.json(
-            { success: true, status: "running", url: r.url, sandboxId: sid },
-            { status: 200 }
-          );
-        }
-        await new Promise((res) => setTimeout(res, WAIT_INTERVAL_MS));
-      }
-      return NextResponse.json({ error: "Not ready" }, { status: 404 });
-    };
-
     const now = Date.now();
 
-    // If recreate requested, throttle attempts
+    // If recreate requested (user made changes), throttle attempts but force a (re)create path
     if (recreate === true) {
       if (!lastUpdatedAt || now - lastUpdatedAt >= MIN_RECREATE_INTERVAL_MS) {
         console.info("sandbox-status: recreate requested", { appName });
@@ -93,7 +70,6 @@ export async function POST(request: NextRequest) {
         try {
           const created = await deploySandboxAndStopExisting(appName);
           sandboxId = created.sandboxId;
-          if (wait === true) return waitForRunning(sandboxId);
         } catch (e) {
           console.info("sandbox-status: recreate failed", {
             appName,
@@ -104,26 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not ready" }, { status: 404 });
     }
 
-    // No sandbox row -> create placeholder and attempt creation with cooldown
-    if (!preview) {
-      console.info("sandbox-status: creating placeholder row", { appName });
-      await supabase
-        .from("preview_environments")
-        .insert({ app_name: appName, sandbox_id: null })
-        .select();
-      lastUpdatedAt = Date.now();
-      try {
-        const created = await deploySandboxAndStopExisting(appName);
-        sandboxId = created.sandboxId;
-        if (wait === true) return waitForRunning(sandboxId);
-      } catch (e) {
-        console.info("sandbox-status: initial create failed", {
-          appName,
-          error: (e as Error)?.message,
-        });
-      }
-      return NextResponse.json({ error: "Not ready" }, { status: 404 });
-    }
+    // Row always exists by design; no placeholder creation here
 
     // If we have a sandboxId, check status
     if (sandboxId) {
@@ -156,18 +113,22 @@ export async function POST(request: NextRequest) {
             .select();
           try {
             const created = await deploySandboxAndStopExisting(appName);
-            if (wait === true) return waitForRunning(created.sandboxId);
           } catch (e) {
+            // start cooldown even on failure
+            await supabase
+              .from("preview_environments")
+              .upsert({ app_name: appName, sandbox_id: sandboxId ?? null })
+              .select();
+            const message = (e as Error)?.message || "recreate failed";
             console.info("sandbox-status: recreate failed", {
               appName,
-              error: (e as Error)?.message,
+              error: message,
             });
           }
         }
         return NextResponse.json({ error: "Not ready" }, { status: 404 });
       }
       // pending/stopping/unknown
-      if (wait === true) return waitForRunning(sandboxId);
       return NextResponse.json({ error: "Not ready" }, { status: 404 });
     }
 
@@ -178,11 +139,16 @@ export async function POST(request: NextRequest) {
       });
       try {
         const created = await deploySandboxAndStopExisting(appName);
-        if (wait === true) return waitForRunning(created.sandboxId);
       } catch (e) {
+        // start cooldown even on failure
+        await supabase
+          .from("preview_environments")
+          .upsert({ app_name: appName, sandbox_id: sandboxId ?? null })
+          .select();
+        const message = (e as Error)?.message || "create failed";
         console.info("sandbox-status: create failed", {
           appName,
-          error: (e as Error)?.message,
+          error: message,
         });
       }
     }
