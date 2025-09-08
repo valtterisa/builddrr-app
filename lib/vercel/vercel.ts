@@ -489,12 +489,7 @@ export async function deploySandboxAndStopExisting(appName: string) {
         sandboxId: data.sandbox_id,
       });
 
-      console.log("🔍 [DEBUG] Found existing sandbox", {
-        sandboxId: data.sandbox_id,
-        status: existing.status,
-      });
-
-      // If existing sandbox is running or pending/starting, reuse it
+      // If existing sandbox is running or pending, reuse it
       if (existing.status === "running" || existing.status === "pending") {
         const url = existing.domain(3000);
         return { url, sandboxId: data.sandbox_id };
@@ -508,8 +503,6 @@ export async function deploySandboxAndStopExisting(appName: string) {
       );
     }
   }
-
-  console.log("🔍 [DEBUG] Creating new sandbox");
 
   const sandbox = await Sandbox.create({
     teamId: process.env.VERCEL_TEAM_ID!,
@@ -529,12 +522,6 @@ export async function deploySandboxAndStopExisting(appName: string) {
     runtime: "node22",
   });
 
-  console.log(
-    "🔍 [DEBUG] Sandbox repo",
-    `https://github.com/builddrr-user-sites/${appName}.git`
-  );
-
-  console.log("🔍 [DEBUG] Running install");
   const install = await sandbox.runCommand({
     cmd: "npm",
     args: ["install", "--loglevel", "info"],
@@ -551,18 +538,32 @@ export async function deploySandboxAndStopExisting(appName: string) {
     detached: true,
   });
 
-  console.log("🔍 [DEBUG] Sandbox created", sandbox);
-
   // save the sandbox id to database so we know what sandbox to stop before updating files.
-  await supabase
-    .from("preview_environments")
-    .upsert([{ app_name: appName, sandbox_id: sandbox.sandboxId }], {
-      onConflict: "app_name",
-    });
+  try {
+    const { data: existing, error: selectError } = await supabase
+      .from("preview_environments")
+      .select("app_name, sandbox_id")
+      .eq("app_name", appName)
+      .maybeSingle();
+    if (selectError) console.warn("Select preview env failed", selectError);
+    if (existing) {
+      await supabase
+        .from("preview_environments")
+        .update({ sandbox_id: sandbox.sandboxId })
+        .eq("app_name", appName)
+        .select("app_name, sandbox_id");
+    } else {
+      await supabase
+        .from("preview_environments")
+        .insert({ app_name: appName, sandbox_id: sandbox.sandboxId })
+        .select("app_name, sandbox_id");
+    }
+  } catch (dbErr) {
+    console.error("Failed to save sandbox_id to preview_environments", dbErr);
+  }
 
   await new Promise((resolve) => setTimeout(resolve, 500));
   const url = sandbox.domain(3000);
-  console.log("🔍 [DEBUG] Sandbox created", url);
 
   return { url: url, sandboxId: sandbox.sandboxId };
 }

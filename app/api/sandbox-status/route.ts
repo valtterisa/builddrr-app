@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSandboxStatus } from "@/lib/vercel/vercel";
+import {
+  getSandboxStatus,
+  deploySandboxAndStopExisting,
+} from "@/lib/vercel/vercel";
 import { createClient } from "@/lib/supabase/server";
-import { rateLimit } from "@/lib/ratelimit";
+
+const MIN_RECREATE_INTERVAL_MS = 15_000; // backoff to avoid provider rate limits
+const MAX_WAIT_MS = 90_000;
+const WAIT_INTERVAL_MS = 2_000;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -11,48 +17,178 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    console.info("sandbox-status: unauthorized request");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { sandboxId: bodySandboxId, id: appName } = await request.json();
-    let sandboxId = bodySandboxId as string | undefined;
-
-    // Allow resolving sandboxId by appName if not provided
-    if (!sandboxId && appName) {
-      const { data } = await supabase
-        .from("preview_environments")
-        .select("sandbox_id")
-        .eq("app_name", appName)
-        .single();
-      sandboxId = data?.sandbox_id || undefined;
-    }
-
-    if (!sandboxId) {
+    const { id: appName, recreate, wait } = await request.json();
+    if (!appName) {
+      console.info("sandbox-status: missing appName in body");
       return NextResponse.json(
-        { error: "sandboxId not found for app" },
-        { status: 404 }
+        { error: "Missing app id (appName)" },
+        { status: 400 }
       );
     }
 
-    const result = await getSandboxStatus(sandboxId);
-
-    if (result.status === "stopped") {
-      return NextResponse.json({ error: "Sandbox stopped" }, { status: 400 });
+    // Ensure ownership
+    const { data: website } = await supabase
+      .from("websites")
+      .select("id")
+      .eq("app_name", appName)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!website) {
+      console.info("sandbox-status: forbidden app", {
+        appName,
+        userId: user.id,
+      });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    console.log("🔍 [DEBUG] Sandbox status", result);
+    // Fetch existing preview row
+    let { data: preview } = await supabase
+      .from("preview_environments")
+      .select("sandbox_id, updated_at")
+      .eq("app_name", appName)
+      .single();
 
-    if (result.success && result.status === "running") {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+    let sandboxId = preview?.sandbox_id as string | undefined;
+    let lastUpdatedAt = preview?.updated_at
+      ? new Date(preview.updated_at).getTime()
+      : 0;
+
+    // Helper: wait loop
+    const waitForRunning = async (sid: string | undefined) => {
+      const deadline = Date.now() + MAX_WAIT_MS;
+      while (sid && Date.now() < deadline) {
+        const r = await getSandboxStatus(sid);
+        if (r.success && r.status === "running" && r.url) {
+          console.info("sandbox-status: running (wait)", {
+            appName,
+            sandboxId: sid,
+            url: r.url,
+          });
+          return NextResponse.json(
+            { success: true, status: "running", url: r.url, sandboxId: sid },
+            { status: 200 }
+          );
+        }
+        await new Promise((res) => setTimeout(res, WAIT_INTERVAL_MS));
+      }
+      return NextResponse.json({ error: "Not ready" }, { status: 404 });
+    };
+
+    const now = Date.now();
+
+    // If recreate requested, throttle attempts
+    if (recreate === true) {
+      if (!lastUpdatedAt || now - lastUpdatedAt >= MIN_RECREATE_INTERVAL_MS) {
+        console.info("sandbox-status: recreate requested", { appName });
+        // touch/update preview row updated_at to start cooldown
+        await supabase
+          .from("preview_environments")
+          .upsert({ app_name: appName, sandbox_id: sandboxId ?? null })
+          .select();
+        try {
+          const created = await deploySandboxAndStopExisting(appName);
+          sandboxId = created.sandboxId;
+          if (wait === true) return waitForRunning(sandboxId);
+        } catch (e) {
+          console.info("sandbox-status: recreate failed", {
+            appName,
+            error: (e as Error)?.message,
+          });
+        }
+      }
+      return NextResponse.json({ error: "Not ready" }, { status: 404 });
     }
+
+    // No sandbox row -> create placeholder and attempt creation with cooldown
+    if (!preview) {
+      console.info("sandbox-status: creating placeholder row", { appName });
+      await supabase
+        .from("preview_environments")
+        .insert({ app_name: appName, sandbox_id: null })
+        .select();
+      lastUpdatedAt = Date.now();
+      try {
+        const created = await deploySandboxAndStopExisting(appName);
+        sandboxId = created.sandboxId;
+        if (wait === true) return waitForRunning(sandboxId);
+      } catch (e) {
+        console.info("sandbox-status: initial create failed", {
+          appName,
+          error: (e as Error)?.message,
+        });
+      }
+      return NextResponse.json({ error: "Not ready" }, { status: 404 });
+    }
+
+    // If we have a sandboxId, check status
+    if (sandboxId) {
+      const result = await getSandboxStatus(sandboxId);
+      if (result.success && result.status === "running" && result.url) {
+        console.info("sandbox-status: running", {
+          appName,
+          sandboxId,
+          url: result.url,
+        });
+        return NextResponse.json(
+          { success: true, status: "running", url: result.url, sandboxId },
+          { status: 200 }
+        );
+      }
+      // If stopped/failed, recreate only after cooldown
+      if (
+        result.success &&
+        (result.status === "stopped" || result.status === "failed")
+      ) {
+        if (!lastUpdatedAt || now - lastUpdatedAt >= MIN_RECREATE_INTERVAL_MS) {
+          console.info("sandbox-status: recreate after stopped/failed", {
+            appName,
+            sandboxId,
+          });
+          await supabase
+            .from("preview_environments")
+            .update({ sandbox_id: null })
+            .eq("app_name", appName)
+            .select();
+          try {
+            const created = await deploySandboxAndStopExisting(appName);
+            if (wait === true) return waitForRunning(created.sandboxId);
+          } catch (e) {
+            console.info("sandbox-status: recreate failed", {
+              appName,
+              error: (e as Error)?.message,
+            });
+          }
+        }
+        return NextResponse.json({ error: "Not ready" }, { status: 404 });
+      }
+      // pending/stopping/unknown
+      if (wait === true) return waitForRunning(sandboxId);
+      return NextResponse.json({ error: "Not ready" }, { status: 404 });
+    }
+
+    // Have row but no sandboxId yet: honor cooldown before creating
+    if (!lastUpdatedAt || now - lastUpdatedAt >= MIN_RECREATE_INTERVAL_MS) {
+      console.info("sandbox-status: no sandboxId yet, attempting create", {
+        appName,
+      });
+      try {
+        const created = await deploySandboxAndStopExisting(appName);
+        if (wait === true) return waitForRunning(created.sandboxId);
+      } catch (e) {
+        console.info("sandbox-status: create failed", {
+          appName,
+          error: (e as Error)?.message,
+        });
+      }
+    }
+    return NextResponse.json({ error: "Not ready" }, { status: 404 });
   } catch (error) {
-    console.error("Sandbox status check error:", error);
-    return NextResponse.json(
-      { error: "Failed to check sandbox status" },
-      { status: 500 }
-    );
+    console.info("sandbox-status: error", { error: (error as Error)?.message });
+    return NextResponse.json({ error: "Not ready" }, { status: 404 });
   }
 }

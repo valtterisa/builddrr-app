@@ -1,7 +1,15 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useRef, useState, useReducer } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useReducer,
+  useMemo,
+} from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -149,6 +157,20 @@ export default function WebsitePreview({
   const [iframeNonce, setIframeNonce] = useState(0);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const isInitInFlightRef = useRef(false);
+  const isReadyRef = useRef(false);
+
+  // Derive app name from URL path via Next.js usePathname: /dashboard/website/{app_name}/editor (fallback to id prop)
+  const pathname = usePathname();
+  const appName = useMemo(() => {
+    const fromId = id ?? undefined;
+    const parts = (pathname ?? "").split("/").filter(Boolean);
+    const websiteIndex = parts.findIndex((p) => p === "website");
+    if (websiteIndex !== -1 && parts.length > websiteIndex + 1) {
+      return parts[websiteIndex + 1];
+    }
+    return fromId;
+  }, [id, pathname]);
 
   // Update URL when initialUrl changes (e.g., when deployment URL becomes available)
   useEffect(() => {
@@ -193,174 +215,109 @@ export default function WebsitePreview({
   }, []);
 
   const previewUrl =
-    url || editorState.sandboxUrl || deploymentUrl || initialUrl;
+    editorState.sandboxUrl || url || deploymentUrl || initialUrl;
   const iframeSrc = previewUrl
     ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}v=${iframeNonce}`
     : undefined;
 
   // Initialize sandbox deployment and polling
   const initializeSandbox = useCallback(async () => {
+    if (isInitInFlightRef.current) return;
+    isInitInFlightRef.current = true;
     let isMounted = true;
-    let pollInterval: NodeJS.Timeout;
 
     try {
       dispatch({ type: "SET_SANDBOX_LOADING", value: true });
       dispatch({ type: "SET_SANDBOX_ERROR", value: null });
       dispatch({
         type: "SET_DEPLOYMENT_STEP",
-        value: "Creating sandbox environment...",
+        value: "Checking existing sandbox...",
       });
 
-      // Call the server action to deploy sandbox and stop existing sandbox if there is one.
-      // We should probably have some flag to see if new files are in or user just went to dashboard and came in again.
-      const { url, sandboxId } = await deploySandboxAndStopExisting(id);
-      dispatch({ type: "SET_SANDBOX_ID", value: sandboxId });
+      isReadyRef.current = false;
+
+      // Step 1: Try to use existing running sandbox without recreating
+      let statusResponse = await fetch("/api/sandbox-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: appName || id, wait: true }),
+      });
+
+      // Step 2: If not ready, request recreate and wait
+      if (!statusResponse.ok) {
+        dispatch({
+          type: "SET_DEPLOYMENT_STEP",
+          value: "Preparing sandbox...",
+        });
+        statusResponse = await fetch("/api/sandbox-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: appName || id,
+            recreate: true,
+            wait: true,
+          }),
+        });
+      }
 
       if (!isMounted) return;
 
-      dispatch({
-        type: "SET_DEPLOYMENT_STEP",
-        value: "Waiting for sandbox to be ready...",
-      });
-
-      // Start polling for sandbox status
-      pollInterval = setInterval(async () => {
-        try {
-          // Get sandbox status using the API route
-          const statusResponse = await fetch("/api/sandbox-status", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ sandboxId, id }),
-          });
-
-          if (!statusResponse.ok) {
-            throw new Error("Failed to fetch sandbox status");
-          }
-
-          const result = await statusResponse.json();
-
-          if (result.success) {
-            const status = result.status;
-
-            if (isMounted) {
-              if (status === "running") {
-                dispatch({ type: "SET_SANDBOX_URL", value: result.url || url });
-                dispatch({ type: "SET_SANDBOX_LOADING", value: false });
-                clearInterval(pollInterval);
-                toast({
-                  title: "Sandbox Ready!",
-                  description: "Your development environment is now available.",
-                });
-              } else if (status === "failed") {
-                clearInterval(pollInterval);
-                dispatch({
-                  type: "SET_SANDBOX_ERROR",
-                  value: "Sandbox deployment failed. Please try again.",
-                });
-                dispatch({ type: "SET_SANDBOX_LOADING", value: false });
-              } else {
-                // Update the step to show current status
-                const statusMessages = {
-                  pending: "Sandbox is being created...",
-                  running: "Sandbox is starting up...",
-                  stopping: "Sandbox is stopping...",
-                  stopped: "Sandbox has stopped...",
-                  failed: "Sandbox deployment failed",
-                };
-                dispatch({
-                  type: "SET_DEPLOYMENT_STEP",
-                  value:
-                    statusMessages[status as keyof typeof statusMessages] ||
-                    `Sandbox status: ${status}...`,
-                });
-              }
-            }
-          } else {
-            throw new Error(result.error || "Failed to get sandbox status");
-          }
-        } catch (error) {
-          // Error getting status, continue polling
-          console.log("Error getting sandbox status, continuing to poll...");
-          if (isMounted) {
-            dispatch({
-              type: "SET_DEPLOYMENT_STEP",
-              value: "Checking sandbox status...",
-            });
-          }
-        }
-      }, 2000); // Poll every 2 seconds
-
-      // Set a timeout to stop polling after 5 minutes
-      setTimeout(
-        () => {
-          if (isMounted && editorState.isSandboxLoading) {
-            clearInterval(pollInterval);
-            dispatch({
-              type: "SET_SANDBOX_ERROR",
-              value: "Sandbox deployment timed out. Please try again.",
-            });
-            dispatch({ type: "SET_SANDBOX_LOADING", value: false });
-          }
-        },
-        5 * 60 * 1000
-      );
-    } catch (error) {
-      if (isMounted) {
-        console.error("Failed to deploy sandbox:", error);
-        dispatch({
-          type: "SET_SANDBOX_ERROR",
-          value:
-            error instanceof Error ? error.message : "Failed to deploy sandbox",
-        });
+      if (statusResponse.ok) {
+        const data = await statusResponse.json();
+        dispatch({ type: "SET_SANDBOX_URL", value: data.url });
         dispatch({ type: "SET_SANDBOX_LOADING", value: false });
+        dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Sandbox ready" });
+        setIframeNonce((n) => n + 1);
+        isReadyRef.current = true;
+      } else {
+        dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+        dispatch({
+          type: "SET_DEPLOYMENT_STEP",
+          value: "Preparing sandbox...",
+        });
       }
+    } catch (_) {
+      if (!isMounted) return;
+      dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+      dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Preparing sandbox..." });
+    } finally {
+      isInitInFlightRef.current = false;
     }
 
-    // Cleanup function
     return () => {
       isMounted = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
     };
-  }, [id]);
+  }, [dispatch, id, appName]);
 
-  // Retry function for sandbox deployment
-  const retrySandbox = useCallback(() => {
+  useEffect(() => {
     dispatch({ type: "SET_SANDBOX_ERROR", value: null });
     dispatch({ type: "SET_SANDBOX_LOADING", value: true });
     dispatch({ type: "SET_DEPLOYMENT_STEP", value: "Initializing..." });
-    initializeSandbox();
+    if (!isReadyRef.current) {
+      initializeSandbox();
+    }
   }, [initializeSandbox]);
 
   // Initialize sandbox on mount only if not streaming and no incoming deployment URL.
-  // Add small delay to avoid racing with AI flow that will create/reuse sandbox and emit URL.
   useEffect(() => {
-    if (!hasMounted) return;
-    if (isStreaming) return; // AI flow will handle it and provide URL
-    if (deploymentUrl) return; // URL will be used for preview
-    if (editorState.sandboxUrl || editorState.sandboxError) return;
-
-    const timer = setTimeout(() => {
-      // Re-check before initializing to avoid races
-      if (
-        useChatStreamStore.getState().status !== "streaming" &&
-        !deploymentUrl
-      ) {
-        initializeSandbox();
-      }
-    }, 1200);
-
-    return () => clearTimeout(timer);
+    const shouldInit =
+      typeof window !== "undefined" &&
+      (window as any).useAIMode !== true &&
+      useChatStreamStore.getState().status !== "streaming" &&
+      !deploymentUrl &&
+      !editorState.sandboxUrl &&
+      !editorState.isSandboxLoading &&
+      !isReadyRef.current;
+    if (shouldInit) {
+      initializeSandbox();
+    }
+    return () => {};
   }, [
-    hasMounted,
-    isStreaming,
     deploymentUrl,
     editorState.sandboxUrl,
-    editorState.sandboxError,
+    editorState.isSandboxLoading,
     initializeSandbox,
+    appName,
   ]);
 
   // Function to reload the iframe
@@ -373,58 +330,34 @@ export default function WebsitePreview({
   }, [previewUrl]);
 
   const handleManualRefresh = useCallback(async () => {
-    // Ask the server for the current status and URL; allow resolving by app id if sandboxId missing
-    if (editorState.sandboxId || id) {
-      try {
-        const statusResponse = await fetch("/api/sandbox-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sandboxId: editorState.sandboxId, id }),
-        });
-        if (statusResponse.ok) {
-          const result = await statusResponse.json();
-          if (result.success && result.url) {
-            if (result.url !== url) {
-              setUrl(result.url);
-              setIframeNonce((n) => n + 1);
-            } else {
-              reloadIframe();
-            }
-            toast({
-              title: "Refreshing preview",
-              description: "Reloading sandbox iframe",
-            });
-            return;
+    try {
+      dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+      // Do NOT force recreate on manual refresh; just wait for existing to be ready
+      const statusResponse = await fetch("/api/sandbox-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: appName || id,
+          wait: true,
+        }),
+      });
+      if (statusResponse.ok) {
+        const result = await statusResponse.json();
+        if (result?.url) {
+          if (result.url !== url) {
+            setUrl(result.url);
+            setIframeNonce((n) => n + 1);
+          } else {
+            reloadIframe();
           }
+          isReadyRef.current = true;
         }
-      } catch (e) {
-        // fall through to generic path
       }
+    } catch (_) {
+    } finally {
+      dispatch({ type: "SET_SANDBOX_LOADING", value: false });
     }
-
-    if (editorState.sandboxUrl || deploymentUrl) {
-      reloadIframe();
-      toast({
-        title: "Refreshing preview",
-        description: "Reloading sandbox iframe",
-      });
-    } else {
-      toast({
-        title: "Sandbox not ready",
-        description: "Attempting to initialize sandbox...",
-      });
-      retrySandbox();
-    }
-  }, [
-    editorState.sandboxId,
-    editorState.sandboxUrl,
-    deploymentUrl,
-    reloadIframe,
-    retrySandbox,
-    toast,
-    id,
-    url,
-  ]);
+  }, [dispatch, appName, id, url, reloadIframe]);
 
   // React to external reload triggers from the editor (e.g., after AI finishes)
   useEffect(() => {
@@ -436,61 +369,42 @@ export default function WebsitePreview({
   // When deployment URL changes, stage it as pending and swap only when sandbox is running
   useEffect(() => {
     if (!deploymentUrl) return;
-    // Enter loading state on redeploy to show overlay until the new URL is running and rendered
     dispatch({ type: "SET_SANDBOX_LOADING", value: true });
     setPendingUrl(deploymentUrl);
     let cancelled = false;
-    const poll = async () => {
+    (async () => {
       try {
+        isReadyRef.current = false;
         const res = await fetch("/api/sandbox-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({
+            id: appName || id,
+            recreate: true,
+            wait: true,
+          }),
         });
-        if (!res.ok) {
-          // Keep loader visible when sandbox status returns 4xx/5xx
-          dispatch({ type: "SET_SANDBOX_LOADING", value: true });
-          return;
-        }
-        const result = await res.json();
-        if (
-          !cancelled &&
-          result?.success &&
-          result.status === "running" &&
-          result.url
-        ) {
-          // Only switch when running to avoid flashing a broken preview
-          if (result.url !== url) {
-            setUrl(result.url);
-            setIframeNonce((n) => n + 1);
-          } else {
-            // Same URL, force refresh to pick up new build
-            setIframeNonce((n) => n + 1);
+        if (!cancelled && res.ok) {
+          const result = await res.json();
+          if (result?.url) {
+            if (result.url !== url) {
+              setUrl(result.url);
+              setIframeNonce((n) => n + 1);
+            } else {
+              setIframeNonce((n) => n + 1);
+            }
+            isReadyRef.current = true;
+            setPendingUrl(null);
           }
-          setPendingUrl(null);
-          // Loader will be removed after iframe load event fires
         }
       } catch (_) {
-        // ignore one-off failures
-        // Stay in loading state while polling in case of transient errors
-        dispatch({ type: "SET_SANDBOX_LOADING", value: true });
+        // keep loader visible
       }
-    };
-    // Poll a few times quickly, then back off
-    const i1 = setInterval(poll, 1500);
-    const timeout = setTimeout(() => {
-      clearInterval(i1);
-      if (!cancelled && pendingUrl) {
-        // If still pending after grace period, try one final poll
-        poll();
-      }
-    }, 10000);
+    })();
     return () => {
       cancelled = true;
-      clearInterval(i1);
-      clearTimeout(timeout);
     };
-  }, [deploymentUrl, id, pendingUrl, url]);
+  }, [deploymentUrl, id, url, appName]);
 
   // Keep-alive ping while preview is visible to reduce auto-stop likelihood
   useEffect(() => {
