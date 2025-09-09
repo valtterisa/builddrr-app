@@ -136,6 +136,64 @@ export async function trackAICall(websiteId?: string): Promise<{
 }
 
 /**
+ * Server action to check current AI usage limits
+ * Returns whether user has exceeded their limits
+ */
+export async function checkCurrentUsageLimits(): Promise<{
+  hasExceededLimits: boolean;
+  limits: any[];
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return {
+        hasExceededLimits: false,
+        limits: [],
+        error: "User not authenticated",
+      };
+    }
+
+    // Check usage limits using RPC
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "check_ai_usage_limits",
+      { user_uuid: user.id }
+    );
+
+    if (rpcError) {
+      console.error("Error checking AI usage limits:", rpcError);
+      return {
+        hasExceededLimits: false,
+        limits: [],
+        error: rpcError.message,
+      };
+    }
+
+    const limits = (rpcData as any[]) || [];
+    const hasExceededLimits = limits.some((limit) => limit.is_exceeded);
+
+    return {
+      hasExceededLimits,
+      limits,
+    };
+  } catch (error) {
+    console.error("Error in checkCurrentUsageLimits:", error);
+    return {
+      hasExceededLimits: false,
+      limits: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
  * Server action to create a website with usage limit check
  * This ensures users can't bypass limits by calling APIs directly
  */

@@ -6,7 +6,7 @@ import { ArrowUp } from "lucide-react";
 
 import ReactMarkdown from "react-markdown";
 import { useChatStreamStore, ChatMessage } from "@/lib/chat-stream-store";
-import { useAIUsage } from "@/hooks/use-ai-usage";
+import { checkCurrentUsageLimits } from "@/lib/actions/ai-usage";
 import { trackAICall } from "@/lib/ai-usage-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -169,9 +169,31 @@ export default function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // AI usage tracking
-  const { limits, isLoading: limitsLoading } = useAIUsage();
-  const hasExceededLimits = limits.some((limit) => limit.is_exceeded);
+  // AI usage tracking with server action
+  const [hasExceededLimits, setHasExceededLimits] = useState(false);
+  const [limitsLoading, setLimitsLoading] = useState(true);
+
+  // Check usage limits on component mount and after sending messages
+  const checkUsageLimits = useCallback(async () => {
+    try {
+      setLimitsLoading(true);
+      const result = await checkCurrentUsageLimits();
+
+      console.log("Server usage limits check:", result);
+
+      setHasExceededLimits(result.hasExceededLimits);
+    } catch (error) {
+      console.error("Error checking usage limits:", error);
+      setHasExceededLimits(false);
+    } finally {
+      setLimitsLoading(false);
+    }
+  }, []);
+
+  // Check limits on mount
+  useEffect(() => {
+    checkUsageLimits();
+  }, [checkUsageLimits]);
 
   // Auto-scroll state management
   const [userScrolling, setUserScrolling] = useState(false);
@@ -256,10 +278,15 @@ export default function ChatInterface({
         .catch(() => {
           // ignore tracking errors for UX; keep chat flowing
         });
+
+      // Re-check usage limits after sending message
+      setTimeout(() => {
+        checkUsageLimits();
+      }, 1000); // Small delay to ensure usage is tracked
     } catch (error) {
       console.error("Error in onSendMessage:", error);
     }
-  }, [inputValue, status, hasExceededLimits, onSendMessage]);
+  }, [inputValue, status, hasExceededLimits, onSendMessage, checkUsageLimits]);
 
   return (
     <div

@@ -461,7 +461,10 @@ export async function verifyDomainSetup({
   }
 }
 
-export async function deploySandboxAndStopExisting(appName: string) {
+export async function deploySandboxAndStopExisting(
+  appName: string,
+  recreate?: boolean
+) {
   const auth = createAppAuth({
     appId: process.env.GITHUB_APP_ID!,
     privateKey: process.env.GITHUB_APP_PRIVATE_KEY!,
@@ -480,7 +483,7 @@ export async function deploySandboxAndStopExisting(appName: string) {
     .single();
 
   // If an existing sandbox is recorded, try to reuse it
-  if (data && data.sandbox_id) {
+  if (!recreate && data && data.sandbox_id) {
     try {
       const existing = await Sandbox.get({
         teamId: process.env.VERCEL_TEAM_ID!,

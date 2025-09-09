@@ -1,7 +1,9 @@
 "use client";
 
-import { useAIUsage } from "@/hooks/use-ai-usage";
+// Note: AI usage now handled via server actions in lib/actions/ai-usage.ts
+import { useState, useEffect } from "react";
 import { useSubscription } from "@/hooks/use-subscription";
+import { checkCurrentUsageLimits } from "@/lib/actions/ai-usage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Zap, MessageSquare, ArrowUpRight } from "lucide-react";
@@ -17,9 +19,35 @@ const usageTypeLabels = {
 };
 
 export function AIUsageSidebar() {
-  const { usage, limits, planLimits, isLoading, error } = useAIUsage();
   const { plan, isActive } = useSubscription();
   const router = useRouter();
+
+  // State for AI usage data
+  const [limits, setLimits] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load usage data on mount
+  useEffect(() => {
+    const loadUsageData = async () => {
+      try {
+        setIsLoading(true);
+        const result = await checkCurrentUsageLimits();
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setLimits(result.limits);
+          setError(null);
+        }
+      } catch (err) {
+        setError("Failed to load usage data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUsageData();
+  }, []);
 
   if (isLoading) {
     return (
@@ -48,8 +76,8 @@ export function AIUsageSidebar() {
   }
 
   // Add safety checks for undefined values
-  if (!usage || !limits || !planLimits || !plan) {
-    console.log("AI Usage Sidebar Debug:", { usage, limits, planLimits, plan });
+  if (!limits || !plan) {
+    console.log("AI Usage Sidebar Debug:", { limits, plan });
     return (
       <div className="px-4 py-3 border-t border-border">
         <div className="flex items-center gap-2 mb-3">
@@ -63,37 +91,17 @@ export function AIUsageSidebar() {
     );
   }
 
-  const currentPlan = planLimits[plan as keyof typeof planLimits];
-
-  // Additional safety check for currentPlan
-  if (!currentPlan) {
-    console.log("AI Usage Sidebar Debug - No currentPlan:", {
-      plan,
-      planLimits,
-      currentPlan,
-    });
-    return (
-      <div className="px-4 py-3 border-t border-border">
-        <div className="flex items-center gap-2 mb-3">
-          <Zap className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium">AI Usage</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Plan data not available for: {plan}
-        </div>
-      </div>
-    );
-  }
-
   const hasExceededLimits = limits.some((limit) => limit.is_exceeded);
   const isEnterprise = plan === "enterprise";
 
-  // Get chat usage data
-  const chatUsage =
-    usage.find((u) => u.usage_type === "chat")?.total_requests || 0;
-  const chatLimit = currentPlan.monthly_chat_requests;
+  // Get chat usage data from limits array (server action returns limits with usage info)
+  const chatLimit = limits.find((limit) => limit.usage_type === "chat");
+  const chatUsage = chatLimit?.current_usage || 0;
+  const chatLimitValue = chatLimit?.limit_value || 0;
   const chatPercentage =
-    chatLimit === -1 ? 0 : Math.min((chatUsage / chatLimit) * 100, 100);
+    chatLimitValue === -1
+      ? 0
+      : Math.min((chatUsage / chatLimitValue) * 100, 100);
 
   const getUsageColor = (percentage: number) => {
     if (percentage >= 90) return "bg-red-500";
@@ -130,7 +138,7 @@ export function AIUsageSidebar() {
             <span className="text-muted-foreground">Chat Messages</span>
           </div>
           <span className="font-medium">
-            {chatUsage} / {formatLimit(chatLimit)}
+            {chatUsage} / {formatLimit(chatLimitValue)}
           </span>
         </div>
         <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
