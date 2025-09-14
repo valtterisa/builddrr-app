@@ -1,9 +1,12 @@
 import { useCallback } from "react";
 import { useChatStreamStore } from "@/lib/chat-stream-store";
+import { uploadFilesToRepo } from "@/lib/github";
 
 export const useStreamingChat = () => {
   const { startStream, updateStream, finishStream, failStream, setStatus } =
     useChatStreamStore();
+
+  // No client-side parsing - server handles everything
 
   const sendMessage = useCallback(
     async (message: string, appName: string, repoExists: boolean = false) => {
@@ -54,6 +57,7 @@ export const useStreamingChat = () => {
                   else if (data.value === "error") failStream();
                   else if (data.value === "submitted") setStatus("submitted");
                 } else if (data.type === "analysis") {
+                  // Server has already filtered all content - just show it
                   updateStream(data.content || "");
                 } else if (data.type === "progress") {
                   if (data.status === "deploying") {
@@ -67,7 +71,9 @@ export const useStreamingChat = () => {
                   updateStream(`\n\n**Error streaming chat**`);
                   failStream();
                 }
-              } catch {}
+              } catch (parseError) {
+                console.warn('Failed to parse SSE event:', parseError);
+              }
             }
           }
 

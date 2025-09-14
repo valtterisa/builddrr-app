@@ -261,11 +261,11 @@ export default function EditorPageClient({
           </Tabs>
         </div>
         <div className="flex flex-col flex-1 min-w-0 h-full bg-background">
-          <WebsitePreview
+          {/* <WebsitePreview
             isEditMode={isEditMode}
             initialUrl={undefined}
             id={id}
-          />
+          /> */}
         </div>
       </div>
       {/* Mobile chat drawer with swipeable grabber */}

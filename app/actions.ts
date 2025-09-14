@@ -15,6 +15,7 @@ import {
   uploadFilesToRepo,
 } from "@/lib/github";
 import { ensureSandboxRunning } from "@/lib/vercel/vercel";
+import { BuilddrrTagExtractor } from "@/lib/builddrr-tag-extractor";
 
 export type Operation = {
   operation: "write" | "update" | "delete" | "code" | "rename" | "dependency";
@@ -223,60 +224,17 @@ export async function* generateAIResponseStream(
   const collectedFiles: Record<string, string> = {};
   const MAX_BLOCK_SIZE = 1024 * 1024; // 1MB per block
   const MAX_BUFFER_SIZE = 200 * 1024; // 200KB max buffer size
-  let unexpectedContentBuffer = "";
-  let foundCodeBlock = false;
-  let inMarkdownSection = false;
-  let markdownBuffer = "";
   let processedContentLength = 0; // Track how much content we've processed
+  let allExtractedTags: any[] = []; // Store all extracted tags for GitHub upload
+  let lastProcessedContent = ""; // Track last processed content to prevent duplicates
 
-  // Regex for <builddrr-code>...</builddrr-code>
-  const codeBlockRegex = /<builddrr-code\s*>([\s\S]*?)<\/builddrr-code\s*>/gi;
-  // Regex for <builddrr-write file="...">...</builddrr-write>
-  const writeBlockRegex =
-    /<builddrr-write\s+file="([^"]+)">([\s\S]*?)<\/builddrr-write\s*>/gi;
+  // Memory-efficient regex-based processing
 
-  // Optimized string filtering function (only run when needed)
-  const filterContent = (content: string): string => {
-    return content
-      .replace(/```[\s\S]*?```/g, "")
-      .replace(/`[^`]*`/g, "")
-      .replace(/function\s*\(/gi, "")
-      .replace(/const\s+\w+\s*=/gi, "")
-      .replace(/let\s+\w+\s*=/gi, "")
-      .replace(/var\s+\w+\s*=/gi, "")
-      .replace(/import\s+.*?from/gi, "")
-      .replace(/export\s+/gi, "")
-      .replace(/return\s+/gi, "")
-      .replace(/console\.log/gi, "")
-      .replace(/React\./gi, "")
-      .replace(/useState/gi, "")
-      .replace(/useEffect/gi, "")
-      .replace(/className=/gi, "")
-      .replace(/onClick=/gi, "")
-      .replace(/style=/gi, "");
-  };
+  // Using htmlparser2-based filtering instead of regex
 
-  // Check if content should be shown to user
+  // Check if content should be shown to user using htmlparser2-based filtering
   const shouldShowContent = (content: string): boolean => {
-    return (
-      content.trim().length > 0 &&
-      !content.match(/[{}()\[\]]/) && // No brackets
-      !content.match(/[;=]/) && // No semicolons or equals
-      !content.includes("function") &&
-      !content.includes("const") &&
-      !content.includes("let") &&
-      !content.includes("var") &&
-      !content.includes("import") &&
-      !content.includes("export") &&
-      !content.includes("return") &&
-      !content.includes("console") &&
-      !content.includes("React") &&
-      !content.includes("useState") &&
-      !content.includes("useEffect") &&
-      !content.includes("className") &&
-      !content.includes("onClick") &&
-      !content.includes("style")
-    );
+    return BuilddrrTagExtractor.shouldShowToUser(content);
   };
 
   while (true) {
@@ -284,20 +242,83 @@ export async function* generateAIResponseStream(
     if (done) break;
     buffer += value;
 
-    // Smart buffer cleanup - only remove processed content
+    // Use regex to find complete builddrr tags efficiently
+    const builddrrTagRegex = /<builddrr-write[^>]*file="([^"]+)"[^>]*>([\s\S]*?)<\/builddrr-write>/gi;
+    let match;
+    let lastIndex = 0;
+    let cleanContent = "";
+
+    // Find all complete builddrr tags in current buffer
+    while ((match = builddrrTagRegex.exec(buffer)) !== null) {
+      const [fullMatch, fileName, fileContent] = match;
+      const startIndex = match.index;
+
+      // Add content before the tag to clean content
+      if (startIndex > lastIndex) {
+        const beforeTag = buffer.substring(lastIndex, startIndex);
+        if (beforeTag.trim() && !BuilddrrTagExtractor.hasTags(beforeTag)) {
+          cleanContent += beforeTag;
+        }
+      }
+
+      // Normalize file path (remove leading slash for consistency)
+      const normalizedFileName = fileName.startsWith('/') ? fileName.substring(1) : fileName;
+
+      // Process the file if we haven't seen it before
+      if (!collectedFiles[normalizedFileName]) {
+        collectedFiles[normalizedFileName] = fileContent;
+        console.log(`📝 [generateAIResponseStream] Collected file: ${normalizedFileName}`);
+        cleanContent += `📝 Creating ${normalizedFileName}...\n`;
+      }
+
+      lastIndex = startIndex + fullMatch.length;
+    }
+
+    // Add remaining content after last tag (only if it's not a partial builddrr tag)
+    if (lastIndex < buffer.length) {
+      const afterLastTag = buffer.substring(lastIndex);
+      // Only add if it doesn't look like the start of a builddrr tag
+      if (afterLastTag.trim() &&
+        !BuilddrrTagExtractor.hasTags(afterLastTag) &&
+        !afterLastTag.includes('<builddrr-')) {
+        cleanContent += afterLastTag;
+      }
+    }
+
+    // Only send NEW content to user (incremental streaming)
+    if (cleanContent.trim()) {
+      // Calculate only the NEW part of the content
+      const newContent = lastProcessedContent
+        ? cleanContent.substring(lastProcessedContent.length)
+        : cleanContent;
+
+      if (newContent.trim()) {
+        const filteredContent = BuilddrrTagExtractor.filterContentForUser(newContent);
+        if (filteredContent.trim() && shouldShowContent(filteredContent)) {
+          console.log(
+            "📝 [generateAIResponseStream] Yielding NEW content:",
+            filteredContent.substring(0, 100) + "..."
+          );
+          yield { type: "analysis", content: filteredContent };
+        }
+      }
+
+      lastProcessedContent = cleanContent; // Update to current content
+    }
+
+    // Smart buffer cleanup - remove processed content
     if (buffer.length > MAX_BUFFER_SIZE) {
-      // Find the last complete <builddrr-code> block to safely trim
-      const lastCodeBlockIndex = buffer.lastIndexOf("</builddrr-code>");
-      if (lastCodeBlockIndex > 0) {
-        const keepFromIndex = lastCodeBlockIndex + 15; // Keep after </builddrr-code>
-        const removedLength = keepFromIndex - processedContentLength;
-        processedContentLength = keepFromIndex;
-        buffer = buffer.slice(keepFromIndex);
+      // Find the last complete builddrr tag to safely trim
+      const lastTagIndex = buffer.lastIndexOf('</builddrr-write>');
+      if (lastTagIndex > -1) {
+        const processedLength = lastTagIndex + '</builddrr-write>'.length;
+        processedContentLength += processedLength;
+        buffer = buffer.substring(processedLength);
         console.log(
-          `🧹 [generateAIResponseStream] Cleaned buffer, removed ${removedLength} chars`
+          `🧹 [generateAIResponseStream] Cleaned buffer, removed ${processedLength} chars`
         );
       } else {
-        // If no complete blocks, keep last 50KB
+        // If no complete tag found, keep last 50KB
         const keepFromIndex = Math.max(0, buffer.length - 50000);
         const removedLength = keepFromIndex - processedContentLength;
         processedContentLength = keepFromIndex;
@@ -308,199 +329,43 @@ export async function* generateAIResponseStream(
       }
     }
 
-    // Check if we're entering a markdown section (before <builddrr-code>)
-    if (!inMarkdownSection && !buffer.includes("<builddrr-code")) {
-      inMarkdownSection = true;
-      console.log("📝 [generateAIResponseStream] Entered markdown section");
-    }
-
-    // If we find a <builddrr-code> block, process the markdown that came before it
-    if (inMarkdownSection && buffer.includes("<builddrr-code")) {
-      const codeStartIndex = buffer.indexOf("<builddrr-code");
-      const markdownContent = buffer.substring(0, codeStartIndex).trim();
-
-      if (markdownContent) {
-        // Use optimized filtering function
-        const filteredMarkdown = filterContent(markdownContent);
-
-        // Only show content if it passes validation
-        if (shouldShowContent(filteredMarkdown)) {
-          console.log(
-            "📝 [generateAIResponseStream] Yielding filtered markdown before code block:",
-            filteredMarkdown.substring(0, 100) + "..."
-          );
-          yield { type: "analysis", content: filteredMarkdown };
-        }
-      }
-
-      inMarkdownSection = false;
-      console.log(
-        "📝 [generateAIResponseStream] Exited markdown section, entered code section"
-      );
-    }
-
-    // Stream markdown content immediately as it comes in (filter out code blocks)
-    if (inMarkdownSection) {
-      // Yield the new content immediately for real-time streaming
-      const newContent = value;
-      if (newContent.trim()) {
-        // Use optimized filtering function
-        const filteredContent = filterContent(newContent);
-
-        // Only show content if it passes validation
-        if (shouldShowContent(filteredContent)) {
-          console.log(
-            "📝 [generateAIResponseStream] Yielding filtered content:",
-            filteredContent.substring(0, 50) + "..."
-          );
-          yield { type: "analysis", content: filteredContent };
-        }
-      }
-    } else if (!foundCodeBlock) {
-      // If we're not in a code block and haven't found one yet, stream the content
-      // This handles the initial markdown content before any code blocks
-      if (value.trim()) {
-        // Use optimized filtering function
-        const filteredContent = filterContent(value);
-
-        // Only show content if it passes validation
-        if (shouldShowContent(filteredContent)) {
-          console.log(
-            "📝 [generateAIResponseStream] Yielding filtered initial content:",
-            filteredContent.substring(0, 50) + "..."
-          );
-          yield { type: "analysis", content: filteredContent };
-        }
-      }
-    }
-
-    // Extract all <builddrr-code> blocks (but don't show code to user)
-    let codeMatch;
-    let foundInThisChunk = false;
-    let processedBlocks = 0;
-
-    while ((codeMatch = codeBlockRegex.exec(buffer)) !== null) {
-      foundCodeBlock = true;
-      foundInThisChunk = true;
-      const codeContent = codeMatch[1];
-
-      // Extract all <builddrr-write> blocks inside this code block
-      let writeMatch;
-      while ((writeMatch = writeBlockRegex.exec(codeContent)) !== null) {
-        const file = writeMatch[1];
-        let content = writeMatch[2];
-
-        // Show user-friendly feedback for each file being created
-        const fileName =
-          file.split("/").pop()?.replace(".tsx", "").replace(".ts", "") ||
-          "component";
-        const friendlyName =
-          fileName.charAt(0).toUpperCase() + fileName.slice(1);
-
-        // Only yield user-friendly text, not the actual code
-        yield {
-          type: "analysis",
-          content: `\n\n**📝 Creating ${friendlyName}...**\n\n`,
-        };
-
-        if (content.length > MAX_BLOCK_SIZE) {
-          content = content.slice(0, MAX_BLOCK_SIZE);
-          console.warn(
-            `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`
-          );
-          // Don't yield warning to chat - just log it
-        }
-        collectedFiles[file.startsWith("/") ? file.substring(1) : file] =
-          content;
-      }
-      writeBlockRegex.lastIndex = 0;
-      processedBlocks++;
-    }
-
-    // Only remove processed <builddrr-code> blocks from buffer
-    if (processedBlocks > 0) {
-      // Remove only the processed blocks, not all blocks
-      const processedRegex =
-        /<builddrr-code\s*>([\s\S]*?)<\/builddrr-code\s*>/gi;
-      let match;
-      let removeCount = 0;
-      while (
-        (match = processedRegex.exec(buffer)) !== null &&
-        removeCount < processedBlocks
-      ) {
-        buffer = buffer.replace(match[0], "");
-        removeCount++;
-      }
-      console.log(
-        `🧹 [generateAIResponseStream] Removed ${processedBlocks} processed code blocks from buffer`
-      );
-    }
-    codeBlockRegex.lastIndex = 0;
-
-    // Optionally, handle unexpected content outside tags
-    if (buffer.length > 10000 && !buffer.match(/<builddrr-code/)) {
-      unexpectedContentBuffer += buffer.slice(0, 500);
-      buffer = buffer.slice(-500); // keep last 500 chars
-    }
+    // Extract builddrr tags using the new extractor for GitHub upload
+    const extractedTags = BuilddrrTagExtractor.extractTags(buffer);
+    allExtractedTags.push(...extractedTags);
   }
 
-  // After stream ends, check for any remaining markdown content (filter out code blocks)
-  if (inMarkdownSection && markdownBuffer.trim().length > 0) {
-    const content = markdownBuffer.trim();
-    // Use optimized filtering function
-    const filteredContent = filterContent(content);
+  // After stream ends, process any remaining clean content
+  if (buffer.trim()) {
+    // Only send if it has NO builddrr tags
+    if (!BuilddrrTagExtractor.hasTags(buffer)) {
+      const filteredContent = BuilddrrTagExtractor.filterContentForUser(buffer);
 
-    // Only show content if it passes validation
-    if (
-      filteredContent &&
-      filteredContent.trim().length > 10 &&
-      shouldShowContent(filteredContent)
-    ) {
-      yield { type: "analysis", content: filteredContent.trim() };
+      if (filteredContent && filteredContent.trim().length > 10 && shouldShowContent(filteredContent)) {
+        yield { type: "analysis", content: filteredContent.trim() };
+      }
+    } else {
+      console.log("🚫 [generateAIResponseStream] Skipping final content with builddrr tags");
     }
   }
 
   // After stream ends, check for any remaining complete blocks in buffer (silently collect files)
-  let codeMatch;
-  while ((codeMatch = codeBlockRegex.exec(buffer)) !== null) {
-    foundCodeBlock = true;
-    const codeContent = codeMatch[1];
-    let writeMatch;
-    while ((writeMatch = writeBlockRegex.exec(codeContent)) !== null) {
-      const file = writeMatch[1];
-      let content = writeMatch[2];
-      if (content.length > MAX_BLOCK_SIZE) {
-        content = content.slice(0, MAX_BLOCK_SIZE);
-        console.warn(
-          `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`
-        );
-      }
-      collectedFiles[file.startsWith("/") ? file.substring(1) : file] = content;
+  const finalExtractedTags = BuilddrrTagExtractor.extractTags(buffer);
+  const finalWriteTags = finalExtractedTags.filter(tag => tag.type === 'write' && tag.file);
+
+  for (const tag of finalWriteTags) {
+    const file = tag.file!;
+    let content = tag.content;
+    if (content.length > MAX_BLOCK_SIZE) {
+      content = content.slice(0, MAX_BLOCK_SIZE);
+      console.warn(
+        `[generateAIResponseStream] File block for ${file} exceeded max size and was truncated.`
+      );
     }
-    writeBlockRegex.lastIndex = 0;
+    collectedFiles[file.startsWith("/") ? file.substring(1) : file] = content;
   }
 
-  // Warn if no <builddrr-code> block was found
-  if (!foundCodeBlock) {
-    console.warn(
-      `[generateAIResponseStream] No <builddrr-code> block found in the stream.`
-    );
-    // Don't yield warning to chat - just log it
-  }
-
-  // Warn if any unprocessed content remains
-  if (buffer.trim().length > 0) {
-    console.warn(
-      `[generateAIResponseStream] Unprocessed content at end of stream: ${buffer.slice(0, 200)}${buffer.length > 200 ? "..." : ""}`
-    );
-    // Don't yield warning to chat - just log it
-  }
-  if (unexpectedContentBuffer.trim().length > 0) {
-    console.warn(
-      `[generateAIResponseStream] Unexpected content outside tags: ${unexpectedContentBuffer.slice(0, 200)}${unexpectedContentBuffer.length > 200 ? "..." : ""}`
-    );
-    // Don't yield warning to chat - just log it
-  }
+  // Log completion
+  console.log(`[generateAIResponseStream] Stream completed. Collected ${Object.keys(collectedFiles).length} files.`);
 
   // After streaming, deploy if files were collected
   if (Object.keys(collectedFiles).length > 0) {
@@ -553,7 +418,7 @@ export async function* generateAIResponseStream(
       // Invalidate context after deploy; next run rebuilds with fresh files
       try {
         await invalidateProjectContext(appName);
-      } catch (_) {}
+      } catch (_) { }
       if (ensure?.url) {
         yield {
           type: "progress",
