@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { createSiteForUser } from "@/lib/cloudflare/cloudflare";
 import { createClient } from "@/lib/supabase/client";
 import DomainConnectionModal from "@/components/domain-connection-modal";
@@ -28,7 +30,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-function EditorHeader({ id }: { id: string }) {
+export function EditorHeader() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -37,6 +39,9 @@ function EditorHeader({ id }: { id: string }) {
   const [isLoadingDeployment, setIsLoadingDeployment] = useState(true);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const pathname = usePathname();
+
+  const params = useParams();
+  const id = params.id as string;
 
   const { toast } = useToast();
 
@@ -48,7 +53,6 @@ function EditorHeader({ id }: { id: string }) {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-
 
         console.log("user", user);
         console.log("id", id);
@@ -172,7 +176,7 @@ function EditorHeader({ id }: { id: string }) {
   };
 
   return (
-    <div className="h-12 border-b flex items-center px-4 gap-2">
+    <div className="h-12 border rounded-sm flex items-center px-4">
       <Link
         href="/dashboard"
         className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"

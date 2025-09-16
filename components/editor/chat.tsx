@@ -55,24 +55,14 @@ export function Chat({ className }: Props) {
       </PanelHeader>
 
       {/* Messages Area */}
-      {messages.length === 0 ? (
-        <div className="flex-1 min-h-0">
-          <div className="flex flex-col justify-center items-center h-full font-mono text-sm text-muted-foreground">
-            <p className="flex items-center font-semibold">
-              Click and try one of these prompts:
-            </p>
-          </div>
-        </div>
-      ) : (
-        <Conversation className="relative w-full">
-          <ConversationContent className="space-y-4">
-            {messages.map((message) => (
-              <Message key={message.id} message={message} />
-            ))}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-      )}
+      <Conversation className="relative w-full">
+        <ConversationContent className="space-y-4">
+          {messages.map((message) => (
+            <Message key={message.id} message={message} />
+          ))}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       <form
         className="flex items-center p-2 space-x-1 border-t border-primary/18 bg-background"
