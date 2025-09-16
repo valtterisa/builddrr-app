@@ -4,7 +4,7 @@ import Logo from "../logo";
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-linear-to-b from-white to-purple-50 border-t border-gray-200">
+    <footer className="w-full border-gray-200">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}

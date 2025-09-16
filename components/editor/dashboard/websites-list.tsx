@@ -58,7 +58,7 @@ export function WebsitesList({ websites }: WebsitesListProps) {
   );
 
   return (
-    <div>
+    <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">All Sites</h2>
       </div>
@@ -106,8 +106,7 @@ export function WebsitesList({ websites }: WebsitesListProps) {
               ? "Get started by creating your first website with our AI-powered builder."
               : filter === "deployed"
                 ? "No deployed websites found. Deploy a website to see it here."
-                : "No preview websites found. Create a website to see it here."
-            }
+                : "No preview websites found. Create a website to see it here."}
           </p>
           <Button asChild>
             <Link href="/dashboard/website/create">Create Website</Link>
@@ -118,7 +117,7 @@ export function WebsitesList({ websites }: WebsitesListProps) {
           {visibleWebsites.map((website) => (
             <Card
               key={website.id}
-              className="group relative flex flex-col p-5 shadow-md hover:shadow-lg transition-all border border-black/5 dark:border-white/10 hover:border-primary/40 rounded-xl bg-white dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10"
+              className="group relative flex flex-col p-5 shadow-md hover:shadow-lg transition-all border border-black/5  hover:border-primary/40 rounded-xl bg-white ring-1 ring-black/5 dark:ring-white/10"
             >
               <CardHeader className="flex flex-row items-start gap-4 p-0">
                 <div className="shrink-0 rounded-full bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
@@ -175,6 +174,6 @@ export function WebsitesList({ websites }: WebsitesListProps) {
           </Button>
         </div>
       )}
-    </div>
+    </>
   );
 }

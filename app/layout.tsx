@@ -7,6 +7,7 @@ import { ReactNode, Suspense } from "react";
 import { SandboxState } from "@/components/modals/sandbox-state";
 import { ChatProvider } from "@/lib/chat-context";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://builddrr.com"),
@@ -34,12 +35,20 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geist.className} antialiased`}>
         <Suspense fallback={null}>
-          <NuqsAdapter>
-            <ChatProvider>{children}</ChatProvider>
-          </NuqsAdapter>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+            forcedTheme="light"
+            disableTransitionOnChange
+          >
+            <NuqsAdapter>
+              <ChatProvider>{children}</ChatProvider>
+            </NuqsAdapter>
+          </ThemeProvider>
         </Suspense>
         <Toaster />
         <SandboxState />

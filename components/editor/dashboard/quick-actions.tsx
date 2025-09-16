@@ -49,7 +49,7 @@ export function QuickActions({
             Start building a new website project in seconds.
           </p>
           <Button
-            className="px-4 py-2 rounded-md bg-primary text-white font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-md bg-primary border font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleCreateWebsite}
             disabled={!hasAccess}
             title={!hasAccess ? "Select a plan to use this feature" : undefined}

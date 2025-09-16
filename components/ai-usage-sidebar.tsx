@@ -143,7 +143,7 @@ export function AIUsageSidebar({
               {chatUsage} / {formatLimit(chatLimitValue)}
             </span>
           </div>
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary border">
             <div
               className={`h-full transition-all ${getUsageColor(chatPercentage)}`}
               style={{ width: `${chatPercentage}%` }}
