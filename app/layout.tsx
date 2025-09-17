@@ -51,7 +51,6 @@ export default function RootLayout({
           </ThemeProvider>
         </Suspense>
         <Toaster />
-        <SandboxState />
       </body>
     </html>
   );

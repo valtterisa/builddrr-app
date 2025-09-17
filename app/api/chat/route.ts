@@ -14,14 +14,6 @@ import { checkRemainingChatUsage, trackAICall } from "@/lib/ai-usage-tracker";
 export async function POST(req: Request) {
   const { messages, appName } = await req.json();
   try {
-    console.log("[/api/chat] start", {
-      appName,
-      messagesCount: Array.isArray(messages) ? messages.length : undefined,
-      hasFirstMessage:
-        Array.isArray(messages) && messages[0]
-          ? { role: messages[0].role, partCount: messages[0].parts?.length }
-          : undefined,
-    });
   } catch (_) {}
   if (!Array.isArray(messages) || messages.length === 0) {
     return new Response(JSON.stringify({ error: "No messages provided" }), {
