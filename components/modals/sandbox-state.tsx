@@ -17,16 +17,16 @@ export function SandboxState() {
   if (status === "stopped") {
     return (
       <Dialog open>
-        <DialogHeader className="sr-only">
-          <DialogTitle className="sr-only">
-            Sandbox max. duration reached
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            The Vercel Sandbox is already stopped. You can start a new session
-            by clicking the button below.
-          </DialogDescription>
-        </DialogHeader>
         <DialogContent>
+          <DialogHeader className="sr-only">
+            <DialogTitle className="sr-only">
+              Sandbox max. duration reached
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              The Vercel Sandbox is already stopped. You can start a new session
+              by clicking the button below.
+            </DialogDescription>
+          </DialogHeader>
           Sandbox max. duration for this demo has been reached
           <Button onClick={() => window.location.reload()}>
             Start a new session

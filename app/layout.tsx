@@ -36,7 +36,9 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geist.className} antialiased`}>
+      <body
+        className={`${geist.className} antialiased bg-background text-foreground`}
+      >
         <Suspense fallback={null}>
           <ThemeProvider
             attribute="class"
