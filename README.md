@@ -1,5 +1,7 @@
 ## Builddrr
 
+> **Status: Archived** – This repository is no longer under active development. The code and documentation are kept for reference and inspiration, but features, dependencies, and infrastructure may be out of date.
+
 > **Builddrr** is an AI-powered landing page builder that turns plain-English product ideas into **production-ready, high‑converting marketing sites**. It combines a rich visual editor, smart sections, and one‑click deploys so you can go from idea to live site in minutes instead of days.
 
 ---
@@ -159,10 +161,11 @@ From a code perspective, the flow looks like this:
 
 ### Contributing
 
-This project is still evolving. Good first areas to explore or improve include:
+This project is **archived** and not under active development. Pull requests and new feature ideas are generally **not accepted**.
 
-- New section templates and layout variations.
-- Better analytics and insights inside the dashboard.
-- Additional AI editing tools and workflows.
+You are welcome to:
 
-If you do open a PR, aim to keep changes focused and well-scoped (e.g. “new editor section type” or “improved AI prompt for hero sections”) so the review surface is small and the intent is clear.
+- Fork the repository and adapt it for your own projects.
+- Use the architecture, editor patterns, and AI flows as inspiration.
+
+If you do open an issue or PR, please understand that maintainers may not respond or review changes in a timely manner, if at all.
