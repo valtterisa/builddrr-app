@@ -1,3 +1,14 @@
+## Landing page
+<img width="2880" height="10114" alt="image" src="https://github.com/user-attachments/assets/45ab34e7-7adb-46d3-b749-e2c2660eb556" />
+
+## Dashboard
+<img width="1440" height="786" alt="Näyttökuva 2026-01-15 kello 12 38 17" src="https://github.com/user-attachments/assets/f6bb71d9-9efd-4b24-8c8b-6c38c083db04" />
+
+## Editor
+
+<img width="1440" height="786" alt="Näyttökuva 2026-01-15 kello 12 59 42" src="https://github.com/user-attachments/assets/8db64823-a874-479c-ae27-61a41b08ebd1" />
+
+
 ## Builddrr
 
 > **Status: Archived** – This repository is no longer under active development. The code and documentation are kept for reference and inspiration, but features, dependencies, and infrastructure may be out of date.
