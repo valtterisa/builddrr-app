@@ -4,7 +4,7 @@ import { AuthFormFromParams } from "@/components/auth/auth-form-from-params";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to Builddrr to generate and refine Astro sites.",
+  description: "Sign in to Floras to generate and refine Astro sites.",
   alternates: { canonical: "/login" },
 };
 

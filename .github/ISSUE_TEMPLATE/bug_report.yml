@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a bug in Builddrr
+description: Report a bug in Floras
 labels: ["bug"]
 body:
   - type: markdown

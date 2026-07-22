@@ -1,4 +1,4 @@
-export const THEME_COOKIE = "builddrr-theme";
+export const THEME_COOKIE = "floras-theme";
 export const THEME_STORAGE_KEY = "theme";
 
 export type AppTheme = "light" | "dark";

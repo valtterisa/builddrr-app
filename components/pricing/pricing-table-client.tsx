@@ -36,7 +36,7 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
         "$2 AI credits / month",
         "Pay only for tokens you use",
         "Live sandbox preview",
-        "Astro + Tailwind output",
+        "Production site output",
       ],
       cta: "Start building",
     },
@@ -64,7 +64,7 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
         "$2 AI credits / month",
         "Pay only for tokens you use",
         "Live sandbox preview",
-        "Astro + Tailwind output",
+        "Production site output",
       ],
       cta: "Start building",
     },
@@ -157,7 +157,7 @@ export function PricingTableClient() {
             className={cn(
               "cursor-pointer px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
               interval === "month"
-                ? "bg-foreground text-background"
+                ? "bg-brand text-brand-foreground"
                 : "text-muted-foreground hover:bg-card hover:text-foreground"
             )}
           >
@@ -170,7 +170,7 @@ export function PricingTableClient() {
             className={cn(
               "inline-flex cursor-pointer items-center gap-2 border-l border-border px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
               interval === "year"
-                ? "bg-foreground text-background"
+                ? "bg-brand text-brand-foreground"
                 : "text-muted-foreground hover:bg-card hover:text-foreground"
             )}
           >
@@ -179,7 +179,7 @@ export function PricingTableClient() {
               className={cn(
                 "border px-1.5 py-0.5 text-[9px] tracking-[0.12em]",
                 interval === "year"
-                  ? "border-background/30 text-background"
+                  ? "border-brand-foreground/30 text-brand-foreground"
                   : "border-brand/40 text-brand"
               )}
             >

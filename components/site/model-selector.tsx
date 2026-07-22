@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { AnthropicLogo } from "@/components/icons/anthropic-logo";
+import { ClaudeLogo } from "@/components/icons/anthropic-logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,7 @@ function ModelLogo({
   className?: string;
 }) {
   if (provider === "anthropic") {
-    return <AnthropicLogo className={className} />;
+    return <ClaudeLogo className={className} />;
   }
   return null;
 }
@@ -84,7 +84,7 @@ export function ModelSelector({
                 </span>
               </span>
               {active ? (
-                <Check className="size-4 shrink-0 text-foreground" />
+                <Check className="size-4 shrink-0 text-brand" />
               ) : (
                 <span className="size-4 shrink-0" aria-hidden />
               )}

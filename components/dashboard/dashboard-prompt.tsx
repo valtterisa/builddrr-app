@@ -32,7 +32,7 @@ export function DashboardPrompt() {
           What are we building today?
         </h1>
         <p className="mt-3 max-w-[48ch] text-sm leading-relaxed text-muted-foreground">
-          Describe a site and Builddrr generates it in a live sandbox.
+          Describe a site and Floras generates it in a live sandbox.
         </p>
       </div>
       <div className="px-6 py-8 md:px-8 md:py-10">

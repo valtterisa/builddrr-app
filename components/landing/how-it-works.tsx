@@ -3,11 +3,11 @@ import { Reveal } from "@/components/site/reveal";
 const STEPS = [
   {
     title: "Describe",
-    body: "Write one sentence about the site. Builddrr reads the brief and picks a design direction.",
+    body: "Write one sentence about the site. Floras reads the brief and picks a design direction.",
   },
   {
     title: "Generate",
-    body: "A typed plan becomes a full Astro project in a fresh Box sandbox with a live dev server.",
+    body: "A typed plan becomes a full site project in a fresh Box sandbox with a live dev server.",
   },
   {
     title: "Refine",

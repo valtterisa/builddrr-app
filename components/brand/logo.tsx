@@ -1,4 +1,4 @@
 export {
-  BuilddrrLogo as Logo,
-  BuilddrrLogoMark as LogoMark,
-} from "@/components/brand/builddrr-logo";
+  FlorasLogo as Logo,
+  FlorasLogoMark as LogoMark,
+} from "@/components/brand/floras-logo";

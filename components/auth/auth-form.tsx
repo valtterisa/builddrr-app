@@ -178,7 +178,7 @@ export function AuthForm({
             ? `We sent a sign-in link to ${magicSentTo}. Open it to continue.`
             : prompt
               ? "Sign in to start building your site."
-              : "Generate Astro sites with a live preview."}
+              : "Generate sites with a live preview."}
         </p>
       </div>
 
@@ -313,7 +313,7 @@ export function AuthForm({
 
       {!magicSentTo ? (
         <p className="mt-6 border-t border-border pt-5 text-sm text-muted-foreground">
-          {isSignUp ? "Already have an account?" : "New to Builddrr?"}{" "}
+          {isSignUp ? "Already have an account?" : "New to Floras?"}{" "}
           <Link
             href={switchHref}
             className="font-mono text-[11px] uppercase tracking-[0.14em] text-foreground underline underline-offset-4 transition-colors hover:text-brand"

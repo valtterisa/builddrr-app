@@ -7,11 +7,11 @@ export function SiteFooter() {
         <div>
           <Logo />
           <p className="mt-5 max-w-[34ch] text-sm leading-relaxed text-muted-foreground">
-            Describe a site. Get a live Astro preview in a real sandbox.
+            Describe a site. Get a live preview in a real sandbox.
           </p>
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          &copy; {new Date().getFullYear()} Builddrr
+          &copy; {new Date().getFullYear()} Floras
         </p>
       </div>
       <div className="flex justify-center border-t border-border">

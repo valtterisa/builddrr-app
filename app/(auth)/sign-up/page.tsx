@@ -5,7 +5,7 @@ import { AuthFormFromParams } from "@/components/auth/auth-form-from-params";
 export const metadata: Metadata = {
   title: "Sign up",
   description:
-    "Create a Builddrr account and turn one sentence into a production-ready Astro site.",
+    "Create a Floras account and turn one sentence into a production-ready Astro site.",
   alternates: { canonical: "/sign-up" },
 };
 

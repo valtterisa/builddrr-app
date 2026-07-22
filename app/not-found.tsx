@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingLayout } from "@/components/site/marketing-layout";
 import { Reveal } from "@/components/site/reveal";
-import { BuilddrrLogoMark } from "@/components/brand/builddrr-logo";
+import { FlorasLogoMark } from "@/components/brand/floras-logo";
 import { Floral } from "@/components/brand/floral";
 import { SectionGutter } from "@/components/landing/section-gutter";
 
@@ -27,7 +27,7 @@ export default function NotFoundPage() {
         <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-16 md:px-8 md:py-24">
           <Reveal>
             <div className="mb-8 flex justify-center text-5xl md:text-6xl">
-              <BuilddrrLogoMark />
+              <FlorasLogoMark />
             </div>
           </Reveal>
 

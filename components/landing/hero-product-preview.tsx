@@ -9,7 +9,7 @@ export function HeroProductPreview() {
           <span className="size-2.5 rounded-full bg-foreground/15" />
           <span className="size-2.5 rounded-full bg-foreground/15" />
           <div className="ml-3 flex-1 truncate rounded-md bg-muted/50 px-3 py-1 font-mono text-[11px] text-muted-foreground">
-            app.builddrr.dev/build/coastal-studio
+            floras.ai/build/coastal-studio
           </div>
         </div>
 
@@ -17,7 +17,7 @@ export function HeroProductPreview() {
           <div className="hidden border-r border-border/60 bg-background/40 p-4 md:block">
             <div className="flex items-center gap-2">
               <LogoMark className="size-5 rounded-md" />
-              <span className="text-xs font-medium">Builddrr</span>
+              <span className="text-xs font-medium">Floras</span>
             </div>
             <div className="mt-6 space-y-3">
               <div className="rounded-xl bg-muted/40 px-3 py-2.5">
@@ -27,7 +27,7 @@ export function HeroProductPreview() {
               </div>
               <div className="rounded-xl border border-border/50 px-3 py-2.5">
                 <p className="text-[11px] leading-relaxed text-foreground/80">
-                  Scaffolded Astro, Tailwind, and a live preview on Box.
+                  Scaffolded site, Tailwind, and a live preview on Box.
                 </p>
               </div>
               <div className="h-8 rounded-full border border-border/60 bg-muted/20" />
@@ -56,7 +56,7 @@ export function HeroProductPreview() {
                 </div>
                 <div className="relative min-h-[160px] overflow-hidden">
                   <img
-                    src="https://picsum.photos/seed/builddrr-coastal-roast/800/900"
+                    src="https://picsum.photos/seed/floras-coastal-roast/800/900"
                     alt="Sample generated site for a coffee roaster"
                     className="absolute inset-0 h-full w-full object-cover"
                   />

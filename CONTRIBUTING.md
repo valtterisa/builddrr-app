@@ -1,4 +1,4 @@
-# Contributing to Builddrr
+# Contributing to Floras
 
 Thanks for contributing. This guide covers local setup, how we work, and what makes a good pull request.
 

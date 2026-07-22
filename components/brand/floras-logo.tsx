@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function BuilddrrLogoMark({ className }: { className?: string }) {
+export function FlorasLogoMark({ className }: { className?: string }) {
   return (
     <img
       src="/brand/logo-mark.svg"
@@ -13,7 +13,7 @@ export function BuilddrrLogoMark({ className }: { className?: string }) {
   );
 }
 
-export function BuilddrrLogo({
+export function FlorasLogo({
   className,
   href = "/",
 }: {
@@ -28,8 +28,8 @@ export function BuilddrrLogo({
         className
       )}
     >
-      <BuilddrrLogoMark />
-      <span>Builddrr</span>
+      <FlorasLogoMark />
+      <span>Floras</span>
     </Link>
   );
 }

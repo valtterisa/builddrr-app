@@ -1,15 +1,15 @@
 export const siteConfig = {
-  name: "Builddrr",
+  name: "Floras",
   tagline: "Astro sites from one sentence",
   description:
-    "Describe your idea. Builddrr generates a production-ready Astro site with a live preview in seconds — refine in chat and ship with confidence.",
+    "Describe your idea. Floras generates a production-ready Astro site with a live preview in seconds — refine in chat and ship with confidence.",
   keywords: [
     "Astro",
     "AI website builder",
     "generate Astro site",
     "AI web design",
     "site generator",
-    "Builddrr",
+    "Floras",
   ],
   ogImage: "/og-image.png",
 } as const;
@@ -24,7 +24,7 @@ export function getSiteUrl(): string {
   const vercelUrl = process.env.VERCEL_URL?.replace(/\/$/, "");
   if (vercelUrl) return `https://${vercelUrl}`;
 
-  return "https://app.builddrr.dev";
+  return "https://floras.ai";
 }
 
 export const noIndexRobots = {

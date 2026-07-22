@@ -6,7 +6,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password,
     Resend({
-      from: process.env.AUTH_EMAIL_FROM ?? "Builddrr <onboarding@resend.dev>",
+      from: process.env.AUTH_EMAIL_FROM ?? "Floras <onboarding@resend.dev>",
     }),
   ],
 });

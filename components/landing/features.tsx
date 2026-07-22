@@ -24,7 +24,7 @@ export function Features() {
             Built for people who need a site, not a stack.
           </h2>
           <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-muted-foreground">
-            Describe the business. Get a polished Astro site you can refine in
+            Describe the business. Get a polished site you can refine in
             conversation and ship with confidence.
           </p>
         </Reveal>
