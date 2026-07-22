@@ -29,7 +29,7 @@ export interface BuildAgentOptions {
 }
 
 function getModel() {
-  return anthropic(process.env.AGENT_MODEL ?? "claude-sonnet-4-5");
+  return anthropic("claude-sonnet-4-5");
 }
 
 const INSTRUCTIONS = `You are an expert Astro web engineer inside a Linux sandbox. You generate and edit beautiful, production-ready Astro sites (landing pages and blogs) that live in the "site/" project directory.
