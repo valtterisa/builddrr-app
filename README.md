@@ -4,10 +4,6 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![Convex](https://img.shields.io/badge/Backend-Convex-orange)](https://convex.dev/)
 
-<p align="center">
-  <img src="public/og-image.png" alt="Floras — chat with AI to create your website" width="720" />
-</p>
-
 **Floras** turns a plain-English prompt into a production-ready [Astro](https://astro.build/) site with a live preview.
 
 It is a Next.js 16 (App Router) frontend backed by [Convex](https://www.convex.dev/), generating sites inside [box.ascii.dev](https://box.ascii.dev) sandboxes via an [AI SDK](https://ai-sdk.dev/) agent, with [Autumn](https://useautumn.com/) billing.
