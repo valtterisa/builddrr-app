@@ -42,7 +42,8 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
   cloud deployment (`npx convex dev` logged in) for end-to-end generation.
 - **Secrets live in the Convex deployment, not `.env.local`.** Set them with
   `npx convex env set KEY value`: `ANTHROPIC_API_KEY` (Anthropic),
-  `BOX_API_KEY` (box.ascii.dev), `AUTUMN_SECRET_KEY` (Autumn). Optional:
+  `BOX_API_KEY` (box.ascii.dev), `AUTUMN_SECRET_KEY` (Autumn). Also put
+  `AUTUMN_SECRET_KEY` in `.env.local` for the Next.js Autumn handler. Optional:
   `AGENT_MODEL` (defaults to `claude-sonnet-4-5`), `BOX_BASE_URL`.
 - **Convex Auth keys:** run `npx @convex-dev/auth` once to provision `JWT_PRIVATE_KEY`,
   `JWKS`, and `SITE_URL` in the Convex deployment env.

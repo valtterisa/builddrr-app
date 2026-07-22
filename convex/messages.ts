@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { mutation, query } from "./_generated/server";
 import { agentStep, messageStatus } from "./schema";
-import { autumn } from "./autumn";
-
-const GENERATION_FEATURE = "site_generations";
 
 export const list = query({
   args: { projectId: v.id("projects") },
@@ -31,16 +27,6 @@ export const send = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || project.userId !== userId) throw new Error("Not found");
 
-    try {
-      const { data } = await autumn.check(ctx, { featureId: GENERATION_FEATURE });
-      if (data && data.allowed === false) {
-        throw new Error("Generation limit reached. Upgrade your plan to continue.");
-      }
-    } catch (e) {
-      if (e instanceof Error && e.message.includes("limit reached")) throw e;
-      // otherwise fail-open
-    }
-
     await ctx.db.insert("messages", {
       projectId: args.projectId,
       userId,
@@ -49,39 +35,22 @@ export const send = mutation({
       status: "complete",
     });
 
-    try {
-      await autumn.track(ctx, { featureId: GENERATION_FEATURE, value: 1 });
-    } catch {
-      // fail-open
-    }
-
-    await ctx.scheduler.runAfter(0, internal.generate.run, {
-      projectId: args.projectId,
-    });
     return null;
   },
 });
 
-// ---------- internal helpers used by the generation action ----------
-
-export const listForAgent = internalQuery({
+export const createAssistant = mutation({
   args: { projectId: v.id("projects") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .order("asc")
-      .collect();
-  },
-});
-
-export const createAssistant = internalMutation({
-  args: { projectId: v.id("projects"), userId: v.id("users") },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
     return await ctx.db.insert("messages", {
       projectId: args.projectId,
-      userId: args.userId,
+      userId,
       role: "assistant",
       content: "",
       steps: [],
@@ -90,19 +59,21 @@ export const createAssistant = internalMutation({
   },
 });
 
-export const addStep = internalMutation({
+export const addStep = mutation({
   args: { messageId: v.id("messages"), step: agentStep },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
     const msg = await ctx.db.get(args.messageId);
-    if (!msg) return null;
+    if (!msg || msg.userId !== userId) throw new Error("Not found");
     const steps = [...(msg.steps ?? []), args.step];
     await ctx.db.patch(args.messageId, { steps });
     return null;
   },
 });
 
-export const finish = internalMutation({
+export const finish = mutation({
   args: {
     messageId: v.id("messages"),
     content: v.string(),
@@ -110,6 +81,10 @@ export const finish = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg || msg.userId !== userId) throw new Error("Not found");
     await ctx.db.patch(args.messageId, {
       content: args.content,
       status: args.status,

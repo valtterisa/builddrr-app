@@ -1,6 +1,5 @@
 import { feature, item, plan } from "atmn";
 
-// Features
 export const siteGenerations = feature({
   id: "site_generations",
   name: "Site generations",
@@ -8,7 +7,6 @@ export const siteGenerations = feature({
   consumable: true,
 });
 
-// Plans
 export const free = plan({
   id: "free",
   name: "Free",
@@ -34,6 +32,23 @@ export const pro = plan({
       featureId: siteGenerations.id,
       included: 200,
       reset: { interval: "month" },
+    }),
+  ],
+});
+
+export const generationTopUp = plan({
+  id: "generation_top_up",
+  name: "Generation top-up",
+  addOn: true,
+  items: [
+    item({
+      featureId: siteGenerations.id,
+      price: {
+        amount: 5,
+        billingUnits: 25,
+        billingMethod: "prepaid",
+        interval: "one_off",
+      },
     }),
   ],
 });

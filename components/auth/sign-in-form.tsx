@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateSite } from "@/lib/hooks/use-create-site";
+import { triggerGeneration } from "@/lib/generate/trigger-generation";
 import { cn } from "@/lib/utils";
 
 export type SignInFormProps = {
@@ -38,6 +39,7 @@ export function SignInForm({
       await signIn("password", formData);
       if (prompt) {
         const id = await createSite({ prompt });
+        await triggerGeneration(id);
         router.push(`/build/${id}`);
       } else {
         router.push("/dashboard");

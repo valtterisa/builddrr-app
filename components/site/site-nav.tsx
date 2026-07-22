@@ -45,6 +45,9 @@ export function SiteNav() {
             <Button asChild variant="ghost" size="sm">
               <Link href="/dashboard">Dashboard</Link>
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/account">Account</Link>
+            </Button>
             <Button variant="outline" size="sm" onClick={() => void signOut()}>
               Sign out
             </Button>

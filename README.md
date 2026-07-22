@@ -62,7 +62,7 @@ Prompt → Convex generate action → AI agent (plan + tools)
 - **Agent:** `lib/ai/agent.ts` runs inside `convex/generate.ts`. Tool activity and summaries stream into Convex tables.
 - **Output schema:** `lib/schema/site.ts` → `lib/astro/scaffold.ts` emits a full Astro project.
 - **Sandbox:** `lib/box/client.ts` wraps `@asciidev/box-sdk`. Preview URLs use `*.on.ascii.dev`.
-- **Billing:** Backend gating in `convex/autumn.ts` (fail-open) + plans in `autumn.config.ts`. Frontend via `autumn-js/react` and `app/api/autumn/[...all]/route.ts`.
+- **Billing:** `@useautumn/convex` in `convex/autumn.ts` (fail-open) + plans in `autumn.config.ts`. Frontend via `autumn-js/react` and `app/api/autumn/[...all]/route.ts`.
 
 Agent-oriented notes for Cursor / coding agents live in [`AGENTS.md`](AGENTS.md).
 

@@ -1,17 +1,20 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { components } from "./_generated/api";
 import { Autumn } from "@useautumn/convex";
 
 export const autumn = new Autumn(components.autumn, {
   secretKey: process.env.AUTUMN_SECRET_KEY ?? "",
   identify: async (ctx: any) => {
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) return null;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const identity = await ctx.auth.getUserIdentity();
 
     return {
-      customerId: user.subject as string,
+      customerId: userId,
       customerData: {
-        name: user.name as string,
-        email: user.email as string,
+        name: (identity?.name as string | undefined) ?? "",
+        email: (identity?.email as string | undefined) ?? "",
       },
     };
   },

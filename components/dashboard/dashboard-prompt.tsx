@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/site/page-header";
 import { PromptComposer } from "@/components/site/prompt-composer";
 import { useCreateSite } from "@/lib/hooks/use-create-site";
+import { triggerGeneration } from "@/lib/generate/trigger-generation";
 
 export function DashboardPrompt() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function DashboardPrompt() {
     setPending(true);
     try {
       const id = await createSite({ prompt: text });
+      await triggerGeneration(id);
       router.push(`/build/${id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not start generation");

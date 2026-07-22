@@ -26,6 +26,7 @@ export interface BuildAgentOptions {
   onPlan: (plan: SitePlan) => Promise<void> | void;
   onPreview: (url: string) => Promise<void> | void;
   hasPreview: boolean;
+  customInstructions?: string;
 }
 
 function getModel() {
@@ -130,9 +131,18 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
     }),
   };
 
+  const custom = opts.customInstructions?.trim();
+  const instructions = custom
+    ? `${INSTRUCTIONS}
+
+USER CUSTOM INSTRUCTIONS
+Honor these preferences when they do not conflict with safety, scaffold constraints, or the design guidelines above:
+${custom}`
+    : INSTRUCTIONS;
+
   return new ToolLoopAgent({
     model: getModel(),
-    instructions: INSTRUCTIONS,
+    instructions,
     tools,
     stopWhen: isStepCount(24),
   });

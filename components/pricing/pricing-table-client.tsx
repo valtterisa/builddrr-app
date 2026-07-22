@@ -42,7 +42,7 @@ export function PricingTableClient() {
 
   const onSelect = async (planId: string) => {
     try {
-      await attach({ planId, redirectMode: "always" } as any);
+      await attach({ planId });
     } catch {
       toast.error("Could not open checkout. Make sure billing is configured.");
     }
