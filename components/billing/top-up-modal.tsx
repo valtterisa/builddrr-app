@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useConvexAuth } from "convex/react";
 import { useCustomer } from "autumn-js/react";
 import { toast } from "sonner";
 import {
@@ -26,13 +27,21 @@ export type TopUpModalProps = {
 };
 
 export function TopUpModal({ open, onOpenChange, onPurchased }: TopUpModalProps) {
-  const { attach, data, refetch } = useCustomer();
+  const { isAuthenticated } = useConvexAuth();
+  const { attach, data, refetch } = useCustomer({
+    errorOnNotFound: false,
+    queryOptions: { enabled: isAuthenticated && open },
+  });
   const [selected, setSelected] = useState<TopUpPack>(TOP_UP_PACKS[1]!);
   const [pending, setPending] = useState(false);
 
   const balance = data?.balances?.[GENERATION_FEATURE]?.remaining ?? null;
 
   const purchase = async () => {
+    if (!isAuthenticated) {
+      toast.error("Sign in to top up generations.");
+      return;
+    }
     setPending(true);
     try {
       const result = await attach({
@@ -110,7 +119,7 @@ export function TopUpModal({ open, onOpenChange, onPurchased }: TopUpModalProps)
 
         <Button
           onClick={purchase}
-          disabled={pending}
+          disabled={pending || !isAuthenticated}
           className="w-full bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]"
         >
           {pending

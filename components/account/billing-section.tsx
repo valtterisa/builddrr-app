@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useConvexAuth } from "convex/react";
 import { useCustomer } from "autumn-js/react";
 import { toast } from "sonner";
 import { GENERATION_FEATURE } from "@/lib/billing/constants";
@@ -8,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { AccountSection } from "@/components/account/account-section";
 
 export function BillingSection() {
-  const { data, check, attach, openCustomerPortal } = useCustomer();
+  const { isAuthenticated } = useConvexAuth();
+  const { data, check, attach, openCustomerPortal } = useCustomer({
+    errorOnNotFound: false,
+    queryOptions: { enabled: isAuthenticated },
+  });
 
   let planName = "Free";
   let remaining: number | null = null;
@@ -65,7 +70,11 @@ export function BillingSection() {
       title="Billing"
       description="Plan, usage, and payment settings for site generations."
     >
-      {!data ? (
+      {!isAuthenticated ? (
+        <p className="text-sm text-muted-foreground">
+          Sign in to view billing.
+        </p>
+      ) : !data ? (
         <p className="text-sm text-muted-foreground">
           Loading billing… If this stays empty, Autumn may not be configured.
         </p>

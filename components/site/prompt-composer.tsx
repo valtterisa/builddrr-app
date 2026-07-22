@@ -7,7 +7,6 @@ import {
   PromptInputBody,
   PromptInputTextarea,
   PromptInputFooter,
-  PromptInputTools,
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
@@ -56,11 +55,6 @@ export function PromptComposer({
           />
         </PromptInputBody>
         <PromptInputFooter className="px-3 pb-3">
-          <PromptInputTools>
-            <span className="pl-2 text-xs text-muted-foreground">
-              Astro, Tailwind, live preview
-            </span>
-          </PromptInputTools>
           <PromptInputSubmit
             status={pending ? "submitted" : undefined}
             disabled={pending}

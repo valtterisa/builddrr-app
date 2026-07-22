@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { useConvexAuth } from "convex/react";
 import { useCustomer } from "autumn-js/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,9 +39,22 @@ const PLANS: PlanCard[] = [
 ];
 
 export function PricingTableClient() {
-  const { attach } = useCustomer();
+  const { isAuthenticated } = useConvexAuth();
+  const { attach } = useCustomer({
+    errorOnNotFound: false,
+    queryOptions: { enabled: isAuthenticated },
+  });
 
   const onSelect = async (planId: string) => {
+    if (planId === "free") {
+      window.location.href = isAuthenticated ? "/dashboard" : "/signin";
+      return;
+    }
+    if (!isAuthenticated) {
+      toast.error("Sign in to upgrade your plan.");
+      window.location.href = "/signin";
+      return;
+    }
     try {
       await attach({ planId });
     } catch {
