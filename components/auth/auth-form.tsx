@@ -9,10 +9,7 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCreateSite } from "@/lib/hooks/use-create-site";
-import { triggerGeneration } from "@/lib/generate/trigger-generation";
 import {
-  DEFAULT_AGENT_MODEL_ID,
   type AgentModelId,
 } from "@/lib/ai/models";
 import { cn } from "@/lib/utils";
@@ -70,20 +67,14 @@ export function AuthForm({
 }: AuthFormProps) {
   const { signIn } = useAuthActions();
   const router = useRouter();
-  const createSite = useCreateSite();
   const [method, setMethod] = useState<AuthMethod>("password");
   const [loading, setLoading] = useState(false);
   const [magicSentTo, setMagicSentTo] = useState<string | null>(null);
   const [prompt] = useState(pendingPrompt);
-  const [modelId] = useState<AgentModelId>(
-    pendingModelId ?? DEFAULT_AGENT_MODEL_ID
-  );
 
   async function finishAuthenticated() {
     if (prompt) {
-      const id = await createSite({ prompt, modelId });
-      await triggerGeneration(id);
-      router.push(`/build/${id}`);
+      router.push(`/dashboard?prompt=${encodeURIComponent(prompt)}`);
       return;
     }
     if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {

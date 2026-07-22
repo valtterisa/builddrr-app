@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
-  CreditCard,
   LogOut,
   MessageSquare,
   PanelLeftClose,
@@ -21,9 +20,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatCredits } from "@/lib/billing/constants";
 import { useGenerationAccess } from "@/lib/hooks/use-generation-access";
 import { cn } from "@/lib/utils";
 import type { DashboardProject } from "@/components/dashboard/types";
@@ -47,7 +48,7 @@ export function DashboardSidebar({
 }) {
   const { signOut } = useAuthActions();
   const me = useQuery((api as any).users.me, {}) as Me | null | undefined;
-  const { balance } = useGenerationAccess();
+  const { balance, hasPaidPlan, billingReady } = useGenerationAccess();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -59,8 +60,7 @@ export function DashboardSidebar({
 
   const displayName = me?.name?.trim() || me?.email?.split("@")[0] || "Account";
   const initials = displayName.slice(0, 2).toUpperCase();
-  const creditLabel =
-    balance == null ? null : Number.isInteger(balance) ? String(balance) : balance.toFixed(0);
+  const creditLabel = formatCredits(balance);
 
   return (
     <aside
@@ -192,7 +192,7 @@ export function DashboardSidebar({
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {displayName}
                   </span>
-                  {creditLabel != null ? (
+                  {hasPaidPlan && balance != null ? (
                     <span className="shrink-0 border border-border px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
                       {creditLabel}
                     </span>
@@ -204,18 +204,25 @@ export function DashboardSidebar({
           <DropdownMenuContent
             align={collapsed ? "center" : "start"}
             side="top"
-            className="w-52 rounded-none"
+            className="w-56 rounded-none"
           >
+            <DropdownMenuLabel className="px-2 py-2 font-normal">
+              <p className="truncate text-sm font-medium text-foreground">
+                {displayName}
+              </p>
+              <p className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+                {!billingReady
+                  ? "…"
+                  : !hasPaidPlan
+                    ? "No Pro plan"
+                    : `${creditLabel} credit`}
+              </p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/dashboard/account" className="cursor-pointer gap-2">
                 <Settings className="size-4" />
                 Account
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/account" className="cursor-pointer gap-2">
-                <CreditCard className="size-4" />
-                Billing
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

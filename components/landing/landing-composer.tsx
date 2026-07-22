@@ -7,6 +7,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { UpgradeProModal } from "@/components/billing/upgrade-pro-modal";
+import { TopUpModal } from "@/components/billing/top-up-modal";
 import { ModelSelector } from "@/components/site/model-selector";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useCreateSite } from "@/lib/hooks/use-create-site";
@@ -41,12 +43,14 @@ export function LandingComposer() {
   const router = useRouter();
   const { isAuthenticated } = useConvexAuth();
   const createSite = useCreateSite();
-  const { assertCanGenerate, refetch } = useGenerationAccess();
+  const { getDenyReason, refetch } = useGenerationAccess();
   const reduce = useReducedMotion();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [modelId, setModelId] = useState<AgentModelId>(DEFAULT_AGENT_MODEL_ID);
   const [rollIndex, setRollIndex] = useState(0);
@@ -79,8 +83,13 @@ export function LandingComposer() {
   }, [text]);
 
   const startGeneration = async (value: string, selectedModel: AgentModelId) => {
-    if (!assertCanGenerate()) {
-      toast.error("Not enough credit left. Upgrade or top up to continue.");
+    const reason = getDenyReason();
+    if (reason === "no_plan") {
+      setUpgradeOpen(true);
+      return;
+    }
+    if (reason === "no_credits") {
+      setTopUpOpen(true);
       return;
     }
     setPending(true);
@@ -90,7 +99,14 @@ export function LandingComposer() {
       await refetch();
       router.push(`/build/${id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not start generation");
+      const err = e as Error & { code?: string };
+      if (err.code === "NO_PLAN") {
+        setUpgradeOpen(true);
+      } else if (err.code === "NO_CREDITS") {
+        setTopUpOpen(true);
+      } else {
+        toast.error(err.message || "Could not start generation");
+      }
       setPending(false);
     }
   };
@@ -240,6 +256,16 @@ export function LandingComposer() {
         }}
         prompt={pendingPrompt}
         modelId={modelId}
+      />
+      <UpgradeProModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        onPurchased={() => void refetch()}
+      />
+      <TopUpModal
+        open={topUpOpen}
+        onOpenChange={setTopUpOpen}
+        onPurchased={() => void refetch()}
       />
     </>
   );

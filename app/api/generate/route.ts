@@ -2,10 +2,6 @@ import { after } from "next/server";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchAction, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import {
-  AI_CREDITS_FEATURE,
-  MIN_CREDIT_BALANCE,
-} from "@/lib/billing/constants";
 import { runGeneration } from "@/lib/generate/run-generation";
 
 export const maxDuration = 300;
@@ -40,19 +36,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { data } = await fetchAction(
-      (api as any).autumn.check,
-      {
-        featureId: AI_CREDITS_FEATURE,
-        requiredBalance: MIN_CREDIT_BALANCE,
-      },
+    const access = await fetchAction(
+      (api as any).billingGate.getAccess,
+      {},
       { token }
     );
-    if (data?.allowed === false) {
+    if (!access?.hasPaidPlan) {
       return Response.json(
         {
-          error:
-            "AI credit balance too low. Upgrade or top up to continue.",
+          error: "Pro plan required to generate sites.",
+          code: "NO_PLAN",
+        },
+        { status: 402 }
+      );
+    }
+    if (access.creditAllowed === false) {
+      return Response.json(
+        {
+          error: "AI credit balance too low. Top up to continue.",
+          code: "NO_CREDITS",
         },
         { status: 402 }
       );

@@ -28,7 +28,7 @@ type PlanCard = {
 };
 
 const PRO_FEATURES = [
-  "$20 AI credit every month",
+  "AI usage included every month",
   "Full Astro sites from one sentence",
   "Live preview while you refine in chat",
   "Shareable link the moment it's ready",

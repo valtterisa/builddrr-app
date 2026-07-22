@@ -2,11 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ModelSelector } from "@/components/site/model-selector";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { UpgradeProModal } from "@/components/billing/upgrade-pro-modal";
+import { TopUpModal } from "@/components/billing/top-up-modal";
 import { useCreateSite } from "@/lib/hooks/use-create-site";
 import { useGenerationAccess } from "@/lib/hooks/use-generation-access";
 import { triggerGeneration } from "@/lib/generate/trigger-generation";
@@ -43,20 +46,39 @@ export function DashboardPrompt({
   resetKey?: number;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const createSite = useCreateSite();
-  const { assertCanGenerate, refetch } = useGenerationAccess();
+  const { getDenyReason, billingReady, hasPaidPlan, refetch } =
+    useGenerationAccess();
   const reduce = useReducedMotion();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fromAuthPrompt = useRef(false);
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [modelId, setModelId] = useState<AgentModelId>(DEFAULT_AGENT_MODEL_ID);
   const [rollIndex, setRollIndex] = useState(0);
   const [modKey, setModKey] = useState("Ctrl");
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
   useEffect(() => {
     setText("");
     textareaRef.current?.focus();
   }, [resetKey]);
+
+  useEffect(() => {
+    const fromAuth = searchParams.get("prompt");
+    if (!fromAuth) return;
+    fromAuthPrompt.current = true;
+    setText(fromAuth);
+    router.replace("/dashboard", { scroll: false });
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!fromAuthPrompt.current || !billingReady) return;
+    fromAuthPrompt.current = false;
+    if (!hasPaidPlan) setUpgradeOpen(true);
+  }, [billingReady, hasPaidPlan]);
 
   useEffect(() => {
     const mac =
@@ -88,8 +110,13 @@ export function DashboardPrompt({
     const trimmed = value.trim();
     if (!trimmed || pending) return;
 
-    if (!assertCanGenerate()) {
-      toast.error("Not enough credit left. Upgrade or top up to continue.");
+    const reason = getDenyReason();
+    if (reason === "no_plan") {
+      setUpgradeOpen(true);
+      return;
+    }
+    if (reason === "no_credits") {
+      setTopUpOpen(true);
       return;
     }
 
@@ -100,7 +127,14 @@ export function DashboardPrompt({
       await refetch();
       router.push(`/build/${id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not start generation");
+      const err = e as Error & { code?: string };
+      if (err.code === "NO_PLAN") {
+        setUpgradeOpen(true);
+      } else if (err.code === "NO_CREDITS") {
+        setTopUpOpen(true);
+      } else {
+        toast.error(err.message || "Could not start generation");
+      }
       setPending(false);
     }
   };
@@ -225,6 +259,17 @@ export function DashboardPrompt({
           ))}
         </ul>
       </div>
+
+      <UpgradeProModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        onPurchased={() => void refetch()}
+      />
+      <TopUpModal
+        open={topUpOpen}
+        onOpenChange={setTopUpOpen}
+        onPurchased={() => void refetch()}
+      />
     </section>
   );
 }

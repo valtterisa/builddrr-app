@@ -9,11 +9,13 @@ import {
   GENERATION_FEATURE,
   PRO_MONTHLY_PLAN_ID,
   PRO_YEARLY_PLAN_ID,
+  formatCredits,
   isPaidPlanId,
 } from "@/lib/billing/constants";
 import { checkoutSuccessUrl, redirectToCheckout } from "@/lib/billing/checkout";
 import { Button } from "@/components/ui/button";
 import { AccountSection } from "@/components/account/account-section";
+import { TopUpModal } from "@/components/billing/top-up-modal";
 
 export function BillingSection() {
   const { isAuthenticated } = useConvexAuth();
@@ -22,6 +24,7 @@ export function BillingSection() {
     queryOptions: { enabled: isAuthenticated },
   });
   const [pending, setPending] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
   let planName = "No plan";
   let planId: string | null = null;
@@ -116,12 +119,17 @@ export function BillingSection() {
                 Credits left
               </p>
               <p className="mt-1 text-xl font-semibold tracking-tight">
-                {remaining === null
+                {!isPro
                   ? "—"
-                  : granted !== null
-                    ? `${remaining} / ${granted}`
-                    : String(remaining)}
+                  : remaining === null
+                    ? "—"
+                    : formatCredits(remaining)}
               </p>
+              {isPro && granted != null ? (
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  of {formatCredits(granted)} included
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -143,7 +151,15 @@ export function BillingSection() {
                   Get Pro yearly
                 </Button>
               </>
-            ) : null}
+            ) : (
+              <Button
+                variant="outline"
+                className="rounded-none"
+                onClick={() => setTopUpOpen(true)}
+              >
+                Top up credits
+              </Button>
+            )}
             <Button
               variant="outline"
               className="rounded-none"
@@ -157,6 +173,11 @@ export function BillingSection() {
           </div>
         </div>
       )}
+      <TopUpModal
+        open={topUpOpen}
+        onOpenChange={setTopUpOpen}
+        onPurchased={() => void refetch()}
+      />
     </AccountSection>
   );
 }
