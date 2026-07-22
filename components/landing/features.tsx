@@ -2,16 +2,16 @@ import { Reveal } from "@/components/site/reveal";
 
 const POINTS = [
   {
-    title: "Design rules in the agent",
-    body: "One accent, real type hierarchy, and varied layouts. No purple-glow defaults.",
+    title: "Looks intentional",
+    body: "Strong hierarchy, real spacing, and a clear visual direction — so the site feels designed, not generated.",
   },
   {
-    title: "Structured output",
-    body: "A typed site schema drives a deterministic Astro scaffold. No brittle model-text parsing.",
+    title: "Ready to show",
+    body: "Share a live preview the same day. Clients and teammates see the real thing, not a mock.",
   },
   {
-    title: "Live sandbox preview",
-    body: "Each project runs in its own Box VM with a real Astro dev server on a public URL.",
+    title: "Easy to change",
+    body: "Ask for a new headline, section, or tone. Iterate in chat until it matches what you meant.",
   },
 ];
 
@@ -21,10 +21,11 @@ export function Features() {
       <div className="border-b border-border px-6 py-10 md:px-8 md:py-12">
         <Reveal>
           <h2 className="max-w-[18ch] text-3xl font-semibold tracking-tight md:text-4xl">
-            Intentional sites, not templates.
+            Built for people who need a site, not a stack.
           </h2>
           <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-muted-foreground">
-            Structured plans, real sandboxes, and design rules that kill the usual AI site tells.
+            Describe the business. Get a polished Astro site you can refine in
+            conversation and ship with confidence.
           </p>
         </Reveal>
       </div>
@@ -40,10 +41,11 @@ export function Features() {
           </div>
           <div className="border-t border-border px-6 py-7 md:px-8">
             <h3 className="text-xl font-semibold tracking-tight">
-              Chat in. Preview out.
+              From idea to something you can open.
             </h3>
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-              The scaffold ships a complete Astro project you keep editing in chat while the preview stays live.
+              Write one sentence. Watch a full site appear with a live preview —
+              then keep editing until it feels right.
             </p>
           </div>
         </Reveal>

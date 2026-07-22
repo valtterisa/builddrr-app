@@ -18,7 +18,7 @@ export function CallToAction() {
         <div className="flex items-center justify-center px-6 py-8 md:px-10">
           <Reveal delay={0.06}>
             <Link
-              href="/signin"
+              href="/sign-up"
               className="inline-flex h-11 items-center justify-center border border-white/30 bg-white px-7 text-sm font-medium text-[#0d0f14] transition-[filter] hover:brightness-95 active:scale-[0.98]"
             >
               Start building

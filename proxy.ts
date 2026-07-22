@@ -14,7 +14,7 @@ function isProtected(pathname: string): boolean {
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const pathname = request.nextUrl.pathname;
   if (isProtected(pathname) && !(await convexAuth.isAuthenticated())) {
-    return nextjsMiddlewareRedirect(request, "/signin");
+    return nextjsMiddlewareRedirect(request, "/login");
   }
 });
 

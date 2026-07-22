@@ -20,13 +20,13 @@ export function SiteNav() {
           <ThemeToggle />
           <Unauthenticated>
             <Link
-              href="/signin"
+              href="/login"
               className="hidden items-center border-r border-border px-4 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:bg-card hover:text-foreground sm:inline-flex"
             >
               Sign in
             </Link>
             <Link
-              href="/signin"
+              href="/sign-up"
               className="inline-flex items-center bg-brand px-4 font-mono text-[11px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter] hover:brightness-110 active:scale-[0.98]"
             >
               Start building

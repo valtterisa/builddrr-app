@@ -1,15 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { ModelSelector } from "@/components/site/model-selector";
+import {
+  DEFAULT_AGENT_MODEL_ID,
+  type AgentModelId,
+} from "@/lib/ai/models";
 import { cn } from "@/lib/utils";
 
 export interface PromptComposerProps {
-  onSubmit: (text: string) => void | boolean | Promise<void | boolean>;
+  onSubmit: (
+    text: string,
+    modelId: AgentModelId
+  ) => void | boolean | Promise<void | boolean>;
   suggestions?: string[];
   placeholder?: string;
   pending?: boolean;
   autoFocus?: boolean;
   className?: string;
+  defaultModelId?: AgentModelId;
+  submitLabel?: string;
+  pendingLabel?: string;
 }
 
 export function PromptComposer({
@@ -19,13 +30,17 @@ export function PromptComposer({
   pending = false,
   autoFocus = false,
   className,
+  defaultModelId = DEFAULT_AGENT_MODEL_ID,
+  submitLabel = "Build site",
+  pendingLabel = "Building…",
 }: PromptComposerProps) {
   const [text, setText] = useState("");
+  const [modelId, setModelId] = useState<AgentModelId>(defaultModelId);
 
   const submit = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || pending) return;
-    const result = await onSubmit(trimmed);
+    const result = await onSubmit(trimmed, modelId);
     if (result !== false) setText("");
   };
 
@@ -51,7 +66,7 @@ export function PromptComposer({
           placeholder={placeholder}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               void submit(text);
             }
@@ -59,9 +74,11 @@ export function PromptComposer({
           className="min-h-[148px] w-full resize-none bg-transparent px-5 pt-5 pb-4 text-sm leading-relaxed text-foreground placeholder:text-sm placeholder:text-muted-foreground/45 focus:outline-none disabled:opacity-50"
         />
         <div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Shift + Enter for line
-          </p>
+          <ModelSelector
+            value={modelId}
+            onChange={setModelId}
+            disabled={pending}
+          />
           <button
             type="submit"
             disabled={pending || !text.trim()}
@@ -71,7 +88,7 @@ export function PromptComposer({
               "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             )}
           >
-            {pending ? "Building…" : "Build site"}
+            {pending ? pendingLabel : submitLabel}
           </button>
         </div>
       </form>

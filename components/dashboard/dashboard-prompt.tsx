@@ -6,16 +6,17 @@ import { toast } from "sonner";
 import { PromptComposer } from "@/components/site/prompt-composer";
 import { useCreateSite } from "@/lib/hooks/use-create-site";
 import { triggerGeneration } from "@/lib/generate/trigger-generation";
+import type { AgentModelId } from "@/lib/ai/models";
 
 export function DashboardPrompt() {
   const router = useRouter();
   const createSite = useCreateSite();
   const [pending, setPending] = useState(false);
 
-  const handle = async (text: string) => {
+  const handle = async (text: string, modelId: AgentModelId) => {
     setPending(true);
     try {
-      const id = await createSite({ prompt: text });
+      const id = await createSite({ prompt: text, modelId });
       await triggerGeneration(id);
       router.push(`/build/${id}`);
     } catch (e) {

@@ -14,9 +14,13 @@ export function EmptyState({
 }) {
   return (
     <div className={cn("py-6", className)}>
-      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="text-lg font-semibold tracking-tight text-foreground">
+        {title}
+      </p>
       {description ? (
-        <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       ) : null}
       {children}
     </div>

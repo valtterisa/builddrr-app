@@ -33,7 +33,8 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
       name: "Free",
       price: "$0",
       features: [
-        "5 site generations / month",
+        "$2 AI credits / month",
+        "Pay only for tokens you use",
         "Live sandbox preview",
         "Astro + Tailwind output",
       ],
@@ -46,10 +47,10 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
       cadence: "/mo",
       highlight: true,
       features: [
-        "200 site generations / month",
+        "$20 AI credits / month",
+        "Token usage metering",
         "Blog content collections",
         "Priority sandbox capacity",
-        "Everything in Free",
       ],
       cta: "Upgrade to Pro",
     },
@@ -60,7 +61,8 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
       name: "Free",
       price: "$0",
       features: [
-        "5 site generations / month",
+        "$2 AI credits / month",
+        "Pay only for tokens you use",
         "Live sandbox preview",
         "Astro + Tailwind output",
       ],
@@ -74,10 +76,10 @@ const PLANS: Record<BillingInterval, PlanCard[]> = {
       note: "Save 20% vs monthly",
       highlight: true,
       features: [
-        "200 site generations / month",
+        "$20 AI credits / month",
+        "Token usage metering",
         "Blog content collections",
         "Priority sandbox capacity",
-        "Everything in Free",
       ],
       cta: "Upgrade yearly",
     },
@@ -101,13 +103,13 @@ export function PricingTableClient() {
 
   const onSelect = async (planId: string) => {
     if (planId === FREE_PLAN_ID) {
-      window.location.href = isAuthenticated ? "/dashboard" : "/signin";
+      window.location.href = isAuthenticated ? "/dashboard" : "/sign-up";
       return;
     }
 
     if (!isAuthenticated) {
       toast.error("Sign in to upgrade your plan.");
-      window.location.href = `/signin?next=${encodeURIComponent("/#pricing")}`;
+      window.location.href = `/login?next=${encodeURIComponent("/#pricing")}`;
       return;
     }
 
@@ -139,28 +141,52 @@ export function PricingTableClient() {
 
   return (
     <div>
-      <div className="flex border-b border-border">
-        {(
-          [
-            { id: "month", label: "Monthly" },
-            { id: "year", label: "Yearly" },
-          ] as const
-        ).map((option) => (
+      <div className="flex flex-col items-center gap-3 border-b border-border px-6 py-5 md:px-8">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          Billing period
+        </p>
+        <div
+          role="group"
+          aria-label="Billing period"
+          className="inline-flex border border-border bg-background"
+        >
           <button
-            key={option.id}
             type="button"
-            onClick={() => setInterval(option.id)}
+            aria-pressed={interval === "month"}
+            onClick={() => setInterval("month")}
             className={cn(
-              "flex-1 cursor-pointer px-4 py-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
-              interval === option.id
-                ? "bg-brand text-white"
+              "cursor-pointer px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+              interval === "month"
+                ? "bg-foreground text-background"
                 : "text-muted-foreground hover:bg-card hover:text-foreground"
             )}
           >
-            {option.label}
-            {option.id === "year" ? " · Save 20%" : ""}
+            Monthly
           </button>
-        ))}
+          <button
+            type="button"
+            aria-pressed={interval === "year"}
+            onClick={() => setInterval("year")}
+            className={cn(
+              "inline-flex cursor-pointer items-center gap-2 border-l border-border px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+              interval === "year"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-card hover:text-foreground"
+            )}
+          >
+            Yearly
+            <span
+              className={cn(
+                "border px-1.5 py-0.5 text-[9px] tracking-[0.12em]",
+                interval === "year"
+                  ? "border-background/30 text-background"
+                  : "border-brand/40 text-brand"
+              )}
+            >
+              −20%
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2">

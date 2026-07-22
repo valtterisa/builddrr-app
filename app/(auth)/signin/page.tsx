@@ -1,28 +1,16 @@
-import { Suspense } from "react";
-import { MarketingLayout } from "@/components/site/marketing-layout";
-import { SignInFormFromParams } from "@/components/auth/sign-in-form-from-params";
+import { redirect } from "next/navigation";
 
-export default function SignInPage() {
-  return (
-    <MarketingLayout>
-      <div className="border-b border-border px-6 py-10 md:px-8 md:py-14">
-        <div className="mx-auto w-full max-w-md border border-border bg-card/40">
-          <div className="border-b border-border px-6 py-5 md:px-8">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Account
-            </p>
-          </div>
-          <div className="px-6 py-8 md:px-8">
-            <Suspense
-              fallback={
-                <p className="text-sm text-muted-foreground">Loading…</p>
-              }
-            >
-              <SignInFormFromParams />
-            </Suspense>
-          </div>
-        </div>
-      </div>
-    </MarketingLayout>
-  );
+export default async function SignInRedirectPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string") qs.set(key, value);
+    else if (Array.isArray(value) && value[0]) qs.set(key, value[0]);
+  }
+  const query = qs.toString();
+  redirect(query ? `/login?${query}` : "/login");
 }
