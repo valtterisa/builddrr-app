@@ -163,7 +163,7 @@ Full reference: [`.env.example`](.env.example).
 - **`convex/_generated`** is committed as an untyped `AnyApi` fallback so the repo builds without a deployment. Running `convex dev` against a real deployment regenerates fully typed APIs.
 - **Heavy Node action:** `convex/generate.ts` bundles the AI SDK + Box SDK. The anonymous local backend (`CONVEX_AGENT_MODE=anonymous`) can hit the 64MB module-load limit. Prefer a real Convex cloud deployment for end-to-end generation.
 - **Preview hosts:** Sandbox Astro servers load over `*.on.ascii.dev`; the scaffolder sets Vite `server.allowedHosts: true`.
-- **Typecheck:** `next build` ignores type/lint errors (`next.config.mjs`). Use `pnpm typecheck` for real checking.
+- **Typecheck:** `next build` ignores type errors (`next.config.mjs`). Use `pnpm typecheck` for real checking. Auth gating is in `proxy.ts`.
 
 ## Project structure
 
@@ -191,7 +191,6 @@ pnpm dev          # Next.js (Turbopack) on :3000
 pnpm dev:convex   # Convex backend
 pnpm build        # Production build
 pnpm typecheck    # tsc --noEmit
-pnpm lint         # next lint
 ```
 
 ## Contributing

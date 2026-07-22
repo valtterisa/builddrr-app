@@ -55,7 +55,6 @@ Put `AUTUMN_SECRET_KEY` in `.env.local` as well for the Next.js Autumn route.
 
 ```bash
 pnpm typecheck
-pnpm lint
 ```
 
 5. Push and open a pull request against `main`.

@@ -49,5 +49,5 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
 - **Autumn pricing:** push plans with `npx atmn push` (config in `autumn.config.ts`).
 - **Preview iframes** load the sandbox Astro dev server over `*.on.ascii.dev`; the
   scaffolder sets Vite `server.allowedHosts: true` so those hosts are not blocked.
-- `next build` ignores type/lint errors (see `next.config.mjs`); run `pnpm typecheck`
-  for real type checking.
+- `next build` ignores type errors (see `next.config.mjs`); run `pnpm typecheck`
+  for real type checking. Auth gating lives in `proxy.ts` (Next.js 16 network proxy).

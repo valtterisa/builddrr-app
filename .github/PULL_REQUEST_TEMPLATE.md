@@ -5,7 +5,6 @@
 ## Test plan
 
 - [ ] `pnpm typecheck`
-- [ ] `pnpm lint`
 - [ ] Manual check (describe): …
 
 ## Notes
