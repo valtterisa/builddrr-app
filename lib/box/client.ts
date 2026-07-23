@@ -210,11 +210,7 @@ export async function startPreview(boxId: string): Promise<string> {
   await ensureSiteDeps(boxId);
 
   if (!(await isPreviewPortReady(boxId, PREVIEW_PORT))) {
-    await runCommand(
-      boxId,
-      `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >/tmp/astro-dev.log 2>&1 &`,
-      { timeoutSeconds: 30 }
-    );
+    await startAstroDev(boxId);
     await waitForPreviewPort(boxId, PREVIEW_PORT);
   }
 
@@ -241,19 +237,70 @@ async function ensureSiteDeps(boxId: string): Promise<void> {
   }
 }
 
+function extractHttpCode(stdout: string): string | null {
+  const marked = stdout.match(/PROBE:(\d{3})/);
+  if (marked?.[1]) return marked[1];
+  const trailing = stdout.trim().match(/(\d{3})\s*$/);
+  return trailing?.[1] ?? null;
+}
+
 async function isPreviewPortReady(boxId: string, port: number): Promise<boolean> {
   const probe = await runCommand(
     boxId,
-    `curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:${port}/ || true`,
+    `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || echo 000); echo PROBE:$code`,
+    { cwd: ".", timeoutSeconds: 20 }
+  );
+  const code = extractHttpCode(probe.stdout || "");
+  return Boolean(code && code !== "000");
+}
+
+async function isPreviewPortFree(boxId: string, port: number): Promise<boolean> {
+  const check = await runCommand(
+    boxId,
+    `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
     { cwd: ".", timeoutSeconds: 15 }
   );
-  const code = (probe.stdout || "").trim();
-  return /^\d{3}$/.test(code) && code !== "000";
+  return (check.stdout || "").includes("FREE");
+}
+
+async function waitForPortFree(boxId: string, port: number): Promise<void> {
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    if (await isPreviewPortFree(boxId, port)) return;
+    if (attempt < 20) await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+async function stopAstroDev(boxId: string): Promise<void> {
+  await runCommand(
+    boxId,
+    [
+      "pkill -f '[a]stro dev' >/dev/null 2>&1 || true",
+      "pkill -f 'node.*astro' >/dev/null 2>&1 || true",
+      "pkill -f 'vite' >/dev/null 2>&1 || true",
+      `fuser -k ${PREVIEW_PORT}/tcp >/dev/null 2>&1 || true`,
+    ].join("; "),
+    { cwd: ".", timeoutSeconds: 30 }
+  );
+  await waitForPortFree(boxId, PREVIEW_PORT);
+}
+
+async function startAstroDev(boxId: string): Promise<void> {
+  await runCommand(boxId, ": > /tmp/astro-dev.log", {
+    cwd: ".",
+    timeoutSeconds: 15,
+  });
+  await runCommand(
+    boxId,
+    `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >>/tmp/astro-dev.log 2>&1 &`,
+    { timeoutSeconds: 30 }
+  );
 }
 
 async function waitForPreviewPort(boxId: string, port: number): Promise<void> {
+  const url = previewUrlForBox(await getBoxSubdomain(boxId), port);
   for (let attempt = 1; attempt <= 45; attempt++) {
     if (await isPreviewPortReady(boxId, port)) return;
+    if (attempt > 2 && (await probePublicPreview(url))) return;
     if (attempt < 45) await new Promise((r) => setTimeout(r, 2_000));
   }
 
@@ -344,14 +391,8 @@ async function waitUntilArchived(
 export async function restartPreview(boxId: string): Promise<string> {
   await ensureBoxReady(boxId);
   await ensureSiteDeps(boxId);
-  await runCommand(
-    boxId,
-    [
-      "pkill -f '[a]stro dev' >/dev/null 2>&1 || true",
-      `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >/tmp/astro-dev.log 2>&1 &`,
-    ].join("; "),
-    { timeoutSeconds: 30 }
-  );
+  await stopAstroDev(boxId);
+  await startAstroDev(boxId);
   await waitForPreviewPort(boxId, PREVIEW_PORT);
   return await publishHost(boxId, PREVIEW_PORT);
 }
