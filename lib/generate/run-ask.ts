@@ -73,7 +73,7 @@ export async function runAsk(projectId: string, token: string) {
       model: withAutumnModel(anthropic(modelId), me.id),
       system: ASK_INSTRUCTIONS,
       messages: convo,
-      providerOptions: anthropicThinkingOptions("low"),
+      providerOptions: anthropicThinkingOptions("medium"),
     });
 
     let full = "";
@@ -82,6 +82,15 @@ export async function runAsk(projectId: string, token: string) {
     let lastReasoningPatch = 0;
 
     for await (const part of result.stream) {
+      if (part.type === "error") {
+        const message =
+          part.error instanceof Error
+            ? part.error.message
+            : typeof part.error === "string"
+              ? part.error
+              : "Ask stream failed";
+        throw new Error(message);
+      }
       if (part.type === "reasoning-delta") {
         reasoning += part.text;
         const now = Date.now();
@@ -107,19 +116,22 @@ export async function runAsk(projectId: string, token: string) {
       }
     }
 
-    if (reasoning.trim()) {
+    const reasoningText =
+      reasoning.trim() || ((await result.reasoningText) ?? "").trim();
+    if (reasoningText) {
       await fetchMutation(
         (api as any).messages.setReasoning,
-        { messageId: assistantId, reasoning },
+        { messageId: assistantId, reasoning: reasoningText },
         { token }
       );
     }
 
+    const finalText = full || (await result.text) || "Done.";
     await fetchMutation(
       (api as any).messages.finish,
       {
         messageId: assistantId,
-        content: full || "Done.",
+        content: finalText,
         status: "complete",
       },
       { token }

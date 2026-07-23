@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
-  Brain,
   FileText,
   Globe,
   Info,
@@ -29,55 +29,95 @@ const ICONS: Record<string, typeof Sparkles> = {
   command: TerminalSquare,
   preview: Globe,
   note: Info,
-  thinking: Brain,
 };
+
+function formatThoughtDuration(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return seconds === 1
+    ? "Thought for 1 second"
+    : `Thought for ${seconds} seconds`;
+}
 
 export function AgentSteps({
   steps = [],
   reasoning,
+  thoughtDurationMs,
   active,
 }: {
   steps?: Step[];
   reasoning?: string;
+  thoughtDurationMs?: number;
   active?: boolean;
 }) {
-  const hasReasoning = Boolean(reasoning?.trim());
-  if (!steps.length && !hasReasoning) return null;
+  const trimmedReasoning = reasoning?.trim() ?? "";
+  const hasReasoning = trimmedReasoning.length > 0;
+  const hasSteps = steps.length > 0;
+  const hasBody = hasReasoning || hasSteps;
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (active) {
+      if (hasBody) setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  }, [active, hasBody]);
+
+  if (
+    !active &&
+    !hasReasoning &&
+    !hasSteps &&
+    typeof thoughtDurationMs !== "number"
+  ) {
+    return null;
+  }
 
   const last = steps[steps.length - 1];
   const lastIndex = steps.length - 1;
+
   const header = active
-    ? last?.label ?? "Thinking"
-    : hasReasoning && !steps.length
-      ? "Chain of thought"
-      : `${steps.length} build step${steps.length === 1 ? "" : "s"}`;
+    ? hasSteps
+      ? (last?.label ?? "Thinking")
+      : "Thinking"
+    : typeof thoughtDurationMs === "number"
+      ? formatThoughtDuration(thoughtDurationMs)
+      : hasSteps
+        ? `${steps.length} step${steps.length === 1 ? "" : "s"}`
+        : "Thinking";
 
   return (
-    <ChainOfThought defaultOpen={Boolean(active)} className="mb-3">
-      <ChainOfThoughtHeader>{header}</ChainOfThoughtHeader>
-      <ChainOfThoughtContent>
-        {hasReasoning ? (
-          <ChainOfThoughtStep
-            icon={Brain}
-            label="Thinking"
-            description={reasoning}
-            status={active && steps.length === 0 ? "active" : "complete"}
-          />
-        ) : null}
-        {steps.map((step, i) => {
-          const Icon = ICONS[step.kind] ?? Info;
-          const status = active && i === lastIndex ? "active" : "complete";
-          return (
-            <ChainOfThoughtStep
-              key={`${step.kind}-${i}-${step.label}`}
-              icon={Icon}
-              label={step.label}
-              description={step.detail}
-              status={status}
-            />
-          );
-        })}
-      </ChainOfThoughtContent>
+    <ChainOfThought
+      open={open}
+      onOpenChange={setOpen}
+      className="mb-3"
+    >
+      <ChainOfThoughtHeader
+        className={active && !hasBody ? "animate-pulse" : undefined}
+      >
+        {header}
+      </ChainOfThoughtHeader>
+      {hasBody ? (
+        <ChainOfThoughtContent>
+          {hasReasoning ? (
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+              {trimmedReasoning}
+            </p>
+          ) : null}
+          {steps.map((step, i) => {
+            const Icon = ICONS[step.kind] ?? Info;
+            const status = active && i === lastIndex ? "active" : "complete";
+            return (
+              <ChainOfThoughtStep
+                key={`${step.kind}-${i}-${step.label}`}
+                icon={Icon}
+                label={step.label}
+                description={step.detail}
+                status={status}
+              />
+            );
+          })}
+        </ChainOfThoughtContent>
+      ) : null}
     </ChainOfThought>
   );
 }

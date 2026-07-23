@@ -63,6 +63,7 @@ export default defineSchema({
     content: v.string(),
     reasoning: v.optional(v.string()),
     steps: v.optional(v.array(agentStep)),
+    thoughtDurationMs: v.optional(v.number()),
     status: messageStatus,
   }).index("by_project", ["projectId"]),
 });

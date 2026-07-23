@@ -20,6 +20,7 @@ export interface ChatMessage {
   status: "streaming" | "complete" | "error";
   reasoning?: string;
   steps?: Step[];
+  thoughtDurationMs?: number;
 }
 
 export function MessageList({ messages }: { messages: ChatMessage[] }) {
@@ -29,13 +30,21 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
         {messages.map((message) => {
           const isUser = message.role === "user";
           const streaming = message.status === "streaming";
+          const showSteps =
+            !isUser &&
+            (streaming ||
+              Boolean(message.reasoning?.trim()) ||
+              Boolean(message.steps?.length) ||
+              typeof message.thoughtDurationMs === "number");
+
           return (
             <Message from={isUser ? "user" : "assistant"} key={message._id}>
               <div className="w-full">
-                {!isUser && (message.steps?.length || message.reasoning) ? (
+                {showSteps ? (
                   <AgentSteps
                     steps={message.steps}
                     reasoning={message.reasoning}
+                    thoughtDurationMs={message.thoughtDurationMs}
                     active={streaming}
                   />
                 ) : null}
@@ -56,12 +65,6 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
                     )}
                   </MessageContent>
                 )}
-                {!isUser && !message.content && streaming && !message.reasoning && !message.steps?.length ? (
-                  <AgentSteps
-                    steps={[{ kind: "thinking", label: "Thinking…" }]}
-                    active
-                  />
-                ) : null}
               </div>
             </Message>
           );

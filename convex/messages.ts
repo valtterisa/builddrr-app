@@ -126,9 +126,11 @@ export const finish = mutation({
     if (!userId) throw new Error("Not authenticated");
     const msg = await ctx.db.get(args.messageId);
     if (!msg || msg.userId !== userId) throw new Error("Not found");
+    const thoughtDurationMs = Math.max(0, Date.now() - msg._creationTime);
     await ctx.db.patch(args.messageId, {
       content: args.content,
       status: args.status,
+      thoughtDurationMs,
     });
     return null;
   },
