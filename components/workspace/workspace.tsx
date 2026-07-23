@@ -61,7 +61,12 @@ export function Workspace({
           />
         </aside>
         <section className="min-h-0 flex-1">
-          <PreviewPane status={project?.status} previewUrl={project?.previewUrl} />
+          <PreviewPane
+            projectId={projectId}
+            status={project?.status}
+            previewUrl={project?.previewUrl}
+            boxId={project?.boxId}
+          />
         </section>
       </div>
     </div>

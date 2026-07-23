@@ -10,7 +10,7 @@ export function Pricing() {
             Simple pricing.
           </h2>
           <p className="mt-4 max-w-[48ch] text-base leading-relaxed text-muted-foreground">
-            One plan for builders. Enterprise when you need it on your own stack.
+            Tokens, hosting, and SEO-ready Astro — top up when you want to go further.
           </p>
         </Reveal>
       </div>

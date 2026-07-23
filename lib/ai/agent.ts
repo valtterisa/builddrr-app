@@ -68,7 +68,7 @@ PHASE 2 — BUILD
 PHASE 3 — DESIGN POLISH (required second pass)
 8. When the site is functionally built, run a full design-skill pass: re-read key page and component files, then rewrite them to better satisfy the design skill — especially Section 4 (directives), Section 9 (AI tells), and Section 14 (pre-flight checklist).
 9. Do not call plan_site again in this phase. Improve UI in place with write_file.
-10. Only stop after Section 14 pre-flight can be honestly ticked (within Astro + CSS constraints). End with a one-paragraph summary of what you built and what the polish pass changed.
+10. Only stop after Section 14 pre-flight can be honestly ticked (within Astro + CSS constraints). End with a short markdown summary (a few bullets or one short paragraph) of what you built and what the polish pass changed. Never paste the design skill, Section 14 checklist, or long file dumps into the user-facing reply.
 
 CUSTOM DOMAINS
 - The site must be published (user clicks Publish in the workspace) before a custom domain can be connected.
@@ -77,7 +77,7 @@ CUSTOM DOMAINS
 - Prefer www.example.com style hostnames; for apex domains explain ALIAS/ANAME or CNAME flattening when relevant.
 - Domains can also be managed under Account → Domains.
 
-Never dump large explanations between tool calls.
+Never dump large explanations between tool calls. User-facing text must stay short and well-formatted markdown.
 
 ${DESIGN_GUIDELINES}`;
 
@@ -104,7 +104,7 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
           await onPreview(previewUrl);
           await onStep({
             kind: "preview",
-            label: "Live preview ready",
+            label: "Preview URL live",
             detail: previewUrl,
           });
         }

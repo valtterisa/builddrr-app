@@ -24,10 +24,11 @@ export type UpgradeProModalProps = {
 };
 
 const FEATURES = [
-  "AI usage included every month",
-  "Full Astro sites from one sentence",
-  "Live preview while you refine in chat",
-  "Top up credits anytime",
+  "$13 of AI tokens every month",
+  "Hosting included",
+  "Top up credits to keep editing",
+  "SEO-ready Astro that ranks",
+  "Sites that slap — end to end",
 ];
 
 export function UpgradeProModal({

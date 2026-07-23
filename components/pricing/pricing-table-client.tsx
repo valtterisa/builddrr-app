@@ -28,11 +28,11 @@ type PlanCard = {
 };
 
 const PRO_FEATURES = [
-  "AI usage included every month",
-  "Full Astro sites from one sentence",
-  "Live preview while you refine in chat",
-  "Shareable link the moment it's ready",
-  "Top up credits anytime",
+  "$13 of AI tokens every month",
+  "Hosting included",
+  "Top up credits to keep editing",
+  "SEO-ready Astro that ranks",
+  "Sites that slap — end to end",
 ];
 
 const ENTERPRISE_FEATURES = [
