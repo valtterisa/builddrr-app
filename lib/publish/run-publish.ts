@@ -2,6 +2,7 @@ import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import * as box from "@/lib/box/client";
 import {
+  addDomain,
   cloudflareConfigured,
   deletePagesProject,
   ensurePagesProject,
@@ -15,7 +16,11 @@ import {
   isRetryableWranglerError,
   withRetry,
 } from "@/lib/publish/retry";
-import { pagesProjectName } from "@/lib/publish/types";
+import {
+  generateFlorasHostname,
+  isFlorasHostname,
+  pagesProjectName,
+} from "@/lib/publish/types";
 
 export async function runPublish(projectId: string, token: string) {
   const project = await fetchQuery(
@@ -107,11 +112,25 @@ export async function runPublish(projectId: string, token: string) {
       }
     );
 
-    const info = await withRetry(() => getProjectPublishInfo(name), {
+    await withRetry(() => getProjectPublishInfo(name), {
       attempts: 4,
       initialDelayMs: 500,
       maxDelayMs: 4000,
       label: "getProjectPublishInfo",
+      retryable: isRetryableCloudflareError,
+    });
+
+    const existingSubdomain =
+      typeof project.cfSubdomain === "string" ? project.cfSubdomain : "";
+    const florasHost = isFlorasHostname(existingSubdomain)
+      ? existingSubdomain
+      : generateFlorasHostname();
+
+    await withRetry(() => addDomain(name, florasHost), {
+      attempts: 3,
+      initialDelayMs: 800,
+      maxDelayMs: 6000,
+      label: "addFlorasSubdomain",
       retryable: isRetryableCloudflareError,
     });
 
@@ -122,8 +141,8 @@ export async function runPublish(projectId: string, token: string) {
           {
             projectId,
             cfProjectName: name,
-            cfSubdomain: info.subdomain,
-            publishedUrl: info.productionUrl,
+            cfSubdomain: florasHost,
+            publishedUrl: `https://${florasHost}`,
             publishedAt: Date.now(),
           },
           { token }

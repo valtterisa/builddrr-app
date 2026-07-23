@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customAlphabet } from "nanoid";
 import { AppError } from "@/lib/errors";
 
 export const publishStatusSchema = z.enum([
@@ -71,6 +72,26 @@ export type DomainInfo = z.infer<typeof domainInfoSchema>;
 export type DomainsResponse = z.infer<typeof domainsResponseSchema>;
 export type DnsRecord = z.infer<typeof dnsRecordSchema>;
 
+export const FLORAS_SITES_DOMAIN =
+  process.env.FLORAS_SITES_DOMAIN?.trim() || "floras.app";
+
+const SUBDOMAIN_ID_LENGTH = 32;
+const generateSubdomainId = customAlphabet(
+  "0123456789abcdefghijklmnopqrstuvwxyz",
+  SUBDOMAIN_ID_LENGTH
+);
+
+export function generateFlorasHostname(): string {
+  return `${generateSubdomainId()}.${FLORAS_SITES_DOMAIN}`;
+}
+
+export function isFlorasHostname(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  return (
+    host.endsWith(`.${FLORAS_SITES_DOMAIN}`) && host !== FLORAS_SITES_DOMAIN
+  );
+}
+
 const HOSTNAME_RE =
   /^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
 
@@ -90,11 +111,13 @@ export function parseHostname(input: string): string {
   if (
     raw.endsWith(".pages.dev") ||
     raw.endsWith(".on.ascii.dev") ||
+    raw === FLORAS_SITES_DOMAIN ||
+    raw.endsWith(`.${FLORAS_SITES_DOMAIN}`) ||
     raw.includes("localhost")
   ) {
     throw new AppError(
       "domain",
-      "Use your own domain, not a preview or pages.dev host.",
+      "Use your own domain, not a Floras or preview host.",
       { detail: `rejected hostname: ${raw}` }
     );
   }

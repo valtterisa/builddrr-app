@@ -237,7 +237,7 @@ function ProjectDomainCard({ project }: { project: ProjectRow }) {
                 DNS records
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Point your domain at the Pages subdomain. Apex needs
+                Point your domain at the Floras subdomain. Apex needs
                 ALIAS/ANAME or CNAME flattening.
               </p>
               <div className="mt-3 border border-border/60 bg-background/60 px-3 py-2.5">

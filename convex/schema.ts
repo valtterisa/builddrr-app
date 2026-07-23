@@ -80,7 +80,9 @@ export default defineSchema({
     customDomainStatus: v.optional(domainStatus),
     customDomainError: v.optional(v.string()),
     customDomainUpdatedAt: v.optional(v.number()),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_cf_subdomain", ["cfSubdomain"]),
 
   messages: defineTable({
     projectId: v.id("projects"),
