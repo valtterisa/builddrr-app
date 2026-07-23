@@ -32,6 +32,15 @@ export const create = mutation({
       status: "complete",
     });
 
+    await ctx.db.insert("messages", {
+      projectId,
+      userId,
+      role: "assistant",
+      content: "",
+      steps: [],
+      status: "streaming",
+    });
+
     return projectId;
   },
 });

@@ -4,6 +4,8 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { api } from "@/convex/_generated/api";
 import { withAutumnModel } from "@/lib/billing/with-autumn-model";
 import { resolveAgentModelId } from "@/lib/ai/models";
+import { resolveStreamingAssistantId } from "@/lib/generate/resolve-assistant";
+import { anthropicThinkingOptions } from "@/lib/ai/anthropic-options";
 
 export const ASK_INSTRUCTIONS = `You are Floras — a sharp product partner that helps people figure out what website to build before they generate one.
 
@@ -51,11 +53,16 @@ export async function runAsk(projectId: string, token: string) {
     return;
   }
 
-  const assistantId = await fetchMutation(
-    (api as any).messages.createAssistant,
-    { projectId },
-    { token }
+  const existingId = resolveStreamingAssistantId(
+    history as Array<{ _id: string; role: string; status: string }>
   );
+  const assistantId =
+    existingId ??
+    (await fetchMutation(
+      (api as any).messages.createAssistant,
+      { projectId },
+      { token }
+    ));
 
   const modelId = resolveAgentModelId(
     typeof project.modelId === "string" ? project.modelId : null
@@ -66,21 +73,46 @@ export async function runAsk(projectId: string, token: string) {
       model: withAutumnModel(anthropic(modelId), me.id),
       system: ASK_INSTRUCTIONS,
       messages: convo,
+      providerOptions: anthropicThinkingOptions("low"),
     });
 
     let full = "";
-    let lastPatch = 0;
-    for await (const chunk of result.textStream) {
-      full += chunk;
-      const now = Date.now();
-      if (now - lastPatch >= 120) {
-        lastPatch = now;
-        await fetchMutation(
-          (api as any).messages.setContent,
-          { messageId: assistantId, content: full },
-          { token }
-        );
+    let reasoning = "";
+    let lastContentPatch = 0;
+    let lastReasoningPatch = 0;
+
+    for await (const part of result.stream) {
+      if (part.type === "reasoning-delta") {
+        reasoning += part.text;
+        const now = Date.now();
+        if (now - lastReasoningPatch >= 120) {
+          lastReasoningPatch = now;
+          await fetchMutation(
+            (api as any).messages.setReasoning,
+            { messageId: assistantId, reasoning },
+            { token }
+          );
+        }
+      } else if (part.type === "text-delta") {
+        full += part.text;
+        const now = Date.now();
+        if (now - lastContentPatch >= 120) {
+          lastContentPatch = now;
+          await fetchMutation(
+            (api as any).messages.setContent,
+            { messageId: assistantId, content: full },
+            { token }
+          );
+        }
       }
+    }
+
+    if (reasoning.trim()) {
+      await fetchMutation(
+        (api as any).messages.setReasoning,
+        { messageId: assistantId, reasoning },
+        { token }
+      );
     }
 
     await fetchMutation(

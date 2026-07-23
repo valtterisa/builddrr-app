@@ -85,8 +85,13 @@ export function PromptComposer({
   const submit = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || pending) return;
-    const result = await onSubmit(trimmed, modelId, mode);
-    if (result !== false) setText("");
+    setText("");
+    try {
+      const result = await onSubmit(trimmed, modelId, mode);
+      if (result === false) setText(trimmed);
+    } catch {
+      setText(trimmed);
+    }
   };
 
   return (
@@ -107,7 +112,7 @@ export function PromptComposer({
           autoFocus={autoFocus}
           value={text}
           disabled={pending}
-          rows={5}
+          rows={3}
           placeholder={resolvedPlaceholder}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -116,7 +121,7 @@ export function PromptComposer({
               void submit(text);
             }
           }}
-          className="min-h-[148px] w-full resize-none bg-transparent px-5 pt-5 pb-4 text-sm leading-relaxed text-foreground placeholder:text-sm placeholder:text-muted-foreground/45 focus:outline-none disabled:opacity-50"
+          className="min-h-[88px] w-full resize-none bg-transparent px-5 pt-4 pb-3 text-sm leading-relaxed text-foreground placeholder:text-sm placeholder:text-muted-foreground/45 focus:outline-none disabled:opacity-50"
         />
         <div className="flex flex-nowrap items-center gap-2 border-t border-border px-3 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">

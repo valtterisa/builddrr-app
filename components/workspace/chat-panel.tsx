@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -39,54 +39,79 @@ export function ChatPanel({
     | null
     | undefined;
   const send = useMutation((api as any).messages.send);
+  const finish = useMutation((api as any).messages.finish);
   const setModel = useMutation((api as any).projects.setModel);
   const { getDenyReason, refetch, balance, hasPaidPlan, billingReady } =
     useGenerationAccess();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [mode, setMode] = useState<ComposerMode>(defaultMode);
+  const [submitting, setSubmitting] = useState(false);
 
   const defaultModelId = resolveAgentModelId(project?.modelId ?? null);
   const streaming = (messages ?? []).some((m) => m.status === "streaming");
-  const pending = busy || streaming;
+  const pending = busy || streaming || submitting;
+
+  useEffect(() => {
+    if (streaming) setSubmitting(false);
+  }, [streaming]);
 
   const handle = async (
     text: string,
     modelId: AgentModelId,
     nextMode: ComposerMode
-  ) => {
+  ): Promise<boolean> => {
     const reason = getDenyReason();
     if (reason === "no_plan") {
       setUpgradeOpen(true);
-      return;
+      return false;
     }
     if (reason === "no_credits") {
       setTopUpOpen(true);
-      return;
+      return false;
     }
+
+    setSubmitting(true);
+    let assistantId: string | undefined;
     try {
-      await setModel({ projectId, modelId });
-      await send({ projectId, content: text });
+      void setModel({ projectId, modelId });
+      const sent = (await send({ projectId, content: text })) as {
+        assistantId: string;
+      };
+      assistantId = sent.assistantId;
       if (nextMode === "ask") {
         await triggerAsk(projectId);
       } else {
         await triggerGeneration(projectId);
       }
-      await refetch();
+      void refetch();
+      return true;
     } catch (e) {
+      if (assistantId) {
+        try {
+          await finish({
+            messageId: assistantId,
+            content: "Could not start. Try again.",
+            status: "error",
+          });
+        } catch {
+        }
+      }
+      setSubmitting(false);
       const err = e as Error & { code?: string };
       if (err.code === "NO_PLAN") {
         setUpgradeOpen(true);
-        return;
+        return false;
       }
       if (
         err.code === "NO_CREDITS" ||
         err.message.toLowerCase().includes("credit")
       ) {
         setTopUpOpen(true);
-        return;
+        return false;
       }
       toast.error(err.message || "Could not send message");
+      return false;
     }
   };
 

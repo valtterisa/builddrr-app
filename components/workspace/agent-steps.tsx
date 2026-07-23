@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Brain,
   FileText,
   Globe,
   Info,
@@ -9,11 +10,11 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import {
-  Task,
-  TaskContent,
-  TaskItem,
-  TaskTrigger,
-} from "@/components/ai-elements/task";
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
 
 export interface Step {
   kind: string;
@@ -28,32 +29,55 @@ const ICONS: Record<string, typeof Sparkles> = {
   command: TerminalSquare,
   preview: Globe,
   note: Info,
+  thinking: Brain,
 };
 
-export function AgentSteps({ steps, active }: { steps: Step[]; active?: boolean }) {
-  if (!steps.length) return null;
+export function AgentSteps({
+  steps = [],
+  reasoning,
+  active,
+}: {
+  steps?: Step[];
+  reasoning?: string;
+  active?: boolean;
+}) {
+  const hasReasoning = Boolean(reasoning?.trim());
+  if (!steps.length && !hasReasoning) return null;
+
   const last = steps[steps.length - 1];
+  const lastIndex = steps.length - 1;
+  const header = active
+    ? last?.label ?? "Thinking"
+    : hasReasoning && !steps.length
+      ? "Chain of thought"
+      : `${steps.length} build step${steps.length === 1 ? "" : "s"}`;
+
   return (
-    <Task defaultOpen={active} className="mb-3 w-full">
-      <TaskTrigger title={active ? last.label : `${steps.length} build steps`} />
-      <TaskContent>
+    <ChainOfThought defaultOpen={Boolean(active)} className="mb-3">
+      <ChainOfThoughtHeader>{header}</ChainOfThoughtHeader>
+      <ChainOfThoughtContent>
+        {hasReasoning ? (
+          <ChainOfThoughtStep
+            icon={Brain}
+            label="Thinking"
+            description={reasoning}
+            status={active && steps.length === 0 ? "active" : "complete"}
+          />
+        ) : null}
         {steps.map((step, i) => {
           const Icon = ICONS[step.kind] ?? Info;
+          const status = active && i === lastIndex ? "active" : "complete";
           return (
-            <TaskItem key={i} className="flex items-start gap-2">
-              <Icon className="mt-0.5 size-3.5 shrink-0 text-brand" />
-              <span>
-                {step.label}
-                {step.detail && (
-                  <span className="block truncate text-xs text-muted-foreground/70">
-                    {step.detail}
-                  </span>
-                )}
-              </span>
-            </TaskItem>
+            <ChainOfThoughtStep
+              key={`${step.kind}-${i}-${step.label}`}
+              icon={Icon}
+              label={step.label}
+              description={step.detail}
+              status={status}
+            />
           );
         })}
-      </TaskContent>
-    </Task>
+      </ChainOfThoughtContent>
+    </ChainOfThought>
   );
 }

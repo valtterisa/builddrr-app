@@ -3,7 +3,7 @@ import { LandingComposer } from "@/components/landing/landing-composer";
 
 export function Hero() {
   return (
-    <section className="border-b border-border px-6 py-12 md:px-8 md:py-16">
+    <section className="border-b border-border px-4 py-12 md:px-8 md:py-16">
       <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-8 md:gap-10">
         <Reveal className="w-full">
           <h1 className="mx-auto max-w-[18ch] text-center text-4xl font-semibold tracking-tight text-foreground md:text-5xl md:leading-[1.12]">

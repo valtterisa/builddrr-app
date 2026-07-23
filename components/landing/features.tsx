@@ -18,7 +18,7 @@ const POINTS = [
 export function Features() {
   return (
     <section id="features" className="border-b border-border">
-      <div className="border-b border-border px-6 py-10 md:px-8 md:py-12">
+      <div className="border-b border-border px-4 py-10 md:px-8 md:py-12">
         <Reveal>
           <h2 className="max-w-[18ch] text-3xl font-semibold tracking-tight md:text-4xl">
             Built for people who need a website, not a web team.
@@ -49,7 +49,7 @@ export function Features() {
               className="relative z-[1] h-[58%] w-auto max-w-[70%] object-contain drop-shadow-sm"
             />
           </div>
-          <div className="border-t border-border px-6 py-7 md:px-8">
+          <div className="border-t border-border px-4 py-7 md:px-8">
             <h3 className="text-xl font-semibold tracking-tight">
               From idea to something you can open.
             </h3>
@@ -65,7 +65,7 @@ export function Features() {
             <Reveal
               key={point.title}
               delay={0.05 * (i + 1)}
-              className={`flex flex-1 flex-col justify-center px-6 py-8 md:px-8 ${
+              className={`flex flex-1 flex-col justify-center px-4 py-8 md:px-8 ${
                 i < POINTS.length - 1 ? "border-b border-border" : ""
               }`}
             >

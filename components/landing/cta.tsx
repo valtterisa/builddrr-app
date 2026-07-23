@@ -21,14 +21,14 @@ export function CallToAction() {
       />
 
       <div className="relative grid gap-0 md:grid-cols-[1fr_auto]">
-        <div className="border-b border-brand-foreground/20 px-6 py-12 md:border-b-0 md:border-r md:px-8 md:py-16">
+        <div className="border-b border-brand-foreground/20 px-4 py-12 md:border-b-0 md:border-r md:px-8 md:py-16">
           <Reveal>
             <h2 className="max-w-[16ch] text-3xl font-semibold tracking-tight md:text-4xl">
               Your next website is one sentence away.
             </h2>
           </Reveal>
         </div>
-        <div className="relative z-[1] flex items-center justify-center px-6 py-8 md:min-w-[14rem] md:px-10">
+        <div className="relative z-[1] flex items-center justify-center px-4 py-8 md:min-w-[14rem] md:px-10">
           <Reveal delay={0.06}>
             <Link
               href="/sign-up"

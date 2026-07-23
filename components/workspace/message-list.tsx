@@ -18,6 +18,7 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   status: "streaming" | "complete" | "error";
+  reasoning?: string;
   steps?: Step[];
 }
 
@@ -31,9 +32,13 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
           return (
             <Message from={isUser ? "user" : "assistant"} key={message._id}>
               <div className="w-full">
-                {!isUser && message.steps && (
-                  <AgentSteps steps={message.steps} active={streaming} />
-                )}
+                {!isUser && (message.steps?.length || message.reasoning) ? (
+                  <AgentSteps
+                    steps={message.steps}
+                    reasoning={message.reasoning}
+                    active={streaming}
+                  />
+                ) : null}
                 {(isUser || message.content) && (
                   <MessageContent
                     className={cn(
@@ -51,11 +56,12 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
                     )}
                   </MessageContent>
                 )}
-                {!isUser && !message.content && streaming && (
-                  <p className="animate-pulse text-sm text-muted-foreground">
-                    Thinking…
-                  </p>
-                )}
+                {!isUser && !message.content && streaming && !message.reasoning && !message.steps?.length ? (
+                  <AgentSteps
+                    steps={[{ kind: "thinking", label: "Thinking…" }]}
+                    active
+                  />
+                ) : null}
               </div>
             </Message>
           );

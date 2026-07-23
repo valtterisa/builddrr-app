@@ -6,6 +6,7 @@ import { scaffoldAstroProject } from "@/lib/astro/scaffold";
 import * as box from "@/lib/box/client";
 import { DESIGN_GUIDELINES } from "@/lib/ai/design-guidelines";
 import { resolveAgentModelId } from "@/lib/ai/model";
+import { anthropicThinkingOptions } from "@/lib/ai/anthropic-options";
 import { withAutumnModel } from "@/lib/billing/with-autumn-model";
 
 export type AgentStepKind =
@@ -150,6 +151,7 @@ ${custom}`
     model: getModel(opts.modelId, opts.customerId),
     instructions,
     tools,
+    providerOptions: anthropicThinkingOptions("low"),
     stopWhen: isStepCount(24),
   });
 }

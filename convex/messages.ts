@@ -20,7 +20,7 @@ export const list = query({
 
 export const send = mutation({
   args: { projectId: v.id("projects"), content: v.string() },
-  returns: v.null(),
+  returns: v.object({ assistantId: v.id("messages") }),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -35,7 +35,16 @@ export const send = mutation({
       status: "complete",
     });
 
-    return null;
+    const assistantId = await ctx.db.insert("messages", {
+      projectId: args.projectId,
+      userId,
+      role: "assistant",
+      content: "",
+      steps: [],
+      status: "streaming",
+    });
+
+    return { assistantId };
   },
 });
 
@@ -69,6 +78,22 @@ export const addStep = mutation({
     if (!msg || msg.userId !== userId) throw new Error("Not found");
     const steps = [...(msg.steps ?? []), args.step];
     await ctx.db.patch(args.messageId, { steps });
+    return null;
+  },
+});
+
+export const setReasoning = mutation({
+  args: {
+    messageId: v.id("messages"),
+    reasoning: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg || msg.userId !== userId) throw new Error("Not found");
+    await ctx.db.patch(args.messageId, { reasoning: args.reasoning });
     return null;
   },
 });

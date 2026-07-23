@@ -11,7 +11,7 @@ export function LogoWall() {
   return (
     <section className="border-b border-border">
       <div className="grid sm:grid-cols-[9rem_1fr]">
-        <div className="flex items-center border-b border-border px-6 py-4 sm:border-b-0 sm:border-r md:px-8">
+        <div className="flex items-center border-b border-border px-4 py-4 sm:border-b-0 sm:border-r md:px-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Made for
           </p>

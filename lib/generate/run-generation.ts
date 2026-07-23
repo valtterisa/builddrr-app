@@ -3,6 +3,7 @@ import { api } from "@/convex/_generated/api";
 import { buildSiteAgent } from "@/lib/ai/agent";
 import { resolveAgentModelId } from "@/lib/ai/models";
 import * as box from "@/lib/box/client";
+import { resolveStreamingAssistantId } from "@/lib/generate/resolve-assistant";
 
 export async function runGeneration(projectId: string, token: string) {
   const project = await fetchQuery(
@@ -18,11 +19,16 @@ export async function runGeneration(projectId: string, token: string) {
     { token }
   );
 
-  const assistantId = await fetchMutation(
-    (api as any).messages.createAssistant,
-    { projectId },
-    { token }
+  const existingId = resolveStreamingAssistantId(
+    history as Array<{ _id: string; role: string; status: string }>
   );
+  const assistantId =
+    existingId ??
+    (await fetchMutation(
+      (api as any).messages.createAssistant,
+      { projectId },
+      { token }
+    ));
 
   try {
     if (!box.boxConfigured()) {
@@ -94,6 +100,16 @@ export async function runGeneration(projectId: string, token: string) {
       }));
 
     const result = await agent.generate({ messages: convo });
+
+    const reasoningText =
+      typeof result.reasoningText === "string" ? result.reasoningText.trim() : "";
+    if (reasoningText) {
+      await fetchMutation(
+        (api as any).messages.setReasoning,
+        { messageId: assistantId, reasoning: reasoningText },
+        { token }
+      );
+    }
 
     await fetchMutation(
       (api as any).messages.finish,

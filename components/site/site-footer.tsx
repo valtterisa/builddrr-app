@@ -19,7 +19,7 @@ export function SiteFooter() {
           href="https://valtterisavonen.fi"
           target="_blank"
           rel="noopener noreferrer"
-          className="px-6 py-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="px-4 py-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-background hover:text-foreground md:px-6"
         >
           Made by Valtteri Savonen
         </a>

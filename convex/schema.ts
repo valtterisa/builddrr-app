@@ -61,6 +61,7 @@ export default defineSchema({
     userId: v.id("users"),
     role: messageRole,
     content: v.string(),
+    reasoning: v.optional(v.string()),
     steps: v.optional(v.array(agentStep)),
     status: messageStatus,
   }).index("by_project", ["projectId"]),
