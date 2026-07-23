@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { ModelSelector } from "@/components/site/model-selector";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import {
@@ -209,7 +209,10 @@ export function PromptComposer({
             )}
           >
             {pending ? (
-              resolvedPendingLabel
+              <>
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                <span className="whitespace-nowrap">{resolvedPendingLabel}</span>
+              </>
             ) : (
               <>
                 <span className="whitespace-nowrap">{resolvedSubmitLabel}</span>
