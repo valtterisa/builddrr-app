@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   FileText,
+  FolderSearch,
   Globe,
   Info,
   Link2,
@@ -31,6 +32,7 @@ const ICONS: Record<string, typeof Sparkles> = {
   preview: Globe,
   domain: Link2,
   note: Info,
+  inspect: FolderSearch,
 };
 
 function formatThoughtDuration(ms: number): string {

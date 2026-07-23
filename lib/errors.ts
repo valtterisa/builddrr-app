@@ -179,7 +179,10 @@ export class AppError extends Error {
     const code = classify(detail, codeHint);
 
     if (
-      (code === "no_plan" || code === "no_credits" || code === "domain") &&
+      (code === "no_plan" ||
+        code === "no_credits" ||
+        code === "domain" ||
+        code === "publish") &&
       isSafeCustomerMessage(detail)
     ) {
       return new AppError(code, detail, { detail, cause: error });

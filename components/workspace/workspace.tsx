@@ -18,6 +18,7 @@ interface Project {
   publishStatus?: PublishStatus;
   publishedUrl?: string;
   publishError?: string;
+  cfSubdomain?: string;
   customDomain?: string;
   customDomainStatus?: DomainStatus;
 }
@@ -44,11 +45,11 @@ export function Workspace({
       <WorkspaceHeader
         projectId={projectId}
         name={project?.name}
-        previewUrl={project?.previewUrl}
         boxId={project?.boxId}
         publishStatus={project?.publishStatus ?? "idle"}
         publishedUrl={project?.publishedUrl}
         publishError={project?.publishError}
+        cfSubdomain={project?.cfSubdomain}
         customDomain={project?.customDomain}
         customDomainStatus={project?.customDomainStatus}
       />

@@ -2,7 +2,7 @@ import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
-import { boxConfigured, restartPreview } from "@/lib/box/client";
+import { boxConfigured, startPreview } from "@/lib/box/client";
 import { AppError } from "@/lib/errors";
 
 export const maxDuration = 800;
@@ -58,22 +58,24 @@ export async function POST(req: Request) {
   }
 
   try {
-    const previewUrl = await restartPreview(project.boxId);
-    await fetchMutation(
-      (api as any).projects.setPreview,
-      { projectId: parsed.data.projectId, previewUrl },
-      { token }
-    );
+    const previewUrl = await startPreview(project.boxId);
+    if (previewUrl !== project.previewUrl) {
+      await fetchMutation(
+        (api as any).projects.setPreview,
+        { projectId: parsed.data.projectId, previewUrl },
+        { token }
+      );
+    }
     return Response.json({ ok: true as const, previewUrl });
   } catch (err) {
     const error = err instanceof AppError ? err : AppError.from(err);
-    console.error("preview restart failed:", error.detail);
+    console.error("preview start failed:", error.detail ?? error.message, err);
     return Response.json(
       {
         error:
           err instanceof AppError
             ? error.message
-            : "Couldn't restart the sandbox. Please try again.",
+            : "Couldn't start the sandbox. Please try again.",
         code: err instanceof AppError ? error.code : "preview",
       },
       { status: 500 }

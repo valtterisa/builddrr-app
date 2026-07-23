@@ -2,7 +2,6 @@ import {
   BoxApi,
   BoxStateEnum,
   Configuration,
-  ResponseError,
   waitUntilReady,
 } from "@asciidev/box-sdk";
 import { AppError } from "@/lib/errors";
@@ -25,6 +24,8 @@ export type BoxFile = {
 
 export type BoxState = (typeof BoxStateEnum)[keyof typeof BoxStateEnum];
 
+export { BoxStateEnum };
+
 export function getPreviewPort() {
   return PREVIEW_PORT;
 }
@@ -46,7 +47,9 @@ export function getBox(): BoxApi {
   );
 }
 
-export async function createSandbox(name: string): Promise<string> {
+export async function createSandbox(
+  name: string
+): Promise<{ boxId: string; subdomain: string }> {
   const box = getBox();
   const created = await box.create({
     createBoxRequest: { ttlSeconds: 3600, noEnv: true },
@@ -54,8 +57,28 @@ export async function createSandbox(name: string): Promise<string> {
   const boxId = created.box.id;
   await box.update({ boxId, updateBoxRequest: { name } });
   await waitUntilReady(box, boxId);
+  const subdomain = await getBoxSubdomain(boxId);
   await pullTemplate(boxId);
-  return boxId;
+  return { boxId, subdomain };
+}
+
+export async function getBoxSubdomain(boxId: string): Promise<string> {
+  const box = getBox();
+  const res = await box.get({ boxId });
+  const subdomain = res.box.subdomain?.trim();
+  if (!subdomain) {
+    throw new AppError("preview", "Box subdomain is not assigned yet.", {
+      detail: `box ${boxId}`,
+    });
+  }
+  return subdomain;
+}
+
+export function previewUrlForBox(
+  subdomain: string,
+  port: number = PREVIEW_PORT
+): string {
+  return `https://${subdomain}-${port}.on.ascii.dev`;
 }
 
 export async function pullTemplate(boxId: string): Promise<void> {
@@ -87,8 +110,12 @@ export async function ensureBoxReady(boxId: string): Promise<void> {
     case BoxStateEnum.Idle:
     case BoxStateEnum.Running:
       return;
-    case BoxStateEnum.Archived:
     case BoxStateEnum.Archiving:
+      await waitUntilArchived(box, boxId);
+      await box.resume({ boxId, resumeRequest: { noEnv: true } });
+      await waitUntilReady(box, boxId);
+      return;
+    case BoxStateEnum.Archived:
       await box.resume({ boxId, resumeRequest: { noEnv: true } });
       await waitUntilReady(box, boxId);
       return;
@@ -165,14 +192,32 @@ export async function runCommand(
 }
 
 /**
- * Install dependencies, start the Astro dev server detached, wait until it
- * answers on the preview port, then expose it on a public HTTPS URL.
+ * Docs flow: start app on 0.0.0.0 → host <port> --public → open URL.
+ * https://docs.ascii.dev/box/hosting.md
  */
 export async function startPreview(boxId: string): Promise<string> {
   await ensureBoxReady(boxId);
+
+  const url = previewUrlForBox(await getBoxSubdomain(boxId));
+
+  if (
+    (await isPreviewPortReady(boxId, PREVIEW_PORT)) &&
+    (await probePublicPreview(url))
+  ) {
+    return url;
+  }
+
   await ensureSiteDeps(boxId);
-  await startAstroDev(boxId, PREVIEW_PORT);
-  await waitForPreviewPort(boxId, PREVIEW_PORT);
+
+  if (!(await isPreviewPortReady(boxId, PREVIEW_PORT))) {
+    await runCommand(
+      boxId,
+      `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >/tmp/astro-dev.log 2>&1 &`,
+      { timeoutSeconds: 30 }
+    );
+    await waitForPreviewPort(boxId, PREVIEW_PORT);
+  }
+
   return await publishHost(boxId, PREVIEW_PORT);
 }
 
@@ -196,147 +241,117 @@ async function ensureSiteDeps(boxId: string): Promise<void> {
   }
 }
 
-async function startAstroDev(boxId: string, port: number): Promise<void> {
-  await runCommand(
+async function isPreviewPortReady(boxId: string, port: number): Promise<boolean> {
+  const probe = await runCommand(
     boxId,
-    [
-      "pkill -f '[a]stro dev' >/dev/null 2>&1 || true",
-      `pnpm exec astro dev --host 0.0.0.0 --port ${port} >/tmp/astro-dev.log 2>&1 &`,
-      "sleep 1",
-    ].join("; "),
-    { timeoutSeconds: 30 }
+    `curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:${port}/ || true`,
+    { cwd: ".", timeoutSeconds: 15 }
   );
-}
-
-async function readAstroLog(boxId: string): Promise<string> {
-  const log = await runCommand(boxId, "tail -n 120 /tmp/astro-dev.log 2>/dev/null || true", {
-    cwd: ".",
-    timeoutSeconds: 15,
-  });
-  return (log.stdout || log.stderr || "").trim();
+  const code = (probe.stdout || "").trim();
+  return /^\d{3}$/.test(code) && code !== "000";
 }
 
 async function waitForPreviewPort(boxId: string, port: number): Promise<void> {
-  const maxAttempts = 40;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const probe = await runCommand(
-      boxId,
-      `curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:${port}/ || true`,
-      { cwd: ".", timeoutSeconds: 15 }
-    );
-    const code = (probe.stdout || "").trim();
-    if (/^\d{3}$/.test(code) && code !== "000") return;
-
-    if (attempt < maxAttempts) {
-      await runCommand(boxId, "sleep 2", { cwd: ".", timeoutSeconds: 10 });
-    }
+  for (let attempt = 1; attempt <= 45; attempt++) {
+    if (await isPreviewPortReady(boxId, port)) return;
+    if (attempt < 45) await new Promise((r) => setTimeout(r, 2_000));
   }
 
-  const log = await readAstroLog(boxId);
+  const log = await runCommand(
+    boxId,
+    "tail -n 80 /tmp/astro-dev.log 2>/dev/null || true",
+    { cwd: ".", timeoutSeconds: 15 }
+  );
   throw new AppError("preview", "Astro preview did not become ready.", {
-    detail: log || `port ${port} never answered`,
+    detail: (log.stdout || log.stderr || "").trim() || `port ${port} never answered`,
   });
 }
 
 async function publishHost(boxId: string, port: number): Promise<string> {
+  const url = previewUrlForBox(await getBoxSubdomain(boxId), port);
+
   const hosted = await runCommand(
     boxId,
     `host ${port} --public --title Floras`,
     { cwd: ".", timeoutSeconds: 60 }
   );
-  const url = extractUrl(hosted.stdout) ?? extractUrl(hosted.stderr);
-  if (!url) {
-    throw new AppError("preview", "Could not determine preview URL.", {
-      detail: hosted.stdout || hosted.stderr || "no on.ascii.dev URL in host output",
+  if (!hosted.success || hosted.exitCode !== 0) {
+    throw new AppError("preview", "Could not expose public preview URL.", {
+      detail: hosted.stderr || hosted.stdout || `exit ${hosted.exitCode}`,
     });
   }
-  return url.replace(/\?.*$/, "");
+
+  await waitForPublicPreview(url);
+  return url;
 }
 
-async function waitForBoxState(
-  boxId: string,
-  states: BoxState[],
-  opts: { timeoutMs?: number; label?: string } = {}
-): Promise<void> {
-  const box = getBox();
-  const timeoutMs = opts.timeoutMs ?? 180_000;
-  const deadline = Date.now() + timeoutMs;
-  let lastState: BoxState | "unknown" = "unknown";
+export async function probePublicPreview(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      headers: { Accept: "text/html" },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return false;
+    const body = await res.text();
+    if (/upstream unavailable/i.test(body)) return false;
+    return body.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForPublicPreview(url: string): Promise<void> {
+  const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
-    const state = (await box.get({ boxId })).box.state;
-    lastState = state;
-    if (states.includes(state)) return;
+    if (await probePublicPreview(url)) return;
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  throw new AppError("preview", "Preview URL did not become ready.", {
+    detail: url,
+  });
+}
+
+async function waitUntilArchived(
+  api: BoxApi,
+  boxId: string,
+  options?: { timeoutMs?: number; intervalMs?: number }
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 300_000;
+  const intervalMs = options?.intervalMs ?? 2_000;
+  const deadline = Date.now() + timeoutMs;
+
+  for (;;) {
+    const state = (await api.get({ boxId })).box.state;
+    if (state === BoxStateEnum.Archived) return;
     if (state === BoxStateEnum.Error) {
       throw new AppError("preview", "Sandbox entered an error state.", {
         detail: `box ${boxId} state=error`,
       });
     }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  throw new AppError("preview", opts.label ?? "Sandbox state wait timed out.", {
-    detail: `box ${boxId} wanted ${states.join("|")}, last saw ${lastState}`,
-  });
-}
-
-async function toBoxAppError(err: unknown, message: string): Promise<AppError> {
-  if (err instanceof AppError) return err;
-  if (err instanceof ResponseError) {
-    let body = "";
-    try {
-      const json = (await err.response.clone().json()) as {
-        message?: string;
-        code?: string;
-        error?: { message?: string; code?: string };
-      };
-      body =
-        json.error?.message ||
-        json.message ||
-        json.error?.code ||
-        json.code ||
-        JSON.stringify(json);
-    } catch {
-      body = await err.response
-        .clone()
-        .text()
-        .catch(() => "");
+    if (Date.now() >= deadline) {
+      throw new AppError("preview", "Sandbox did not finish stopping.", {
+        detail: `box ${boxId} last state=${state}`,
+      });
     }
-    return new AppError("preview", message, {
-      detail: `HTTP ${err.response.status}: ${body || err.message}`,
-      cause: err,
-    });
+    await new Promise((r) => setTimeout(r, intervalMs));
   }
-  return AppError.from(err);
 }
 
-/** Hard reboot: stop → poll archived → resume → poll ready → Astro + host. */
+/** Restart Astro + re-publish host. Does not stop/archive the VM. */
 export async function restartPreview(boxId: string): Promise<string> {
-  const box = getBox();
-
-  try {
-    await box.stop({ boxId });
-  } catch (err) {
-    throw await toBoxAppError(err, "Could not stop the sandbox.");
-  }
-
-  await waitForBoxState(boxId, [BoxStateEnum.Archived], {
-    timeoutMs: 240_000,
-    label: "Sandbox did not finish stopping.",
-  });
-
-  try {
-    await box.resume({ boxId, resumeRequest: { noEnv: true } });
-  } catch (err) {
-    throw await toBoxAppError(err, "Could not resume the sandbox.");
-  }
-
-  await waitForBoxState(
-    boxId,
-    [BoxStateEnum.Ready, BoxStateEnum.Idle, BoxStateEnum.Running],
-    { label: "Sandbox did not become ready after resume." }
-  );
-
+  await ensureBoxReady(boxId);
   await ensureSiteDeps(boxId);
-  await startAstroDev(boxId, PREVIEW_PORT);
+  await runCommand(
+    boxId,
+    [
+      "pkill -f '[a]stro dev' >/dev/null 2>&1 || true",
+      `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >/tmp/astro-dev.log 2>&1 &`,
+    ].join("; "),
+    { timeoutSeconds: 30 }
+  );
   await waitForPreviewPort(boxId, PREVIEW_PORT);
   return await publishHost(boxId, PREVIEW_PORT);
 }
@@ -420,9 +435,4 @@ export async function deployDistWithWrangler(
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function extractUrl(text: string): string | undefined {
-  const match = text.match(/https:\/\/[^\s"']+on\.ascii\.dev[^\s"']*/);
-  return match?.[0];
 }

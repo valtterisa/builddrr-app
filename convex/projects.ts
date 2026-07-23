@@ -110,11 +110,18 @@ export const setStatus = mutation({
 });
 
 export const setBox = mutation({
-  args: { projectId: v.id("projects"), boxId: v.string() },
+  args: {
+    projectId: v.id("projects"),
+    boxId: v.string(),
+    boxSubdomain: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireOwnedProject(ctx, args.projectId);
-    await ctx.db.patch(args.projectId, { boxId: args.boxId });
+    await ctx.db.patch(args.projectId, {
+      boxId: args.boxId,
+      ...(args.boxSubdomain ? { boxSubdomain: args.boxSubdomain } : {}),
+    });
     return null;
   },
 });

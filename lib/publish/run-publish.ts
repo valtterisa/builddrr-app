@@ -35,7 +35,13 @@ export async function runPublish(projectId: string, token: string) {
   if (!boxId) {
     await fetchMutation(
       (api as any).projects.setPublishError,
-      { projectId, error: "Publish requires a sandbox. Generate the site first." },
+      {
+        projectId,
+        error: new AppError(
+          "publish",
+          "Publish requires a sandbox. Generate the site first."
+        ).message,
+      },
       { token }
     );
     return;
@@ -44,7 +50,7 @@ export async function runPublish(projectId: string, token: string) {
   if (!box.boxConfigured()) {
     await fetchMutation(
       (api as any).projects.setPublishError,
-      { projectId, error: AppError.from(new AppError("config")).message },
+      { projectId, error: new AppError("config").message },
       { token }
     );
     return;
@@ -53,12 +59,7 @@ export async function runPublish(projectId: string, token: string) {
   if (!cloudflareConfigured()) {
     await fetchMutation(
       (api as any).projects.setPublishError,
-      {
-        projectId,
-        error: AppError.from(
-          new AppError("config", "Cloudflare publishing is not configured.")
-        ).message,
-      },
+      { projectId, error: new AppError("config").message },
       { token }
     );
     return;
@@ -170,6 +171,11 @@ export async function runPublish(projectId: string, token: string) {
     }
 
     const appError = AppError.from(error);
+    console.error("Publish failed", {
+      projectId,
+      code: appError.code,
+      detail: appError.detail,
+    });
     await fetchMutation(
       (api as any).projects.setPublishError,
       { projectId, error: appError.message },

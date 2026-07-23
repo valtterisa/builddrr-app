@@ -21,7 +21,8 @@ export type AgentStepKind =
   | "command"
   | "preview"
   | "domain"
-  | "note";
+  | "note"
+  | "inspect";
 
 export interface AgentStep {
   kind: AgentStepKind;
@@ -37,6 +38,9 @@ export interface BuildAgentOptions {
   onPlan: (plan: SitePlan) => Promise<void> | void;
   onPreview: (url: string) => Promise<void> | void;
   hasPreview: boolean;
+  sitePlan?: SitePlan | null;
+  previewUrl?: string | null;
+  projectName?: string;
   customInstructions?: string;
   modelId?: string;
   customerId?: string;
@@ -48,74 +52,108 @@ function getModel(modelId?: string, customerId?: string) {
   return withAutumnModel(model, customerId);
 }
 
-const INSTRUCTIONS = `You are an expert Astro web engineer inside a Linux sandbox. You generate and edit beautiful, production-ready Astro sites (landing pages and blogs) that live in the "site/" project directory.
+function siteAlreadyKnown(opts: BuildAgentOptions): boolean {
+  return opts.hasPreview || Boolean(opts.sitePlan);
+}
 
-The sandbox already has a base Astro template cloned into site/. Edit that project in place. Do not recreate package.json or reinstall the framework unless something is broken.
+async function listSiteFiles(boxId: string): Promise<string[]> {
+  const res = await box.runCommand(
+    boxId,
+    "find . -type f -not -path './node_modules/*' -not -path './.astro/*' -not -path './.git/*' | sort"
+  );
+  return res.stdout.split("\n").filter(Boolean);
+}
 
-WORKFLOW (mandatory — three phases, in order)
+function detectGeneratedSite(files: string[]): boolean {
+  const pages = files.filter(
+    (f) => f.includes("/src/pages/") && f.endsWith(".astro")
+  );
+  const components = files.filter(
+    (f) => f.includes("/src/components/") && f.endsWith(".astro")
+  );
+  return pages.length > 1 || components.length > 0;
+}
 
-PHASE 1 — PLAN
-1. Apply Section 0 of the design skill: infer the brief, output a one-line Design Read.
-2. Set DESIGN_VARIANCE / MOTION_INTENSITY / VISUAL_DENSITY from the skill (cap MOTION_INTENSITY at 3 because motion is CSS-only).
-3. Call plan_site exactly once with a complete SitePlan that matches that read (font, theme, accent, varied section types, real imagePrompt seeds). Do not write files by hand before plan_site.
-4. plan_site stores the plan and starts the live preview. Then build by editing files.
+const INSTRUCTIONS = `You are an expert Astro web engineer inside a Linux sandbox. Sites live in site/. Edit in place. Do not recreate package.json or reinstall the framework unless something is broken. Never restart the Astro dev server manually.
 
-PHASE 2 — BUILD
-5. Use write_file / read_file / list_files / run_command to implement the SitePlan on top of the template.
-6. Keep changes targeted. The dev server hot-reloads — never restart it manually.
-7. Deliver complete file contents (no placeholders or "// ..."). Prefer editing files over explaining them.
+FIRST TOOL CALL (mandatory)
+Call inspect_site before any other tool. Follow the returned mode exactly:
+- mode "edit": the site already exists. Make the user's requested changes with read_file / write_file. Do not ask to build. Do not claim there is no live project.
+- mode "new": this is a first build. Call plan_site once, then implement and polish.
 
-PHASE 3 — DESIGN POLISH (required second pass)
-8. When the site is functionally built, run a full design-skill pass: re-read key page and component files, then rewrite them to better satisfy the design skill — especially Section 4 (directives), Section 9 (AI tells), and Section 14 (pre-flight checklist).
-9. Do not call plan_site again in this phase. Improve UI in place with write_file.
-10. Only stop after Section 14 pre-flight can be honestly ticked (within Astro + CSS constraints). End with a short markdown summary (a few bullets or one short paragraph) of what you built and what the polish pass changed. Never paste the design skill, Section 14 checklist, or long file dumps into the user-facing reply.
+NEW SITE (mode "new")
+1. Design Read + variance settings from the design skill.
+2. plan_site exactly once.
+3. Implement with write_file / read_file / list_files.
+4. Design polish pass, then a short markdown summary.
+
+EDIT SITE (mode "edit")
+1. Read the files you need.
+2. Apply targeted write_file changes (complete file contents).
+3. Keep scope tight unless the user asks for a redesign.
+4. Short markdown summary of what changed.
 
 CUSTOM DOMAINS
-- The site must be published (user clicks Publish in the workspace) before a custom domain can be connected.
-- When the user asks to connect, check, or remove a domain, use setup_domain / check_domain / remove_domain.
-- After setup_domain, clearly list the DNS records (type, name, value) and tell them to add those at their DNS provider. Do not invent DNS values.
-- Prefer www.example.com style hostnames; for apex domains explain ALIAS/ANAME or CNAME flattening when relevant.
-- Domains can also be managed under Account → Domains.
+Use setup_domain / check_domain / remove_domain when asked. Site must already be published. List real DNS records only.
 
-Never dump large explanations between tool calls. User-facing text must stay short and well-formatted markdown.
+Never dump large explanations between tool calls. User-facing text must stay short markdown.
+Write flowing paragraphs. Do not hard-wrap or insert line breaks mid-sentence. Use a blank line only between paragraphs or list blocks.
 
 ${DESIGN_GUIDELINES}`;
+
+function buildInstructions(opts: BuildAgentOptions): string {
+  const custom = opts.customInstructions?.trim();
+  const customBlock = custom
+    ? `
+
+USER CUSTOM INSTRUCTIONS
+Honor these preferences when they do not conflict with safety or the design skill above:
+${custom}`
+    : "";
+
+  return `${INSTRUCTIONS}${customBlock}`;
+}
 
 export function buildSiteAgent(opts: BuildAgentOptions) {
   const { boxId, projectId, token, onStep, onPlan, onPreview, hasPreview } =
     opts;
+  const knownExisting = siteAlreadyKnown(opts);
 
-  const tools = {
-    plan_site: tool({
-      description:
-        "Store the structured site plan and start the live preview on the cloned Astro template. Call once in PHASE 1 only.",
-      inputSchema: sitePlanSchema,
-      execute: async (plan) => {
-        await onStep({
-          kind: "plan",
-          label: `Planned "${plan.siteName}"`,
-          detail: `${plan.pages.length} page(s)`,
-        });
-        await onPlan(plan as SitePlan);
+  const inspect_site = tool({
+    description:
+      "Call first on every turn. Inspects site/ on disk and returns whether this is an edit or a new-site session.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const files = await listSiteFiles(boxId);
+      const generatedOnDisk = detectGeneratedSite(files);
+      const mode =
+        knownExisting || generatedOnDisk ? ("edit" as const) : ("new" as const);
 
-        let previewUrl: string | null = null;
-        if (!hasPreview) {
-          previewUrl = await box.startPreview(boxId);
-          await onPreview(previewUrl);
-          await onStep({
-            kind: "preview",
-            label: "Preview URL live",
-            detail: previewUrl,
-          });
-        }
+      await onStep({
+        kind: "inspect",
+        label:
+          mode === "edit" ? "Existing site detected" : "New site session",
+        detail: `${files.length} files`,
+      });
 
-        return {
-          ok: true,
-          previewUrl,
-        };
-      },
-    }),
+      return {
+        mode,
+        projectName: opts.projectName?.trim() || null,
+        siteName: opts.sitePlan?.siteName ?? null,
+        previewUrl: opts.previewUrl ?? null,
+        hasStoredPlan: Boolean(opts.sitePlan),
+        fileCount: files.length,
+        files: files.slice(0, 80),
+        next:
+          mode === "edit"
+            ? "Edit site/ in place for the user request. Do not call plan_site."
+            : "Call plan_site once, then build and polish.",
+      };
+    },
+  });
 
+  const sharedTools = {
+    inspect_site,
     write_file: tool({
       description: "Create or overwrite one file in the site project.",
       inputSchema: z.object({
@@ -130,7 +168,6 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         return { ok: true };
       },
     }),
-
     read_file: tool({
       description: "Read one file from the site project.",
       inputSchema: z.object({ path: z.string() }),
@@ -140,22 +177,18 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         return { content };
       },
     }),
-
     list_files: tool({
       description: "List the files in the site project.",
       inputSchema: z.object({}),
       execute: async () => {
-        const res = await box.runCommand(
-          boxId,
-          "find . -type f -not -path './node_modules/*' -not -path './.astro/*' -not -path './.git/*' | sort"
-        );
+        const files = await listSiteFiles(boxId);
         await onStep({ kind: "command", label: "Listed project files" });
-        return { files: res.stdout.split("\n").filter(Boolean) };
+        return { files };
       },
     }),
-
     run_command: tool({
-      description: "Run a short shell command in the site project (e.g. install a package).",
+      description:
+        "Run a short shell command in the site project (e.g. install a package).",
       inputSchema: z.object({ command: z.string() }),
       execute: async ({ command }) => {
         const res = await box.runCommand(boxId, command, { timeoutSeconds: 120 });
@@ -171,7 +204,6 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         };
       },
     }),
-
     setup_domain: tool({
       description:
         "Connect a custom domain to the published site and return DNS records the user must add. Requires the site to already be published.",
@@ -204,7 +236,6 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         }
       },
     }),
-
     check_domain: tool({
       description:
         "Refresh custom domain status and DNS records for this published site.",
@@ -229,7 +260,6 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         }
       },
     }),
-
     remove_domain: tool({
       description:
         "Disconnect the custom domain from this site (does not change the user's DNS records).",
@@ -251,18 +281,40 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
     }),
   };
 
-  const custom = opts.customInstructions?.trim();
-  const instructions = custom
-    ? `${INSTRUCTIONS}
+  const plan_site = tool({
+    description:
+      "Store the structured site plan and start the live preview. Only after inspect_site returns mode \"new\". Call once.",
+    inputSchema: sitePlanSchema,
+    execute: async (plan) => {
+      await onStep({
+        kind: "plan",
+        label: `Planned "${plan.siteName}"`,
+        detail: `${plan.pages.length} page(s)`,
+      });
+      await onPlan(plan as SitePlan);
 
-USER CUSTOM INSTRUCTIONS
-Honor these preferences when they do not conflict with safety or the design skill above:
-${custom}`
-    : INSTRUCTIONS;
+      let previewUrl: string | null = null;
+      if (!hasPreview) {
+        previewUrl = await box.startPreview(boxId);
+        await onPreview(previewUrl);
+        await onStep({
+          kind: "preview",
+          label: "Preview URL live",
+          detail: previewUrl,
+        });
+      }
+
+      return { ok: true, previewUrl };
+    },
+  });
+
+  const tools = knownExisting
+    ? sharedTools
+    : { ...sharedTools, plan_site };
 
   return new ToolLoopAgent({
     model: getModel(opts.modelId, opts.customerId),
-    instructions,
+    instructions: buildInstructions(opts),
     tools,
     providerOptions: anthropicThinkingOptions("low"),
     stopWhen: isStepCount(40),

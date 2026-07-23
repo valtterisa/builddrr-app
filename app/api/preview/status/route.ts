@@ -1,31 +1,32 @@
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { fetchQuery } from "convex/nextjs";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
-import { boxConfigured, restartPreview } from "@/lib/box/client";
+import {
+  boxConfigured,
+  getBoxState,
+  probePublicPreview,
+} from "@/lib/box/client";
 import { AppError } from "@/lib/errors";
 
-export const maxDuration = 800;
 export const runtime = "nodejs";
 
-const requestSchema = z.object({
+const LIVE_STATES = new Set(["ready", "idle", "running"]);
+
+const querySchema = z.object({
   projectId: z.string().min(1),
 });
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   const token = await convexAuthNextjsToken();
   if (!token) {
     return Response.json({ error: "Not authenticated", code: "auth" }, { status: 401 });
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON", code: "unknown" }, { status: 400 });
-  }
-
-  const parsed = requestSchema.safeParse(body);
+  const url = new URL(req.url);
+  const parsed = querySchema.safeParse({
+    projectId: url.searchParams.get("projectId") ?? "",
+  });
   if (!parsed.success) {
     return Response.json(
       { error: "projectId required", code: "unknown" },
@@ -51,29 +52,31 @@ export async function POST(req: Request) {
   }
 
   if (!project.boxId) {
-    return Response.json(
-      { error: "No sandbox for this project yet.", code: "preview" },
-      { status: 400 }
-    );
+    return Response.json({
+      state: null as string | null,
+      boxId: null as string | null,
+      previewOk: false,
+    });
   }
 
   try {
-    const previewUrl = await restartPreview(project.boxId);
-    await fetchMutation(
-      (api as any).projects.setPreview,
-      { projectId: parsed.data.projectId, previewUrl },
-      { token }
-    );
-    return Response.json({ ok: true as const, previewUrl });
+    const state = await getBoxState(project.boxId);
+    const previewUrl =
+      typeof project.previewUrl === "string" ? project.previewUrl : null;
+    const previewOk =
+      LIVE_STATES.has(state) && previewUrl
+        ? await probePublicPreview(previewUrl)
+        : false;
+    return Response.json({ state, boxId: project.boxId, previewOk });
   } catch (err) {
     const error = err instanceof AppError ? err : AppError.from(err);
-    console.error("preview restart failed:", error.detail);
+    console.error("preview status failed:", error.detail);
     return Response.json(
       {
         error:
           err instanceof AppError
             ? error.message
-            : "Couldn't restart the sandbox. Please try again.",
+            : "Couldn't read sandbox status.",
         code: err instanceof AppError ? error.code : "preview",
       },
       { status: 500 }

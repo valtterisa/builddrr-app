@@ -1,95 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { TopUpModal } from "@/components/billing/top-up-modal";
 import { UpgradeProModal } from "@/components/billing/upgrade-pro-modal";
+import { PublishModal } from "@/components/workspace/publish-modal";
 import { formatCredits } from "@/lib/billing/constants";
+import { AppError } from "@/lib/errors";
 import { useGenerationAccess } from "@/lib/hooks/use-generation-access";
 import { cn } from "@/lib/utils";
-import {
-  visitUrl,
-  type DomainStatus,
-  type PublishStatus,
-} from "@/lib/publish/types";
+import type { DomainStatus, PublishStatus } from "@/lib/publish/types";
 
 export function WorkspaceHeader({
   projectId,
   name,
-  previewUrl,
   boxId,
   publishStatus,
   publishedUrl,
   publishError,
+  cfSubdomain,
   customDomain,
   customDomainStatus,
 }: {
   projectId: string;
   name?: string;
-  previewUrl?: string;
   boxId?: string;
   publishStatus?: PublishStatus | null;
   publishedUrl?: string | null;
   publishError?: string | null;
+  cfSubdomain?: string | null;
   customDomain?: string | null;
   customDomainStatus?: DomainStatus | null;
 }) {
   const { balance, hasPaidPlan, billingReady, refetch } = useGenerationAccess();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const awaitingResult = useRef(false);
 
   useEffect(() => {
-    if (
-      publishStatus === "published" ||
-      publishStatus === "error" ||
-      publishStatus === "idle"
-    ) {
+    if (!awaitingResult.current) {
+      if (
+        publishStatus === "published" ||
+        publishStatus === "error" ||
+        publishStatus === "idle"
+      ) {
+        setPublishing(false);
+      }
+      return;
+    }
+
+    if (publishStatus === "published") {
+      awaitingResult.current = false;
+      setPublishing(false);
+      setPublishOpen(false);
+      toast.success("Site published.");
+      return;
+    }
+
+    if (publishStatus === "error") {
+      awaitingResult.current = false;
+      setPublishing(false);
+      toast.error(
+        AppError.from({ error: publishError, code: "publish" }).message
+      );
+      return;
+    }
+
+    if (publishStatus === "idle") {
+      awaitingResult.current = false;
       setPublishing(false);
     }
-  }, [publishStatus]);
+  }, [publishStatus, publishError]);
 
   const creditLabel = formatCredits(balance);
   const isPublishing = publishing || publishStatus === "publishing";
   const isPublished = publishStatus === "published";
-  const siteUrl = visitUrl({
-    customDomain,
-    customDomainStatus,
-    publishedUrl,
-  });
-  const canPublish = Boolean(boxId) && !isPublishing;
-  const openUrl = siteUrl ?? previewUrl;
-  const openLabel = siteUrl ? "Live" : "Preview";
+  const canOpenPublish = Boolean(boxId);
 
   async function handlePublish() {
-    if (!canPublish) return;
+    if (!boxId || isPublishing) return;
     setPublishing(true);
-    setLocalError(null);
+    awaitingResult.current = true;
     try {
       const res = await fetch("/api/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId }),
       });
-      const json: unknown = await res.json().catch(() => null);
       if (!res.ok) {
-        const message =
-          typeof json === "object" &&
-          json !== null &&
-          "error" in json &&
-          typeof (json as { error: unknown }).error === "string"
-            ? (json as { error: string }).error
-            : "Publish failed";
-        setLocalError(message);
+        awaitingResult.current = false;
         setPublishing(false);
+        toast.error((await AppError.fromResponse(res)).message);
       }
-    } catch {
-      setLocalError("Couldn't reach the server.");
+    } catch (error) {
+      awaitingResult.current = false;
       setPublishing(false);
+      toast.error(AppError.from(error).message);
     }
   }
 
@@ -132,26 +144,12 @@ export function WorkspaceHeader({
             </button>
           ) : null}
 
-          {openUrl ? (
-            <a
-              href={openUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 border border-border bg-background px-2.5 text-foreground transition-colors hover:bg-card"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                {openLabel}
-              </span>
-              <ExternalLink className="size-3 text-muted-foreground" />
-            </a>
-          ) : null}
-
           <button
             type="button"
-            disabled={!canPublish}
-            onClick={() => void handlePublish()}
+            disabled={!canOpenPublish}
+            onClick={() => setPublishOpen(true)}
             className={cn(
-              "inline-flex h-8 items-center justify-center gap-1.5 bg-brand px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]",
+              "inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 bg-brand px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]",
               "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             )}
           >
@@ -169,15 +167,17 @@ export function WorkspaceHeader({
         </div>
       </header>
 
-      {localError || publishError ? (
-        <div className="border-b border-border px-4 py-2.5 text-sm text-muted-foreground">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-destructive">
-            Publish
-          </span>{" "}
-          <span className="text-destructive">{localError ?? publishError}</span>
-        </div>
-      ) : null}
-
+      <PublishModal
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        onConfirm={() => void handlePublish()}
+        publishing={isPublishing}
+        isPublished={isPublished}
+        publishedUrl={publishedUrl}
+        cfSubdomain={cfSubdomain}
+        customDomain={customDomain}
+        customDomainStatus={customDomainStatus}
+      />
       <UpgradeProModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}

@@ -5,6 +5,7 @@ import { resolveAgentModelId } from "@/lib/ai/models";
 import * as box from "@/lib/box/client";
 import { resolveStreamingAssistantId } from "@/lib/generate/resolve-assistant";
 import { AppError } from "@/lib/errors";
+import type { SitePlan } from "@/lib/schema/site";
 
 export async function runGeneration(projectId: string, token: string) {
   const project = await fetchQuery(
@@ -43,12 +44,30 @@ export async function runGeneration(projectId: string, token: string) {
         { projectId, status: "provisioning" },
         { token }
       );
-      boxId = await box.createSandbox(project.name);
+      const created = await box.createSandbox(project.name);
+      boxId = created.boxId;
       await fetchMutation(
         (api as any).projects.setBox,
-        { projectId, boxId },
+        {
+          projectId,
+          boxId: created.boxId,
+          boxSubdomain: created.subdomain,
+        },
         { token }
       );
+    } else {
+      await box.ensureBoxReady(boxId);
+      if (
+        typeof project.boxSubdomain !== "string" ||
+        !project.boxSubdomain.trim()
+      ) {
+        const subdomain = await box.getBoxSubdomain(boxId);
+        await fetchMutation(
+          (api as any).projects.setBox,
+          { projectId, boxId, boxSubdomain: subdomain },
+          { token }
+        );
+      }
     }
 
     await fetchMutation(
@@ -61,6 +80,12 @@ export async function runGeneration(projectId: string, token: string) {
     const modelId = resolveAgentModelId(
       typeof project.modelId === "string" ? project.modelId : null
     );
+    const previewUrl =
+      typeof project.previewUrl === "string" ? project.previewUrl : null;
+    const sitePlan =
+      project.plan && typeof project.plan === "object"
+        ? (project.plan as SitePlan)
+        : null;
 
     const agent = buildSiteAgent({
       boxId,
@@ -68,7 +93,10 @@ export async function runGeneration(projectId: string, token: string) {
       token,
       modelId,
       customerId: typeof me?.id === "string" ? me.id : undefined,
-      hasPreview: Boolean(project.previewUrl),
+      hasPreview: Boolean(previewUrl),
+      previewUrl,
+      sitePlan,
+      projectName: typeof project.name === "string" ? project.name : undefined,
       customInstructions:
         typeof me?.customInstructions === "string"
           ? me.customInstructions

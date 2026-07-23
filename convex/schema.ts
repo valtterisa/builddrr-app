@@ -67,6 +67,7 @@ export default defineSchema({
     modelId: v.optional(v.string()),
     status: projectStatus,
     boxId: v.optional(v.string()),
+    boxSubdomain: v.optional(v.string()),
     previewUrl: v.optional(v.string()),
     plan: v.optional(v.any()),
     error: v.optional(v.string()),
