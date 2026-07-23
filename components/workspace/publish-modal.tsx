@@ -63,15 +63,16 @@ export function PublishModal({
     window.setTimeout(() => setCopied(false), 1500);
   }
 
-  const facts = [
-    isPublished
-      ? "Replaces the current live build with this version"
-      : "Builds the site and puts it on the public web",
-    florasUrl
-      ? "Stays on the same URL after republish"
-      : `Includes a unique ${FLORAS_SITES_DOMAIN} address`,
-    "Custom domains can be connected after publish",
-  ];
+  const facts = isPublished
+    ? [
+        "Anyone with the link can open this site",
+        "Republish to replace the live build with this version",
+      ]
+    : [
+        "Builds the site and puts it on the public web",
+        `Includes a unique ${FLORAS_SITES_DOMAIN} address`,
+        "Custom domains can be connected after publish",
+      ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,11 +82,11 @@ export function PublishModal({
             {isPublished ? "Live site" : "Go live"}
           </p>
           <DialogTitle className="mt-2 text-2xl font-semibold tracking-tight">
-            {isPublished ? "Republish" : "Publish"}
+            {isPublished ? "Your site is live" : "Publish"}
           </DialogTitle>
           <DialogDescription className="mt-2 max-w-[40ch] text-sm leading-relaxed text-muted-foreground">
             {isPublished
-              ? "Push the latest version to your live URL."
+              ? "Open the public URL, or republish to push the latest version."
               : "Confirm where this site will live, then publish."}
           </DialogDescription>
         </div>
@@ -174,26 +175,56 @@ export function PublishModal({
         </ul>
 
         <div className="border-t border-border p-0">
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={publishing}
-            className={cn(
-              "inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 bg-brand px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter] active:scale-[0.99]",
-              "hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
-            )}
-          >
-            {publishing ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                Publishing…
-              </>
-            ) : isPublished ? (
-              "Republish site"
-            ) : (
-              "Publish site"
-            )}
-          </button>
+          {isPublished && liveUrl ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <a
+                href={liveUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 bg-brand px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter] hover:brightness-110 active:scale-[0.99]"
+              >
+                <ExternalLink className="size-3.5" />
+                Open site
+              </a>
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={publishing}
+                className={cn(
+                  "inline-flex h-12 cursor-pointer items-center justify-center gap-2 border-t border-border bg-background px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:bg-card active:scale-[0.99] sm:border-t-0 sm:border-l",
+                  "disabled:cursor-not-allowed disabled:opacity-40"
+                )}
+              >
+                {publishing ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Publishing…
+                  </>
+                ) : (
+                  "Update live"
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={publishing}
+              className={cn(
+                "inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 bg-brand px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-brand-foreground transition-[filter] active:scale-[0.99]",
+                "hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
+              )}
+            >
+              {publishing ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                "Publish site"
+              )}
+            </button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -58,8 +58,7 @@ export function WorkspaceHeader({
     if (publishStatus === "published") {
       awaitingResult.current = false;
       setPublishing(false);
-      setPublishOpen(false);
-      toast.success("Site published.");
+      setPublishOpen(true);
       return;
     }
 
@@ -159,7 +158,7 @@ export function WorkspaceHeader({
                 <span className="hidden sm:inline">Publishing</span>
               </>
             ) : isPublished ? (
-              "Republish"
+              "Live"
             ) : (
               "Publish"
             )}
