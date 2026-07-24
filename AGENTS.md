@@ -19,9 +19,8 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
   routes (`app/api/generate`, `lib/generate/run-generation.ts`). Tool activity +
   summaries stream back into Convex tables, so the UI updates reactively.
 - **Template:** New Boxes fork the golden Box from `BOX_GOLDEN_BOX_ID` via
-  `box.fork({ noEnv: true })`. Without that env: blank create + clone
-  `https://github.com/valtterisa/astro-template.git` into `site/`. The agent
-  stores a zod `SitePlan` (`lib/schema/site.ts`) then edits the template in place.
+  `box.fork({ noEnv: true })` (template + deps already on the golden snapshot).
+  The agent stores a zod `SitePlan` (`lib/schema/site.ts`) then edits the site in place.
 - **Sandbox/preview:** `lib/box/client.ts` wraps `@asciidev/box-sdk`. Each project
   gets a Box VM running `astro dev` exposed on a public URL via the in-box `host` command.
   User Boxes are created with `noEnv: true`.
@@ -47,8 +46,8 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
 - **Secrets for generation/Box/billing/CF live in Next.js `.env.local`:**
   `ANTHROPIC_API_KEY`, `BOX_API_KEY`, `BOX_GOLDEN_BOX_ID`, `AUTUMN_SECRET_KEY`,
   Cloudflare publish vars below. Optional: `AGENT_MODEL` (defaults to
-  `claude-sonnet-5`), `BOX_BASE_URL`. New Boxes fork `BOX_GOLDEN_BOX_ID` when set;
-  otherwise they clone `https://github.com/valtterisa/astro-template.git`.
+  `claude-sonnet-5`), `BOX_BASE_URL`. New Boxes always fork `BOX_GOLDEN_BOX_ID`
+  (required).
 - **Cloudflare publish (Next.js `.env.local` / host secrets, not Box dashboard):**
   `CLOUDFLARE_API_TOKEN` (User token: Account → Cloudflare Pages → Edit **and**
   Zone → DNS → Edit on `floras.app`), `CLOUDFLARE_ACCOUNT_ID`, and

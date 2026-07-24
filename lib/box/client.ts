@@ -10,7 +10,6 @@ import { AppError } from "@/lib/errors";
 import {
   SITE_DIR,
   PREVIEW_PORT,
-  TEMPLATE_REPO_URL,
   goldenBoxId,
   boxLog,
   cfEnvPath,
@@ -38,7 +37,7 @@ export type BoxState = (typeof BoxStateEnum)[keyof typeof BoxStateEnum];
 export { BoxStateEnum };
 
 export function boxConfigured(): boolean {
-  return Boolean(process.env.BOX_API_KEY);
+  return Boolean(process.env.BOX_API_KEY && process.env.BOX_GOLDEN_BOX_ID?.trim());
 }
 
 export function getBox(): BoxApi {
@@ -57,36 +56,24 @@ export function getBox(): BoxApi {
 export async function createSandbox(
   name: string
 ): Promise<{ boxId: string; subdomain: string }> {
-  const box = getBox();
   const goldenId = goldenBoxId();
-  let boxId: string;
-
-  if (goldenId) {
-    boxLog(goldenId, "create", "forking golden box", { name });
-    const forked = await box.fork({
-      boxId: goldenId,
-      forkRequest: { noEnv: true },
-    });
-    boxId = forked.box?.id ?? forked.id;
-    if (!boxId) {
-      throw new AppError("preview", "Forked sandbox did not return an id.", {
-        detail: `golden=${goldenId}`,
-      });
-    }
-    await box.update({ boxId, updateBoxRequest: { name } });
-    await waitUntilReady(box, boxId);
-    boxLog(boxId, "create", "fork ready", { goldenId });
-  } else {
-    boxLog("new", "create", "no BOX_GOLDEN_BOX_ID — blank create + git clone");
-    const created = await box.create({
-      createBoxRequest: { ttlSeconds: 3600, noEnv: true },
-    });
-    boxId = created.box.id;
-    await box.update({ boxId, updateBoxRequest: { name } });
-    await waitUntilReady(box, boxId);
-    await pullTemplate(boxId);
+  if (!goldenId) {
+    throw new AppError("config", "BOX_GOLDEN_BOX_ID is not set.");
   }
 
+  const box = getBox();
+  boxLog(goldenId, "create", "forking golden box", { name });
+  const forked = await box.fork({
+    boxId: goldenId,
+    forkRequest: { noEnv: true },
+  });
+  const boxId = forked.box?.id ?? forked.id;
+  if (!boxId) {
+    throw new AppError("preview", "Forked sandbox did not return an id.");
+  }
+  await box.update({ boxId, updateBoxRequest: { name } });
+  await waitUntilReady(box, boxId);
+  boxLog(boxId, "create", "fork ready");
   const subdomain = await getBoxSubdomain(boxId);
   return { boxId, subdomain };
 }
@@ -108,20 +95,6 @@ export function previewUrlForBox(
   port: number = PREVIEW_PORT
 ): string {
   return `https://${subdomain}-${port}.on.ascii.dev`;
-}
-
-export async function pullTemplate(boxId: string): Promise<void> {
-  const quoted = shellQuote(TEMPLATE_REPO_URL);
-  const res = await runCommand(
-    boxId,
-    `rm -rf ${SITE_DIR} && git clone --depth 1 ${quoted} ${SITE_DIR}`,
-    { cwd: ".", timeoutSeconds: 180 }
-  );
-  if (!res.success || res.exitCode !== 0) {
-    throw new AppError("preview", "Could not pull Astro template repo.", {
-      detail: res.stderr || res.stdout || `exit ${res.exitCode}`,
-    });
-  }
 }
 
 export async function getBoxState(boxId: string): Promise<BoxState> {
@@ -343,7 +316,7 @@ export async function runCommand(
       }
 
       if (attempt === 1 && !isBoxStopping(boxId)) {
-        await ensureBoxReady(boxId).catch(() => {});
+        await ensureBoxReady(boxId).catch(() => { });
       }
       await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
     }
@@ -573,7 +546,7 @@ async function waitUntilArchived(
   const intervalMs = options?.intervalMs ?? 2_000;
   const deadline = Date.now() + timeoutMs;
 
-  for (;;) {
+  for (; ;) {
     const state = (await api.get({ boxId })).box.state;
     if (state === BoxStateEnum.Archived) return;
     if (state === BoxStateEnum.Error) {
@@ -609,29 +582,22 @@ export async function restartPreview(boxId: string): Promise<string> {
 }
 
 async function removeNodeModulesForStop(boxId: string): Promise<void> {
-  try {
-    const check = await runCommand(
-      boxId,
-      "test -d node_modules && echo HAS || echo NO",
-      { timeoutSeconds: 15, retries: 0 }
+  boxLog(boxId, "stop", "removing node_modules before archive");
+  const res = await runCommand(boxId, "rm -rf node_modules", {
+    cwd: SITE_DIR,
+    timeoutSeconds: 180,
+    retries: 3,
+  });
+  if (!res.success || res.exitCode !== 0) {
+    throw new AppError(
+      "preview",
+      "Could not remove node_modules — sandbox left running.",
+      {
+        detail: res.stderr || res.stdout || `exit ${res.exitCode}`,
+      }
     );
-    if (!/\bHAS\b/.test(check.stdout)) {
-      boxLog(boxId, "stop", "no node_modules — skip");
-      return;
-    }
-    boxLog(boxId, "stop", "removing node_modules");
-    const rm = await runCommand(boxId, "rm -rf node_modules", {
-      timeoutSeconds: 120,
-      retries: 0,
-    });
-    boxLog(boxId, "stop", "node_modules removed", {
-      ok: rm.success && rm.exitCode === 0,
-    });
-  } catch (error) {
-    boxLog(boxId, "stop", "node_modules remove failed — continuing", {
-      error: error instanceof Error ? error.message : String(error),
-    });
   }
+  boxLog(boxId, "stop", "node_modules removed");
 }
 
 export async function stopSandbox(
@@ -646,14 +612,12 @@ export async function stopSandbox(
     const state = await getBoxState(boxId).catch(() => "unknown");
     boxLog(boxId, "stop", "begin", { state, scrub });
 
-    if (scrub) {
-      try {
-        await stopAstroDev(boxId);
-      } catch (error) {
-        boxLog(boxId, "stop", "astro stop failed — continuing", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+    try {
+      await stopAstroDev(boxId);
+    } catch (error) {
+      boxLog(boxId, "stop", "astro stop failed — continuing to node_modules", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     await removeNodeModulesForStop(boxId);
@@ -673,6 +637,12 @@ export async function stopSandbox(
         ms: Date.now() - t0,
       });
     }
+  } catch (error) {
+    boxLog(boxId, "stop", "aborted — box not stopped", {
+      error: error instanceof Error ? error.message : String(error),
+      ms: Date.now() - t0,
+    });
+    throw error;
   } finally {
     clearStopping(boxId);
   }
