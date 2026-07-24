@@ -11,6 +11,7 @@ import {
   SITE_DIR,
   PREVIEW_PORT,
   TEMPLATE_REPO_URL,
+  goldenBoxId,
   boxLog,
   cfEnvPath,
 } from "@/lib/box/config";
@@ -57,14 +58,36 @@ export async function createSandbox(
   name: string
 ): Promise<{ boxId: string; subdomain: string }> {
   const box = getBox();
-  const created = await box.create({
-    createBoxRequest: { ttlSeconds: 3600, noEnv: true },
-  });
-  const boxId = created.box.id;
-  await box.update({ boxId, updateBoxRequest: { name } });
-  await waitUntilReady(box, boxId);
+  const goldenId = goldenBoxId();
+  let boxId: string;
+
+  if (goldenId) {
+    boxLog(goldenId, "create", "forking golden box", { name });
+    const forked = await box.fork({
+      boxId: goldenId,
+      forkRequest: { noEnv: true },
+    });
+    boxId = forked.box?.id ?? forked.id;
+    if (!boxId) {
+      throw new AppError("preview", "Forked sandbox did not return an id.", {
+        detail: `golden=${goldenId}`,
+      });
+    }
+    await box.update({ boxId, updateBoxRequest: { name } });
+    await waitUntilReady(box, boxId);
+    boxLog(boxId, "create", "fork ready", { goldenId });
+  } else {
+    boxLog("new", "create", "no BOX_GOLDEN_BOX_ID — blank create + git clone");
+    const created = await box.create({
+      createBoxRequest: { ttlSeconds: 3600, noEnv: true },
+    });
+    boxId = created.box.id;
+    await box.update({ boxId, updateBoxRequest: { name } });
+    await waitUntilReady(box, boxId);
+    await pullTemplate(boxId);
+  }
+
   const subdomain = await getBoxSubdomain(boxId);
-  await pullTemplate(boxId);
   return { boxId, subdomain };
 }
 

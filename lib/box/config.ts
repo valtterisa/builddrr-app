@@ -3,6 +3,11 @@ export const PREVIEW_PORT = 4321;
 export const TEMPLATE_REPO_URL =
   "https://github.com/valtterisa/astro-template.git";
 
+export function goldenBoxId(): string | undefined {
+  const id = process.env.BOX_GOLDEN_BOX_ID?.trim();
+  return id || undefined;
+}
+
 export function boxLog(
   boxId: string,
   stage: string,
