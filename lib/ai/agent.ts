@@ -148,7 +148,7 @@ function buildInstructions(opts: BuildAgentOptions): string {
     ? `
 
 USER CUSTOM INSTRUCTIONS
-Honor these preferences when they do not conflict with safety or the design skill above:
+Honor these preferences in every reply (including how you address the user) when they do not conflict with safety or the design skill above:
 ${custom}`
     : "";
 

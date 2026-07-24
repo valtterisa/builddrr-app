@@ -46,7 +46,7 @@ export function CustomInstructionsForm() {
     <AccountSection
       id="instructions"
       title="Chat custom instructions"
-      description="Applied to every generation. Prefer brand voice, visual direction, and hard constraints (e.g. always dark, never use purple)."
+      description="Applied to Ask and Build. Prefer brand voice, how you want to be addressed, visual direction, and hard constraints (e.g. always dark, never use purple)."
     >
       {me === undefined ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

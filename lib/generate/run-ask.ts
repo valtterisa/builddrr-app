@@ -19,6 +19,16 @@ Your job in ASK mode:
 
 Do not claim you already built a site. Do not invent live URLs. Do not run tools or provision infrastructure. When they are ready to generate, tell them to switch to Build mode and send the brief.`;
 
+function buildAskSystem(customInstructions?: string): string {
+  const custom = customInstructions?.trim();
+  if (!custom) return ASK_INSTRUCTIONS;
+  return `${ASK_INSTRUCTIONS}
+
+USER CUSTOM INSTRUCTIONS
+Honor these preferences in every reply (including how you address the user):
+${custom}`;
+}
+
 export async function runAsk(projectId: string, token: string) {
   const pid = asProjectId(projectId);
   const project = await fetchQuery(
@@ -74,7 +84,11 @@ export async function runAsk(projectId: string, token: string) {
   try {
     const result = streamText({
       model: withAutumnModel(anthropic(modelId), me.id),
-      system: ASK_INSTRUCTIONS,
+      system: buildAskSystem(
+        typeof me.customInstructions === "string"
+          ? me.customInstructions
+          : undefined
+      ),
       messages: convo,
       providerOptions: anthropicThinkingOptions("medium"),
     });

@@ -16,6 +16,7 @@ import {
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
 } from "@/components/ai-elements/chain-of-thought";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 
 export interface Step {
   kind: string;
@@ -78,7 +79,7 @@ export function AgentSteps({
   const last = steps[steps.length - 1];
   const lastIndex = steps.length - 1;
 
-  const header = active
+  const headerText = active
     ? hasSteps
       ? (last?.label ?? "Thinking")
       : "Thinking"
@@ -94,27 +95,41 @@ export function AgentSteps({
       onOpenChange={setOpen}
       className="mb-3"
     >
-      <ChainOfThoughtHeader
-        className={active && !hasBody ? "opacity-70" : undefined}
-        showChevron={hasBody}
-      >
-        {header}
+      <ChainOfThoughtHeader active={Boolean(active)} showChevron={hasBody}>
+        {active ? (
+          <Shimmer duration={1.2} className="text-sm">
+            {headerText}
+          </Shimmer>
+        ) : (
+          headerText
+        )}
       </ChainOfThoughtHeader>
       {hasBody ? (
         <ChainOfThoughtContent>
           {hasReasoning ? (
             <p className="whitespace-pre-wrap text-sm text-muted-foreground">
               {trimmedReasoning}
+              {active && !hasSteps ? (
+                <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-muted-foreground/70 align-middle" />
+              ) : null}
             </p>
           ) : null}
           {steps.map((step, i) => {
             const Icon = ICONS[step.kind] ?? Info;
             const status = active && i === lastIndex ? "active" : "complete";
+            const label =
+              status === "active" ? (
+                <Shimmer duration={1.2} className="text-sm">
+                  {step.label}
+                </Shimmer>
+              ) : (
+                step.label
+              );
             return (
               <ChainOfThoughtStep
                 key={`${step.kind}-${i}-${step.label}`}
                 icon={Icon}
-                label={step.label}
+                label={label}
                 description={step.detail}
                 status={status}
               />
