@@ -14,18 +14,6 @@ import {
   boxLog,
   cfEnvPath,
 } from "@/lib/box/config";
-import {
-  isBoxStopping,
-  waitWhileStopping,
-  markStopping,
-  clearStopping,
-  markStarting,
-  clearStarting,
-  markPublishing,
-  clearPublishing,
-} from "@/lib/box/locks";
-
-export { isBoxStopping };
 
 export type BoxFile = {
   path: string;
@@ -88,13 +76,6 @@ export async function getBoxSubdomain(boxId: string): Promise<string> {
     });
   }
   return subdomain;
-}
-
-export function previewUrlForBox(
-  subdomain: string,
-  port: number = PREVIEW_PORT
-): string {
-  return `https://${subdomain}-${port}.on.ascii.dev`;
 }
 
 export async function getBoxState(boxId: string): Promise<BoxState> {
@@ -315,7 +296,7 @@ export async function runCommand(
         throw error;
       }
 
-      if (attempt === 1 && !isBoxStopping(boxId)) {
+      if (attempt === 1) {
         await ensureBoxReady(boxId).catch(() => { });
       }
       await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
@@ -330,43 +311,16 @@ export async function runCommand(
  * https://docs.ascii.dev/box/hosting.md
  */
 export async function startPreview(boxId: string): Promise<string> {
-  await waitWhileStopping(boxId);
-  if (isBoxStopping(boxId)) {
-    throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
-  }
-  if (!markStarting(boxId)) {
-    throw new AppError("preview", "Sandbox start already in progress.");
-  }
   const t0 = Date.now();
-  try {
-    boxLog(boxId, "start", "begin");
-    await ensureBoxReady(boxId);
-    if (isBoxStopping(boxId)) {
-      throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
-    }
-    await ensureSiteDeps(boxId);
+  boxLog(boxId, "start", "begin");
+  await ensureBoxReady(boxId);
+  await ensureSiteDeps(boxId);
 
-    const url = previewUrlForBox(await getBoxSubdomain(boxId));
-    const localReady = await isPreviewPortReady(boxId, PREVIEW_PORT);
-    if (localReady && (await probePublicPreview(url))) {
-      boxLog(boxId, "start", "already serving", { url, ms: Date.now() - t0 });
-      return url;
-    }
-    if (localReady) {
-      const hosted = await publishHost(boxId, PREVIEW_PORT);
-      boxLog(boxId, "start", "rehosted", { url: hosted, ms: Date.now() - t0 });
-      return hosted;
-    }
-
-    await stopAstroDev(boxId);
-    await startAstroDev(boxId);
-    await waitForPreviewPort(boxId, PREVIEW_PORT);
-    const hosted = await publishHost(boxId, PREVIEW_PORT);
-    boxLog(boxId, "start", "complete", { url: hosted, ms: Date.now() - t0 });
-    return hosted;
-  } finally {
-    clearStarting(boxId);
-  }
+  await stopAstroDev(boxId);
+  await startAstroDev(boxId);
+  const hosted = await publishHost(boxId, PREVIEW_PORT);
+  boxLog(boxId, "start", "complete", { url: hosted, ms: Date.now() - t0 });
+  return hosted;
 }
 
 async function ensureSiteDeps(boxId: string): Promise<void> {
@@ -394,39 +348,6 @@ async function ensureSiteDeps(boxId: string): Promise<void> {
   boxLog(boxId, "deps", "ok");
 }
 
-async function isPreviewPortReady(boxId: string, port: number): Promise<boolean> {
-  try {
-    const probe = await runCommand(
-      boxId,
-      `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || true); echo PROBE:\${code:-000}`,
-      { cwd: ".", timeoutSeconds: 20, retries: 1 }
-    );
-    const code = (probe.stdout.match(/PROBE:(\d{3})\b/) || [])[1];
-    if (!code) return false;
-    const n = Number(code);
-    return n >= 200 && n < 400;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForPortFree(boxId: string, port: number): Promise<boolean> {
-  for (let attempt = 1; attempt <= 20; attempt++) {
-    try {
-      const check = await runCommand(
-        boxId,
-        `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
-        { cwd: ".", timeoutSeconds: 15, retries: 0 }
-      );
-      if ((check.stdout || "").includes("FREE")) return true;
-    } catch {
-      // command channel flaky mid-stop — keep polling
-    }
-    if (attempt < 20) await new Promise((r) => setTimeout(r, 500));
-  }
-  return false;
-}
-
 async function stopAstroDev(boxId: string): Promise<void> {
   try {
     await runCommand(
@@ -446,16 +367,6 @@ async function stopAstroDev(boxId: string): Promise<void> {
   } catch {
     // ignore
   }
-  await waitForPortFree(boxId, PREVIEW_PORT);
-}
-
-async function readAstroLog(boxId: string): Promise<string> {
-  const log = await runCommand(
-    boxId,
-    "tail -n 80 /tmp/astro-dev.log 2>/dev/null || true",
-    { cwd: ".", timeoutSeconds: 15 }
-  );
-  return (log.stdout || log.stderr || "").trim();
 }
 
 async function startAstroDev(boxId: string): Promise<void> {
@@ -466,33 +377,12 @@ async function startAstroDev(boxId: string): Promise<void> {
   });
   await runCommand(
     boxId,
-    `pnpm exec astro dev --host 0.0.0.0 --port ${PREVIEW_PORT} >>/tmp/astro-dev.log 2>&1 &`,
+    `pnpm run dev -- --host 0.0.0.0 --port ${PREVIEW_PORT} >>/tmp/astro-dev.log 2>&1 &`,
     { timeoutSeconds: 30 }
   );
 }
 
-async function waitForPreviewPort(boxId: string, port: number): Promise<void> {
-  for (let attempt = 1; attempt <= 30; attempt++) {
-    if (await isPreviewPortReady(boxId, port)) return;
-
-    if (attempt === 3 || attempt === 8) {
-      const log = await readAstroLog(boxId);
-      if (/ERR_|\[ERROR\]|EACCES|Command failed/i.test(log)) {
-        throw new AppError("preview", "Astro failed to start.", { detail: log });
-      }
-    }
-
-    if (attempt < 30) await new Promise((r) => setTimeout(r, 2_000));
-  }
-
-  throw new AppError("preview", "Astro preview did not become ready.", {
-    detail: (await readAstroLog(boxId)) || `port ${port} never answered`,
-  });
-}
-
 async function publishHost(boxId: string, port: number): Promise<string> {
-  const url = previewUrlForBox(await getBoxSubdomain(boxId), port);
-
   const hosted = await runCommand(
     boxId,
     `host ${port} --public --title Floras`,
@@ -504,6 +394,8 @@ async function publishHost(boxId: string, port: number): Promise<string> {
     });
   }
 
+  const subdomain = await getBoxSubdomain(boxId);
+  const url = `https://${subdomain}-${port}.on.ascii.dev`;
   await waitForPublicPreview(url);
   return url;
 }
@@ -565,17 +457,12 @@ async function waitUntilArchived(
 
 /** Restart Astro + re-publish host. Does not stop/archive the VM. */
 export async function restartPreview(boxId: string): Promise<string> {
-  await waitWhileStopping(boxId);
-  if (isBoxStopping(boxId)) {
-    throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
-  }
   const t0 = Date.now();
   boxLog(boxId, "restart", "begin");
   await ensureBoxReady(boxId);
   await ensureSiteDeps(boxId);
   await stopAstroDev(boxId);
   await startAstroDev(boxId);
-  await waitForPreviewPort(boxId, PREVIEW_PORT);
   const url = await publishHost(boxId, PREVIEW_PORT);
   boxLog(boxId, "restart", "complete", { url, ms: Date.now() - t0 });
   return url;
@@ -605,7 +492,6 @@ export async function stopSandbox(
   opts: { scrub?: boolean } = {}
 ): Promise<void> {
   const scrub = opts.scrub ?? true;
-  if (!markStopping(boxId)) return;
   const t0 = Date.now();
   const box = getBox();
   try {
@@ -643,8 +529,6 @@ export async function stopSandbox(
       ms: Date.now() - t0,
     });
     throw error;
-  } finally {
-    clearStopping(boxId);
   }
 }
 
@@ -767,9 +651,6 @@ export async function deployDistWithWrangler(
   boxId: string,
   creds: WranglerDeployCreds
 ): Promise<void> {
-  if (!markPublishing(boxId)) {
-    throw new AppError("publish", "Publish already in progress for this sandbox.");
-  }
   const envPath = cfEnvPath(boxId);
   try {
     await writeCfEnvFile(boxId, creds, envPath);
@@ -787,7 +668,6 @@ export async function deployDistWithWrangler(
     await scrubCfEnv(boxId, envPath).catch((error) => {
       console.error("[box] scrubCfEnv failed", error);
     });
-    clearPublishing(boxId);
   }
 }
 
