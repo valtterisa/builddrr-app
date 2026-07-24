@@ -6,6 +6,7 @@ import { ChatPanel } from "@/components/workspace/chat-panel";
 import { PreviewPane } from "@/components/workspace/preview-pane";
 import { WorkspaceHeader } from "@/components/workspace/workspace-header";
 import type { ComposerMode } from "@/components/site/prompt-composer";
+import { useStopSandboxOnLeave } from "@/lib/hooks/use-stop-sandbox-on-leave";
 import type { DomainStatus, PublishStatus } from "@/lib/publish/types";
 
 interface Project {
@@ -34,6 +35,8 @@ export function Workspace({
     | Project
     | null
     | undefined;
+
+  useStopSandboxOnLeave(projectId, project?.boxId);
 
   const busy =
     project?.status === "provisioning" || project?.status === "generating";

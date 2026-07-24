@@ -119,10 +119,10 @@ function screenForBoxState(
     !previewOk
   ) {
     return {
-      title: "Starting preview",
-      body: "Sandbox is up. Waiting for the preview URL to come online.",
-      spinning: true,
-      showRestart: false,
+      title: "Preview offline",
+      body: "Sandbox is up, but the site preview is not responding.",
+      spinning: false,
+      showRestart: true,
     };
   }
 
@@ -278,7 +278,7 @@ export function PreviewPane({
     void poll();
     const id = window.setInterval(
       () => void poll(),
-      waking || !previewOk ? 2000 : 5000
+      waking ? 2000 : previewOk ? 8000 : 5000
     );
     return () => {
       cancelled = true;

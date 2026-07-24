@@ -18,6 +18,19 @@ const CF_ENV_PATH = "floras-cf.env";
 const PREVIEW_PORT = 4321;
 const TEMPLATE_REPO_URL = "https://github.com/valtterisa/astro-template.git";
 
+function boxLog(
+  boxId: string,
+  stage: string,
+  message: string,
+  extra?: Record<string, unknown>
+) {
+  console.info(`[box:${stage}] ${message}`, {
+    boxId,
+    at: new Date().toISOString(),
+    ...extra,
+  });
+}
+
 export type BoxFile = {
   path: string;
   content: string;
@@ -105,28 +118,37 @@ export async function getBoxState(boxId: string): Promise<BoxState> {
 export async function ensureBoxReady(boxId: string): Promise<void> {
   const box = getBox();
   const state = await getBoxState(boxId);
+  boxLog(boxId, "ready", "ensureBoxReady", { state });
 
   switch (state) {
     case BoxStateEnum.Ready:
     case BoxStateEnum.Idle:
     case BoxStateEnum.Running:
+      boxLog(boxId, "ready", "already live", { state });
       return;
     case BoxStateEnum.Archiving:
+      boxLog(boxId, "ready", "waiting for archive then resume");
       await waitUntilArchived(box, boxId);
       await box.resume({ boxId, resumeRequest: { noEnv: true } });
       await waitUntilReady(box, boxId);
+      boxLog(boxId, "ready", "resumed after archiving");
       return;
     case BoxStateEnum.Archived:
+      boxLog(boxId, "ready", "resuming archived box");
       await box.resume({ boxId, resumeRequest: { noEnv: true } });
       await waitUntilReady(box, boxId);
+      boxLog(boxId, "ready", "resume complete");
       return;
     case BoxStateEnum.Init:
     case BoxStateEnum.Provisioning:
     case BoxStateEnum.Provisioned:
     case BoxStateEnum.Cloning:
+      boxLog(boxId, "ready", "waiting until ready", { state });
       await waitUntilReady(box, boxId);
+      boxLog(boxId, "ready", "provision finished");
       return;
     case BoxStateEnum.Error:
+      boxLog(boxId, "ready", "box in error state");
       throw new AppError("preview", "Sandbox is in an error state.", {
         detail: `box ${boxId} state=error`,
       });
@@ -170,74 +192,108 @@ export interface CommandResult {
   success: boolean;
 }
 
-const recoveringBoxes = new Map<string, Promise<void>>();
-
-async function isBoxDirectFailed(error: unknown): Promise<boolean> {
-  if (error instanceof ResponseError) {
-    if (error.response.status === 502 || error.response.status === 503) {
-      return true;
-    }
-    return /box_direct_failed/i.test(error.message);
+async function readBoxCommandError(error: unknown): Promise<{
+  message: string;
+  status?: number;
+  code?: string;
+  body?: string;
+}> {
+  if (!(error instanceof ResponseError)) {
+    return {
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
-  return /box_direct_failed|Response returned an error code/i.test(
-    error instanceof Error ? error.message : String(error)
-  );
+  let body = "";
+  let code: string | undefined;
+  try {
+    body = await error.response.clone().text();
+    const parsed = JSON.parse(body) as { code?: string; error?: { code?: string } };
+    code = parsed.code ?? parsed.error?.code;
+  } catch {
+    // ignore
+  }
+  return {
+    message: error.message,
+    status: error.response.status,
+    code,
+    body: body.slice(0, 400),
+  };
 }
 
-async function recoverBoxCommandChannel(boxId: string): Promise<void> {
-  const existing = recoveringBoxes.get(boxId);
-  if (existing) return existing;
-
-  const run = (async () => {
-    const box = getBox();
-    console.warn("Box command channel failed; stop/resume to recover", {
-      boxId,
-    });
-    await box.stop({ boxId });
-    await waitUntilArchived(box, boxId);
-    await box.resume({ boxId, resumeRequest: { noEnv: true } });
-    await waitUntilReady(box, boxId);
-  })().finally(() => {
-    recoveringBoxes.delete(boxId);
-  });
-
-  recoveringBoxes.set(boxId, run);
-  return run;
+function isBoxDirectFailed(info: {
+  message: string;
+  status?: number;
+  code?: string;
+  body?: string;
+}): boolean {
+  if (info.code === "box_direct_failed") return true;
+  if (info.status === 502 || info.status === 503) {
+    return /box_direct_failed/i.test(info.body ?? info.message) || true;
+  }
+  return /box_direct_failed/i.test(info.message);
 }
 
 export async function runCommand(
   boxId: string,
   command: string,
-  opts: { cwd?: string; timeoutSeconds?: number; _retried?: boolean } = {}
+  opts: { cwd?: string; timeoutSeconds?: number } = {}
 ): Promise<CommandResult> {
+  const cwd = opts.cwd ?? SITE_DIR;
+  const timeoutSeconds = opts.timeoutSeconds ?? 120;
+  const t0 = Date.now();
+  boxLog(boxId, "cmd", "start", {
+    cwd,
+    timeoutSeconds,
+    command: command.length > 160 ? `${command.slice(0, 160)}…` : command,
+  });
   const box = getBox();
   try {
     const res = await box.command({
       boxId,
       commandRequest: {
         command,
-        cwd: opts.cwd ?? SITE_DIR,
-        timeoutSeconds: opts.timeoutSeconds ?? 120,
+        cwd,
+        timeoutSeconds,
       },
     });
-    return {
+    const result = {
       exitCode: res.exitCode,
       stdout: res.stdout ?? "",
       stderr: res.stderr ?? "",
       success: Boolean(res.success),
     };
+    boxLog(boxId, "cmd", "done", {
+      ms: Date.now() - t0,
+      cwd,
+      exit: result.exitCode,
+      success: result.success,
+      timedOut: Boolean(res.timedOut),
+      stdout: result.stdout.trim().slice(0, 240),
+      stderr: result.stderr.trim().slice(0, 240),
+    });
+    return result;
   } catch (error) {
-    if (!opts._retried && (await isBoxDirectFailed(error))) {
-      await recoverBoxCommandChannel(boxId);
-      return runCommand(boxId, command, { ...opts, _retried: true });
-    }
-    if (await isBoxDirectFailed(error)) {
+    const info = await readBoxCommandError(error);
+    boxLog(boxId, "cmd", "error", {
+      ms: Date.now() - t0,
+      cwd,
+      httpStatus: info.status ?? null,
+      code: info.code ?? null,
+      rawMessage: info.message,
+      rawBody: info.body ?? null,
+    });
+    if (isBoxDirectFailed(info)) {
       throw new AppError(
         "preview",
-        "Sandbox is up but commands are failing. Try restart again in a moment.",
+        "Sandbox is up but Box commands are failing (command API). Not an install issue — try again in a moment.",
         {
-          detail:
-            error instanceof Error ? error.message : "box_direct_failed",
+          detail: [
+            info.status != null ? `HTTP ${info.status}` : null,
+            info.code ?? null,
+            info.body || info.message,
+          ]
+            .filter(Boolean)
+            .join(" — "),
           cause: error,
         }
       );
@@ -251,95 +307,101 @@ export async function runCommand(
  * https://docs.ascii.dev/box/hosting.md
  */
 export async function startPreview(boxId: string): Promise<string> {
+  const t0 = Date.now();
+  boxLog(boxId, "start", "begin");
   await ensureBoxReady(boxId);
+  await ensureSiteDeps(boxId);
 
   const url = previewUrlForBox(await getBoxSubdomain(boxId));
-
   if (
     (await isPreviewPortReady(boxId, PREVIEW_PORT)) &&
     (await probePublicPreview(url))
   ) {
+    boxLog(boxId, "start", "already serving", { url, ms: Date.now() - t0 });
     return url;
   }
 
-  await ensureSiteDeps(boxId);
-
-  if (!(await isPreviewPortReady(boxId, PREVIEW_PORT))) {
-    await startAstroDev(boxId);
-    await waitForPreviewPort(boxId, PREVIEW_PORT);
-  }
-
-  return await publishHost(boxId, PREVIEW_PORT);
+  await stopAstroDev(boxId);
+  await startAstroDev(boxId);
+  await waitForPreviewPort(boxId, PREVIEW_PORT);
+  const hosted = await publishHost(boxId, PREVIEW_PORT);
+  boxLog(boxId, "start", "complete", { url: hosted, ms: Date.now() - t0 });
+  return hosted;
 }
 
 async function ensureSiteDeps(boxId: string): Promise<void> {
-  const ready = await runCommand(
+  const hasModules = await runCommand(
     boxId,
-    "test -d node_modules && test -x node_modules/.bin/astro",
+    "test -d node_modules",
     { timeoutSeconds: 30 }
   );
-  if (ready.success && ready.exitCode === 0) return;
+  if (hasModules.success && hasModules.exitCode === 0) {
+    boxLog(boxId, "deps", "node_modules present — skip install");
+    return;
+  }
 
-  const install = await runCommand(
-    boxId,
-    "corepack enable && pnpm install --frozen-lockfile",
-    { timeoutSeconds: 300 }
-  );
+  boxLog(boxId, "deps", "pnpm install");
+  const install = await runCommand(boxId, "pnpm install", {
+    timeoutSeconds: 300,
+  });
   if (!install.success || install.exitCode !== 0) {
     throw new AppError("preview", "Could not install site dependencies.", {
       detail: install.stderr || install.stdout || `exit ${install.exitCode}`,
     });
   }
-}
-
-function extractHttpCode(stdout: string): string | null {
-  const marked = stdout.match(/PROBE:(\d{3})/);
-  if (marked?.[1]) return marked[1];
-  const trailing = stdout.trim().match(/(\d{3})\s*$/);
-  return trailing?.[1] ?? null;
+  boxLog(boxId, "deps", "ok");
 }
 
 async function isPreviewPortReady(boxId: string, port: number): Promise<boolean> {
   const probe = await runCommand(
     boxId,
-    `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || echo 000); echo PROBE:$code`,
+    `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || true); echo PROBE:\${code:-000}`,
     { cwd: ".", timeoutSeconds: 20 }
   );
-  const code = extractHttpCode(probe.stdout || "");
+  const code = (probe.stdout.match(/PROBE:(\d{3})\b/) || [])[1];
   return Boolean(code && code !== "000");
 }
 
-async function isPreviewPortFree(boxId: string, port: number): Promise<boolean> {
-  const check = await runCommand(
-    boxId,
-    `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
-    { cwd: ".", timeoutSeconds: 15 }
-  );
-  return (check.stdout || "").includes("FREE");
-}
-
 async function waitForPortFree(boxId: string, port: number): Promise<void> {
-  for (let attempt = 1; attempt <= 20; attempt++) {
-    if (await isPreviewPortFree(boxId, port)) return;
-    if (attempt < 20) await new Promise((r) => setTimeout(r, 500));
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    const check = await runCommand(
+      boxId,
+      `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
+      { cwd: ".", timeoutSeconds: 15 }
+    );
+    if ((check.stdout || "").includes("FREE")) return;
+    if (attempt < 10) await new Promise((r) => setTimeout(r, 500));
   }
 }
 
 async function stopAstroDev(boxId: string): Promise<void> {
+  await runCommand(boxId, "pkill -f '[a]stro' >/dev/null 2>&1 || true", {
+    cwd: ".",
+    timeoutSeconds: 30,
+  });
+  await runCommand(boxId, "pkill -f '[v]ite' >/dev/null 2>&1 || true", {
+    cwd: ".",
+    timeoutSeconds: 30,
+  });
   await runCommand(
     boxId,
-    [
-      "pkill -f '[a]stro dev' >/dev/null 2>&1 || true",
-      "pkill -f 'node.*astro' >/dev/null 2>&1 || true",
-      "pkill -f 'vite' >/dev/null 2>&1 || true",
-      `fuser -k ${PREVIEW_PORT}/tcp >/dev/null 2>&1 || true`,
-    ].join("; "),
+    `fuser -k ${PREVIEW_PORT}/tcp >/dev/null 2>&1 || true`,
     { cwd: ".", timeoutSeconds: 30 }
   );
   await waitForPortFree(boxId, PREVIEW_PORT);
 }
 
+async function readAstroLog(boxId: string): Promise<string> {
+  const log = await runCommand(
+    boxId,
+    "tail -n 80 /tmp/astro-dev.log 2>/dev/null || true",
+    { cwd: ".", timeoutSeconds: 15 }
+  );
+  return (log.stdout || log.stderr || "").trim();
+}
+
 async function startAstroDev(boxId: string): Promise<void> {
+  boxLog(boxId, "astro", "start");
   await runCommand(boxId, ": > /tmp/astro-dev.log", {
     cwd: ".",
     timeoutSeconds: 15,
@@ -352,20 +414,21 @@ async function startAstroDev(boxId: string): Promise<void> {
 }
 
 async function waitForPreviewPort(boxId: string, port: number): Promise<void> {
-  const url = previewUrlForBox(await getBoxSubdomain(boxId), port);
-  for (let attempt = 1; attempt <= 45; attempt++) {
+  for (let attempt = 1; attempt <= 30; attempt++) {
     if (await isPreviewPortReady(boxId, port)) return;
-    if (attempt > 2 && (await probePublicPreview(url))) return;
-    if (attempt < 45) await new Promise((r) => setTimeout(r, 2_000));
+
+    if (attempt === 3 || attempt === 8) {
+      const log = await readAstroLog(boxId);
+      if (/ERR_|\[ERROR\]|EACCES|Command failed/i.test(log)) {
+        throw new AppError("preview", "Astro failed to start.", { detail: log });
+      }
+    }
+
+    if (attempt < 30) await new Promise((r) => setTimeout(r, 2_000));
   }
 
-  const log = await runCommand(
-    boxId,
-    "tail -n 80 /tmp/astro-dev.log 2>/dev/null || true",
-    { cwd: ".", timeoutSeconds: 15 }
-  );
   throw new AppError("preview", "Astro preview did not become ready.", {
-    detail: (log.stdout || log.stderr || "").trim() || `port ${port} never answered`,
+    detail: (await readAstroLog(boxId)) || `port ${port} never answered`,
   });
 }
 
@@ -444,21 +507,40 @@ async function waitUntilArchived(
 
 /** Restart Astro + re-publish host. Does not stop/archive the VM. */
 export async function restartPreview(boxId: string): Promise<string> {
+  const t0 = Date.now();
+  boxLog(boxId, "restart", "begin");
   await ensureBoxReady(boxId);
   await ensureSiteDeps(boxId);
   await stopAstroDev(boxId);
   await startAstroDev(boxId);
   await waitForPreviewPort(boxId, PREVIEW_PORT);
-  return await publishHost(boxId, PREVIEW_PORT);
+  const url = await publishHost(boxId, PREVIEW_PORT);
+  boxLog(boxId, "restart", "complete", { url, ms: Date.now() - t0 });
+  return url;
 }
 
 export async function stopSandbox(boxId: string): Promise<void> {
+  const t0 = Date.now();
+  const state = await getBoxState(boxId).catch(() => "unknown");
+  boxLog(boxId, "stop", "begin", { state });
+
+  try {
+    await stopAstroDev(boxId);
+  } catch (error) {
+    boxLog(boxId, "stop", "astro stop failed — continuing", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   const box = getBox();
   await box.stop({ boxId });
+  boxLog(boxId, "stop", "box.stop requested", { ms: Date.now() - t0 });
 }
 
 export async function buildSite(boxId: string): Promise<void> {
-  const res = await runCommand(boxId, "pnpm run build", { timeoutSeconds: 300 });
+  const res = await runCommand(boxId, "pnpm run build", {
+    timeoutSeconds: 300,
+  });
   if (!res.success || res.exitCode !== 0) {
     throw new AppError("publish", "Site build failed.", {
       detail: res.stderr || res.stdout || `exit ${res.exitCode}`,

@@ -58,16 +58,25 @@ export async function POST(req: Request) {
   }
 
   try {
+    console.info("[preview:restart] begin", {
+      projectId: parsed.data.projectId,
+      boxId: project.boxId,
+    });
     const previewUrl = await restartPreview(project.boxId);
     await fetchMutation(
       (api as any).projects.setPreview,
       { projectId: parsed.data.projectId, previewUrl },
       { token }
     );
+    console.info("[preview:restart] ok", {
+      projectId: parsed.data.projectId,
+      boxId: project.boxId,
+      previewUrl,
+    });
     return Response.json({ ok: true as const, previewUrl });
   } catch (err) {
     const error = err instanceof AppError ? err : AppError.from(err);
-    console.error("preview restart failed:", error.detail);
+    console.error("[preview:restart] failed:", error.detail);
     return Response.json(
       {
         error:

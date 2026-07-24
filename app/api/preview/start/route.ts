@@ -58,6 +58,10 @@ export async function POST(req: Request) {
   }
 
   try {
+    console.info("[preview:start] begin", {
+      projectId: parsed.data.projectId,
+      boxId: project.boxId,
+    });
     const previewUrl = await startPreview(project.boxId);
     if (previewUrl !== project.previewUrl) {
       await fetchMutation(
@@ -66,10 +70,15 @@ export async function POST(req: Request) {
         { token }
       );
     }
+    console.info("[preview:start] ok", {
+      projectId: parsed.data.projectId,
+      boxId: project.boxId,
+      previewUrl,
+    });
     return Response.json({ ok: true as const, previewUrl });
   } catch (err) {
     const error = err instanceof AppError ? err : AppError.from(err);
-    console.error("preview start failed:", error.detail ?? error.message, err);
+    console.error("[preview:start] failed:", error.detail ?? error.message, err);
     return Response.json(
       {
         error:
