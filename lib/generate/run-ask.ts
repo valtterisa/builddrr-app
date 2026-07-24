@@ -2,6 +2,7 @@ import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { api } from "@/convex/_generated/api";
+import { asMessageId, asProjectId } from "@/lib/convex/ids";
 import { withAutumnModel } from "@/lib/billing/with-autumn-model";
 import { resolveAgentModelId } from "@/lib/ai/models";
 import { resolveStreamingAssistantId } from "@/lib/generate/resolve-assistant";
@@ -19,19 +20,20 @@ Your job in ASK mode:
 Do not claim you already built a site. Do not invent live URLs. Do not run tools or provision infrastructure. When they are ready to generate, tell them to switch to Build mode and send the brief.`;
 
 export async function runAsk(projectId: string, token: string) {
+  const pid = asProjectId(projectId);
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
+    api.projects.get,
+    { projectId: pid },
     { token }
   );
   if (!project) return;
 
-  const me = await fetchQuery((api as any).users.me, {}, { token });
+  const me = await fetchQuery(api.users.me, {}, { token });
   if (!me?.id) return;
 
   const history = await fetchQuery(
-    (api as any).messages.list,
-    { projectId },
+    api.messages.list,
+    { projectId: pid },
     { token }
   );
 
@@ -60,8 +62,8 @@ export async function runAsk(projectId: string, token: string) {
   const assistantId =
     existingId ??
     (await fetchMutation(
-      (api as any).messages.createAssistant,
-      { projectId },
+      api.messages.createAssistant,
+      { projectId: pid },
       { token }
     ));
 
@@ -98,8 +100,8 @@ export async function runAsk(projectId: string, token: string) {
         if (now - lastReasoningPatch >= 120) {
           lastReasoningPatch = now;
           await fetchMutation(
-            (api as any).messages.setReasoning,
-            { messageId: assistantId, reasoning },
+            api.messages.setReasoning,
+            { messageId: asMessageId(assistantId), reasoning },
             { token }
           );
         }
@@ -109,8 +111,8 @@ export async function runAsk(projectId: string, token: string) {
         if (now - lastContentPatch >= 120) {
           lastContentPatch = now;
           await fetchMutation(
-            (api as any).messages.setContent,
-            { messageId: assistantId, content: full },
+            api.messages.setContent,
+            { messageId: asMessageId(assistantId), content: full },
             { token }
           );
         }
@@ -121,17 +123,17 @@ export async function runAsk(projectId: string, token: string) {
       reasoning.trim() || ((await result.reasoningText) ?? "").trim();
     if (reasoningText) {
       await fetchMutation(
-        (api as any).messages.setReasoning,
-        { messageId: assistantId, reasoning: reasoningText },
+        api.messages.setReasoning,
+        { messageId: asMessageId(assistantId), reasoning: reasoningText },
         { token }
       );
     }
 
     const finalText = full || (await result.text) || "Done.";
     await fetchMutation(
-      (api as any).messages.finish,
+      api.messages.finish,
       {
-        messageId: assistantId,
+        messageId: asMessageId(assistantId),
         content: finalText,
         status: "complete",
       },
@@ -141,9 +143,9 @@ export async function runAsk(projectId: string, token: string) {
     const error = AppError.from(err);
     console.error("Ask failed:", error.detail);
     await fetchMutation(
-      (api as any).messages.finish,
+      api.messages.finish,
       {
-        messageId: assistantId,
+        messageId: asMessageId(assistantId),
         content: error.message,
         status: "error",
       },

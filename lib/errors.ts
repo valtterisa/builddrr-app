@@ -48,7 +48,7 @@ const RULES: Array<{ code: AppErrorCode; test: (text: string) => boolean }> = [
     code: "no_credits",
     test: (t) =>
       /\bno_credits\b/.test(t) ||
-      /\bcredit\b/.test(t) ||
+      /\b(ai )?credit(s)? (balance )?(too low|required|exhausted)\b/.test(t) ||
       /\bbalance too low\b/.test(t),
   },
   {
@@ -119,7 +119,8 @@ function extractMessage(error: unknown): string {
   return "Unknown error";
 }
 
-function extractCodeHint(error: unknown): string | undefined {
+export function errorCode(error: unknown): string | undefined {
+  if (error instanceof AppError) return error.code;
   if (
     typeof error === "object" &&
     error !== null &&
@@ -137,6 +138,10 @@ function classify(detail: string, codeHint?: string): AppErrorCode {
   if (hint === "no_credits") return "no_credits";
   if (hint === "publish") return "publish";
   if (hint === "domain") return "domain";
+  if (hint === "auth") return "auth";
+  if (hint === "not_found") return "not_found";
+  if (hint === "config") return "config";
+  if (hint === "preview") return "preview";
 
   const text = `${hint} ${detail}`.toLowerCase();
   for (const rule of RULES) {
@@ -148,6 +153,13 @@ function classify(detail: string, codeHint?: string): AppErrorCode {
 function isSafeCustomerMessage(message: string): boolean {
   if (message.length > 160) return false;
   if (/[\n\r\t]/.test(message)) return false;
+  if (
+    /argumentvalidationerror|extra field|validator|server error|request id|\[convex/i.test(
+      message
+    )
+  ) {
+    return false;
+  }
   if (
     /\b(api.?key|box_api_key|\.env|stack|exception|at [a-z0-9_./-]+:\d+|anthropic|openai|secret|token=|password)\b/i.test(
       message
@@ -177,7 +189,25 @@ export class AppError extends Error {
     if (error instanceof AppError) return error;
 
     const detail = extractMessage(error);
-    const codeHint = extractCodeHint(error);
+    const codeHint = errorCode(error);
+    const lower = detail.toLowerCase();
+
+    if (/project is busy|turn is already in progress/.test(lower)) {
+      return new AppError(
+        "unknown",
+        "Already working on this project. Wait a moment and try again.",
+        { detail, cause: error }
+      );
+    }
+
+    if (
+      /argumentvalidationerror|extra field|validator|server error|request id|\[convex/i.test(
+        detail
+      )
+    ) {
+      return new AppError("unknown", FRIENDLY.unknown, { detail, cause: error });
+    }
+
     const code = classify(detail, codeHint);
 
     if (
@@ -214,7 +244,34 @@ export class AppError extends Error {
   }
 }
 
+export function userFacingError(
+  error: unknown,
+  fallback = FRIENDLY.unknown
+): string {
+  const message = AppError.from(error).message.trim();
+  return message || fallback;
+}
+
 export async function assertOk(res: Response): Promise<void> {
   if (res.ok) return;
   throw await AppError.fromResponse(res);
+}
+
+export function statusForAppError(error: AppError): number {
+  if (error.code === "auth") return 401;
+  if (error.code === "not_found") return 404;
+  if (error.code === "config") return 503;
+  if (error.code === "domain") return 400;
+  if (error.code === "no_plan" || error.code === "no_credits") return 402;
+  return 500;
+}
+
+export function appErrorResponse(error: unknown, fallbackStatus = 500) {
+  const appError = AppError.from(error);
+  const status =
+    fallbackStatus === 500 ? statusForAppError(appError) : fallbackStatus;
+  return Response.json(
+    { error: appError.message, code: appError.code as AppErrorCode },
+    { status }
+  );
 }

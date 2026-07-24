@@ -2,6 +2,7 @@ import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import { asProjectId } from "@/lib/convex/ids";
 import {
   boxConfigured,
   getBoxState,
@@ -42,8 +43,8 @@ export async function GET(req: Request) {
   }
 
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId: parsed.data.projectId },
+    api.projects.get,
+    { projectId: asProjectId(parsed.data.projectId) },
     { token }
   );
 

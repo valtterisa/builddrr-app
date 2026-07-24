@@ -12,7 +12,7 @@ export function PageHeader({
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  size?: "page" | "section";
+  size?: "page" | "section" | "card";
   as?: ElementType;
   className?: string;
 }) {
@@ -20,6 +20,7 @@ export function PageHeader({
     <div
       className={cn(
         "flex flex-col gap-4 md:flex-row md:items-end md:justify-between",
+        size === "card" && "gap-1.5 md:items-start",
         className
       )}
     >
@@ -27,15 +28,22 @@ export function PageHeader({
         <TitleTag
           className={cn(
             "font-semibold tracking-tight",
-            size === "page"
-              ? "text-3xl md:text-4xl lg:text-5xl"
-              : "text-3xl md:text-4xl"
+            size === "page" && "text-3xl md:text-4xl lg:text-5xl",
+            size === "section" && "text-3xl md:text-4xl",
+            size === "card" && "text-lg"
           )}
         >
           {title}
         </TitleTag>
         {description ? (
-          <p className="mt-3 max-w-xl text-muted-foreground">{description}</p>
+          <p
+            className={cn(
+              "text-muted-foreground",
+              size === "card" ? "mt-1.5 text-sm" : "mt-3 max-w-xl"
+            )}
+          >
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}

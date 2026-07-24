@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { asProjectId } from "@/lib/convex/ids";
 import { runPublish } from "@/lib/publish/run-publish";
 import { runUnpublish } from "@/lib/publish/run-unpublish";
 import {
@@ -10,55 +11,41 @@ import {
 } from "@/lib/publish/types";
 import { cloudflareConfigured } from "@/lib/cloudflare/pages";
 import { boxConfigured } from "@/lib/box/client";
-import { AppError } from "@/lib/errors";
+import { getAccess } from "@/lib/billing/get-access";
+import { AppError, appErrorResponse } from "@/lib/errors";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
 
-function errorJson(error: AppError, status: number) {
-  return Response.json({ error: error.message, code: error.code }, { status });
-}
-
-function statusFor(error: AppError) {
-  if (error.code === "auth") return 401;
-  if (error.code === "not_found") return 404;
-  if (error.code === "config") return 503;
-  if (error.code === "domain") return 400;
-  return 502;
-}
-
 export async function POST(req: Request) {
   const token = await convexAuthNextjsToken();
   if (!token) {
-    return errorJson(new AppError("auth"), 401);
+    return appErrorResponse(new AppError("auth"), 401);
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return errorJson(new AppError("unknown"), 400);
+    return appErrorResponse(new AppError("unknown"), 400);
   }
 
   const parsed = publishRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return errorJson(new AppError("unknown"), 400);
+    return appErrorResponse(new AppError("unknown"), 400);
   }
 
   const { projectId } = parsed.data;
+  const pid = asProjectId(projectId);
 
-  const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
-    { token }
-  );
+  const project = await fetchQuery(api.projects.get, { projectId: pid }, { token });
 
   if (!project) {
-    return errorJson(new AppError("not_found"), 404);
+    return appErrorResponse(new AppError("not_found"), 404);
   }
 
   if (!project.boxId) {
-    return errorJson(
+    return appErrorResponse(
       new AppError(
         "publish",
         "Publish requires a sandbox. Generate the site first."
@@ -67,8 +54,32 @@ export async function POST(req: Request) {
     );
   }
 
+  if (
+    project.status === "provisioning" ||
+    project.status === "generating" ||
+    project.publishStatus === "publishing"
+  ) {
+    return Response.json(
+      { error: "Project is busy", code: "busy" },
+      { status: 409 }
+    );
+  }
+
   if (!boxConfigured() || !cloudflareConfigured()) {
-    return errorJson(new AppError("config"), 503);
+    return appErrorResponse(new AppError("config"), 503);
+  }
+
+  const me = await fetchQuery(api.users.me, {}, { token });
+  if (!me?.id) {
+    return appErrorResponse(new AppError("auth"), 401);
+  }
+
+  const access = await getAccess(me.id);
+  if (!access.hasPaidPlan) {
+    return Response.json(
+      { error: "Pro plan required to publish sites.", code: "NO_PLAN" },
+      { status: 402 }
+    );
   }
 
   after(() => runPublish(projectId, token));
@@ -80,23 +91,23 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const token = await convexAuthNextjsToken();
   if (!token) {
-    return errorJson(new AppError("auth"), 401);
+    return appErrorResponse(new AppError("auth"), 401);
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return errorJson(new AppError("unknown"), 400);
+    return appErrorResponse(new AppError("unknown"), 400);
   }
 
   const parsed = publishRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return errorJson(new AppError("unknown"), 400);
+    return appErrorResponse(new AppError("unknown"), 400);
   }
 
   if (!cloudflareConfigured()) {
-    return errorJson(new AppError("config"), 503);
+    return appErrorResponse(new AppError("config"), 503);
   }
 
   try {
@@ -109,6 +120,6 @@ export async function DELETE(req: Request) {
       code: appError.code,
       detail: appError.detail,
     });
-    return errorJson(appError, statusFor(appError));
+    return appErrorResponse(appError);
   }
 }

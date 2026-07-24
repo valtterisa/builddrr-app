@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,10 @@ export type PublishModalProps = {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   onUnpublish?: () => void;
+  onExport?: () => void;
   publishing: boolean;
   unpublishing?: boolean;
+  exporting?: boolean;
   isPublished: boolean;
   publishedUrl?: string | null;
   cfSubdomain?: string | null;
@@ -35,8 +37,10 @@ export function PublishModal({
   onOpenChange,
   onConfirm,
   onUnpublish,
+  onExport,
   publishing,
   unpublishing = false,
+  exporting = false,
   isPublished,
   publishedUrl,
   cfSubdomain,
@@ -44,7 +48,7 @@ export function PublishModal({
   customDomainStatus,
 }: PublishModalProps) {
   const [copied, setCopied] = useState(false);
-  const busy = publishing || unpublishing;
+  const busy = publishing || unpublishing || exporting;
 
   const florasUrl =
     publishedUrl ?? (cfSubdomain ? `https://${cfSubdomain}` : null);
@@ -73,11 +77,13 @@ export function PublishModal({
         "Anyone with the link can open this site",
         "Update live to replace the current build",
         "Unpublish removes the Cloudflare project and floras.app DNS",
+        "Export as ZIP to host the Astro project elsewhere",
       ]
     : [
         "Builds the site and puts it on the public web",
         `Includes a unique ${FLORAS_SITES_DOMAIN} address`,
         "Custom domains can be connected after publish",
+        "Export as ZIP to host the Astro project elsewhere",
       ];
 
   return (
@@ -274,6 +280,29 @@ export function PublishModal({
               )}
             </button>
           )}
+          {onExport ? (
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={busy}
+              className={cn(
+                "inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 border-t border-border bg-background px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:bg-card active:scale-[0.99]",
+                "disabled:cursor-not-allowed disabled:opacity-40"
+              )}
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Exporting…
+                </>
+              ) : (
+                <>
+                  <Download className="size-3.5" />
+                  Export as ZIP
+                </>
+              )}
+            </button>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

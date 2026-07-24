@@ -7,29 +7,25 @@ import {
 } from "@asciidev/box-sdk";
 import { AppError } from "@/lib/errors";
 
-/**
- * Thin wrapper around the Box (box.ascii.dev) sandbox provider. All generated
- * Astro projects live in the `site/` working directory inside a Box, and are
- * served on a stable public HTTPS URL via the in-box `host` command.
- */
+import {
+  SITE_DIR,
+  PREVIEW_PORT,
+  TEMPLATE_REPO_URL,
+  boxLog,
+  cfEnvPath,
+} from "@/lib/box/config";
+import {
+  isBoxStopping,
+  waitWhileStopping,
+  markStopping,
+  clearStopping,
+  markStarting,
+  clearStarting,
+  markPublishing,
+  clearPublishing,
+} from "@/lib/box/locks";
 
-const SITE_DIR = "site";
-const CF_ENV_PATH = "floras-cf.env";
-const PREVIEW_PORT = 4321;
-const TEMPLATE_REPO_URL = "https://github.com/valtterisa/astro-template.git";
-
-function boxLog(
-  boxId: string,
-  stage: string,
-  message: string,
-  extra?: Record<string, unknown>
-) {
-  console.info(`[box:${stage}] ${message}`, {
-    boxId,
-    at: new Date().toISOString(),
-    ...extra,
-  });
-}
+export { isBoxStopping };
 
 export type BoxFile = {
   path: string;
@@ -39,10 +35,6 @@ export type BoxFile = {
 export type BoxState = (typeof BoxStateEnum)[keyof typeof BoxStateEnum];
 
 export { BoxStateEnum };
-
-export function getPreviewPort() {
-  return PREVIEW_PORT;
-}
 
 export function boxConfigured(): boolean {
   return Boolean(process.env.BOX_API_KEY);
@@ -131,12 +123,14 @@ export async function ensureBoxReady(boxId: string): Promise<void> {
       await waitUntilArchived(box, boxId);
       await box.resume({ boxId, resumeRequest: { noEnv: true } });
       await waitUntilReady(box, boxId);
+      await new Promise((r) => setTimeout(r, 1500));
       boxLog(boxId, "ready", "resumed after archiving");
       return;
     case BoxStateEnum.Archived:
       boxLog(boxId, "ready", "resuming archived box");
       await box.resume({ boxId, resumeRequest: { noEnv: true } });
       await waitUntilReady(box, boxId);
+      await new Promise((r) => setTimeout(r, 1500));
       boxLog(boxId, "ready", "resume complete");
       return;
     case BoxStateEnum.Init:
@@ -227,79 +221,112 @@ function isBoxDirectFailed(info: {
   body?: string;
 }): boolean {
   if (info.code === "box_direct_failed") return true;
-  if (info.status === 502 || info.status === 503) {
-    return /box_direct_failed/i.test(info.body ?? info.message) || true;
+  const haystack = `${info.body ?? ""} ${info.message}`;
+  return /box_direct_failed/i.test(haystack);
+}
+
+function isRetryableBoxCommandError(info: {
+  message: string;
+  status?: number;
+  code?: string;
+  body?: string;
+}): boolean {
+  if (info.status === 502 || info.status === 503 || info.status === 504) {
+    return true;
   }
-  return /box_direct_failed/i.test(info.message);
+  return isBoxDirectFailed(info);
 }
 
 export async function runCommand(
   boxId: string,
   command: string,
-  opts: { cwd?: string; timeoutSeconds?: number } = {}
+  opts: {
+    cwd?: string;
+    timeoutSeconds?: number;
+    retries?: number;
+  } = {}
 ): Promise<CommandResult> {
   const cwd = opts.cwd ?? SITE_DIR;
   const timeoutSeconds = opts.timeoutSeconds ?? 120;
-  const t0 = Date.now();
-  boxLog(boxId, "cmd", "start", {
-    cwd,
-    timeoutSeconds,
-    command: command.length > 160 ? `${command.slice(0, 160)}…` : command,
-  });
+  const retries = opts.retries ?? 3;
   const box = getBox();
-  try {
-    const res = await box.command({
-      boxId,
-      commandRequest: {
-        command,
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const t0 = Date.now();
+    boxLog(boxId, "cmd", "start", {
+      cwd,
+      timeoutSeconds,
+      attempt: attempt + 1,
+      command: command.length > 160 ? `${command.slice(0, 160)}…` : command,
+    });
+    try {
+      const res = await box.command({
+        boxId,
+        commandRequest: {
+          command,
+          cwd,
+          timeoutSeconds,
+        },
+      });
+      const result = {
+        exitCode: res.exitCode,
+        stdout: res.stdout ?? "",
+        stderr: res.stderr ?? "",
+        success: Boolean(res.success),
+      };
+      boxLog(boxId, "cmd", "done", {
+        ms: Date.now() - t0,
         cwd,
-        timeoutSeconds,
-      },
-    });
-    const result = {
-      exitCode: res.exitCode,
-      stdout: res.stdout ?? "",
-      stderr: res.stderr ?? "",
-      success: Boolean(res.success),
-    };
-    boxLog(boxId, "cmd", "done", {
-      ms: Date.now() - t0,
-      cwd,
-      exit: result.exitCode,
-      success: result.success,
-      timedOut: Boolean(res.timedOut),
-      stdout: result.stdout.trim().slice(0, 240),
-      stderr: result.stderr.trim().slice(0, 240),
-    });
-    return result;
-  } catch (error) {
-    const info = await readBoxCommandError(error);
-    boxLog(boxId, "cmd", "error", {
-      ms: Date.now() - t0,
-      cwd,
-      httpStatus: info.status ?? null,
-      code: info.code ?? null,
-      rawMessage: info.message,
-      rawBody: info.body ?? null,
-    });
-    if (isBoxDirectFailed(info)) {
-      throw new AppError(
-        "preview",
-        "Sandbox is up but Box commands are failing (command API). Not an install issue — try again in a moment.",
-        {
-          detail: [
-            info.status != null ? `HTTP ${info.status}` : null,
-            info.code ?? null,
-            info.body || info.message,
-          ]
-            .filter(Boolean)
-            .join(" — "),
-          cause: error,
+        exit: result.exitCode,
+        success: result.success,
+        timedOut: Boolean(res.timedOut),
+        stdout: result.stdout.trim().slice(0, 240),
+        stderr: result.stderr.trim().slice(0, 240),
+      });
+      return result;
+    } catch (error) {
+      lastError = error;
+      const info = await readBoxCommandError(error);
+      boxLog(boxId, "cmd", "error", {
+        ms: Date.now() - t0,
+        cwd,
+        attempt: attempt + 1,
+        httpStatus: info.status ?? null,
+        code: info.code ?? null,
+        rawMessage: info.message,
+        rawBody: info.body ?? null,
+      });
+
+      const retryable = isRetryableBoxCommandError(info);
+      if (!retryable || attempt >= retries) {
+        if (isBoxDirectFailed(info) || info.status === 502) {
+          throw new AppError(
+            "preview",
+            "Sandbox is up but Box commands are failing. Try again in a moment.",
+            {
+              detail: [
+                info.status != null ? `HTTP ${info.status}` : null,
+                info.code ?? null,
+                info.body || info.message,
+              ]
+                .filter(Boolean)
+                .join(" — "),
+              cause: error,
+            }
+          );
         }
-      );
+        throw error;
+      }
+
+      if (attempt === 1 && !isBoxStopping(boxId)) {
+        await ensureBoxReady(boxId).catch(() => {});
+      }
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
     }
-    throw error;
   }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 /**
@@ -307,43 +334,62 @@ export async function runCommand(
  * https://docs.ascii.dev/box/hosting.md
  */
 export async function startPreview(boxId: string): Promise<string> {
-  const t0 = Date.now();
-  boxLog(boxId, "start", "begin");
-  await ensureBoxReady(boxId);
-  await ensureSiteDeps(boxId);
-
-  const url = previewUrlForBox(await getBoxSubdomain(boxId));
-  if (
-    (await isPreviewPortReady(boxId, PREVIEW_PORT)) &&
-    (await probePublicPreview(url))
-  ) {
-    boxLog(boxId, "start", "already serving", { url, ms: Date.now() - t0 });
-    return url;
+  await waitWhileStopping(boxId);
+  if (isBoxStopping(boxId)) {
+    throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
   }
+  if (!markStarting(boxId)) {
+    throw new AppError("preview", "Sandbox start already in progress.");
+  }
+  const t0 = Date.now();
+  try {
+    boxLog(boxId, "start", "begin");
+    await ensureBoxReady(boxId);
+    if (isBoxStopping(boxId)) {
+      throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
+    }
+    await ensureSiteDeps(boxId);
 
-  await stopAstroDev(boxId);
-  await startAstroDev(boxId);
-  await waitForPreviewPort(boxId, PREVIEW_PORT);
-  const hosted = await publishHost(boxId, PREVIEW_PORT);
-  boxLog(boxId, "start", "complete", { url: hosted, ms: Date.now() - t0 });
-  return hosted;
+    const url = previewUrlForBox(await getBoxSubdomain(boxId));
+    const localReady = await isPreviewPortReady(boxId, PREVIEW_PORT);
+    if (localReady && (await probePublicPreview(url))) {
+      boxLog(boxId, "start", "already serving", { url, ms: Date.now() - t0 });
+      return url;
+    }
+    if (localReady) {
+      const hosted = await publishHost(boxId, PREVIEW_PORT);
+      boxLog(boxId, "start", "rehosted", { url: hosted, ms: Date.now() - t0 });
+      return hosted;
+    }
+
+    await stopAstroDev(boxId);
+    await startAstroDev(boxId);
+    await waitForPreviewPort(boxId, PREVIEW_PORT);
+    const hosted = await publishHost(boxId, PREVIEW_PORT);
+    boxLog(boxId, "start", "complete", { url: hosted, ms: Date.now() - t0 });
+    return hosted;
+  } finally {
+    clearStarting(boxId);
+  }
 }
 
 async function ensureSiteDeps(boxId: string): Promise<void> {
-  const hasModules = await runCommand(
+  const hasAstro = await runCommand(
     boxId,
-    "test -d node_modules",
+    "test -x node_modules/.bin/astro",
     { timeoutSeconds: 30 }
   );
-  if (hasModules.success && hasModules.exitCode === 0) {
-    boxLog(boxId, "deps", "node_modules present — skip install");
+  if (hasAstro.success && hasAstro.exitCode === 0) {
+    boxLog(boxId, "deps", "astro binary present — skip install");
     return;
   }
 
   boxLog(boxId, "deps", "pnpm install");
-  const install = await runCommand(boxId, "pnpm install", {
-    timeoutSeconds: 300,
-  });
+  const install = await runCommand(
+    boxId,
+    "corepack enable >/dev/null 2>&1 || true; pnpm install --frozen-lockfile",
+    { timeoutSeconds: 300 }
+  );
   if (!install.success || install.exitCode !== 0) {
     throw new AppError("preview", "Could not install site dependencies.", {
       detail: install.stderr || install.stdout || `exit ${install.exitCode}`,
@@ -353,41 +399,57 @@ async function ensureSiteDeps(boxId: string): Promise<void> {
 }
 
 async function isPreviewPortReady(boxId: string, port: number): Promise<boolean> {
-  const probe = await runCommand(
-    boxId,
-    `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || true); echo PROBE:\${code:-000}`,
-    { cwd: ".", timeoutSeconds: 20 }
-  );
-  const code = (probe.stdout.match(/PROBE:(\d{3})\b/) || [])[1];
-  return Boolean(code && code !== "000");
-}
-
-async function waitForPortFree(boxId: string, port: number): Promise<void> {
-  for (let attempt = 1; attempt <= 10; attempt++) {
-    const check = await runCommand(
+  try {
+    const probe = await runCommand(
       boxId,
-      `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
-      { cwd: ".", timeoutSeconds: 15 }
+      `code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:${port}/ 2>/dev/null || true); echo PROBE:\${code:-000}`,
+      { cwd: ".", timeoutSeconds: 20, retries: 1 }
     );
-    if ((check.stdout || "").includes("FREE")) return;
-    if (attempt < 10) await new Promise((r) => setTimeout(r, 500));
+    const code = (probe.stdout.match(/PROBE:(\d{3})\b/) || [])[1];
+    if (!code) return false;
+    const n = Number(code);
+    return n >= 200 && n < 400;
+  } catch {
+    return false;
   }
 }
 
+async function waitForPortFree(boxId: string, port: number): Promise<boolean> {
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    try {
+      const check = await runCommand(
+        boxId,
+        `ss -ltn 2>/dev/null | grep -q ':${port}' && echo BUSY || echo FREE`,
+        { cwd: ".", timeoutSeconds: 15, retries: 0 }
+      );
+      if ((check.stdout || "").includes("FREE")) return true;
+    } catch {
+      // command channel flaky mid-stop — keep polling
+    }
+    if (attempt < 20) await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
 async function stopAstroDev(boxId: string): Promise<void> {
-  await runCommand(boxId, "pkill -f '[a]stro' >/dev/null 2>&1 || true", {
-    cwd: ".",
-    timeoutSeconds: 30,
-  });
-  await runCommand(boxId, "pkill -f '[v]ite' >/dev/null 2>&1 || true", {
-    cwd: ".",
-    timeoutSeconds: 30,
-  });
-  await runCommand(
-    boxId,
-    `fuser -k ${PREVIEW_PORT}/tcp >/dev/null 2>&1 || true`,
-    { cwd: ".", timeoutSeconds: 30 }
-  );
+  try {
+    await runCommand(
+      boxId,
+      `fuser -k ${PREVIEW_PORT}/tcp >/dev/null 2>&1 || true`,
+      { cwd: ".", timeoutSeconds: 30, retries: 1 }
+    );
+  } catch {
+    // ignore — box may already be going down
+  }
+  try {
+    await runCommand(boxId, "pkill -f '[a]stro dev' >/dev/null 2>&1 || true", {
+      cwd: ".",
+      timeoutSeconds: 30,
+      retries: 1,
+    });
+  } catch {
+    // ignore
+  }
   await waitForPortFree(boxId, PREVIEW_PORT);
 }
 
@@ -507,6 +569,10 @@ async function waitUntilArchived(
 
 /** Restart Astro + re-publish host. Does not stop/archive the VM. */
 export async function restartPreview(boxId: string): Promise<string> {
+  await waitWhileStopping(boxId);
+  if (isBoxStopping(boxId)) {
+    throw new AppError("preview", "Sandbox is stopping. Try again in a moment.");
+  }
   const t0 = Date.now();
   boxLog(boxId, "restart", "begin");
   await ensureBoxReady(boxId);
@@ -519,22 +585,74 @@ export async function restartPreview(boxId: string): Promise<string> {
   return url;
 }
 
-export async function stopSandbox(boxId: string): Promise<void> {
-  const t0 = Date.now();
-  const state = await getBoxState(boxId).catch(() => "unknown");
-  boxLog(boxId, "stop", "begin", { state });
-
+async function removeNodeModulesForStop(boxId: string): Promise<void> {
   try {
-    await stopAstroDev(boxId);
+    const check = await runCommand(
+      boxId,
+      "test -d node_modules && echo HAS || echo NO",
+      { timeoutSeconds: 15, retries: 0 }
+    );
+    if (!/\bHAS\b/.test(check.stdout)) {
+      boxLog(boxId, "stop", "no node_modules — skip");
+      return;
+    }
+    boxLog(boxId, "stop", "removing node_modules");
+    const rm = await runCommand(boxId, "rm -rf node_modules", {
+      timeoutSeconds: 120,
+      retries: 0,
+    });
+    boxLog(boxId, "stop", "node_modules removed", {
+      ok: rm.success && rm.exitCode === 0,
+    });
   } catch (error) {
-    boxLog(boxId, "stop", "astro stop failed — continuing", {
+    boxLog(boxId, "stop", "node_modules remove failed — continuing", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
 
+export async function stopSandbox(
+  boxId: string,
+  opts: { scrub?: boolean } = {}
+): Promise<void> {
+  const scrub = opts.scrub ?? true;
+  if (!markStopping(boxId)) return;
+  const t0 = Date.now();
   const box = getBox();
-  await box.stop({ boxId });
-  boxLog(boxId, "stop", "box.stop requested", { ms: Date.now() - t0 });
+  try {
+    const state = await getBoxState(boxId).catch(() => "unknown");
+    boxLog(boxId, "stop", "begin", { state, scrub });
+
+    if (scrub) {
+      try {
+        await stopAstroDev(boxId);
+      } catch (error) {
+        boxLog(boxId, "stop", "astro stop failed — continuing", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    await removeNodeModulesForStop(boxId);
+
+    await box.stop({ boxId });
+    boxLog(boxId, "stop", "box.stop requested", { ms: Date.now() - t0 });
+
+    try {
+      await waitUntilArchived(box, boxId, {
+        timeoutMs: 120_000,
+        intervalMs: 2_000,
+      });
+      boxLog(boxId, "stop", "archived", { ms: Date.now() - t0 });
+    } catch (error) {
+      boxLog(boxId, "stop", "archive wait ended", {
+        error: error instanceof Error ? error.message : String(error),
+        ms: Date.now() - t0,
+      });
+    }
+  } finally {
+    clearStopping(boxId);
+  }
 }
 
 export async function buildSite(boxId: string): Promise<void> {
@@ -557,15 +675,133 @@ export async function assertDistPresent(boxId: string): Promise<void> {
   }
 }
 
+const EXPORT_ZIP_PATH = ".floras-export.zip";
+const EXPORT_SCRIPT_PATH = ".floras-export.py";
+
+const EXPORT_ZIP_SCRIPT = `import os
+import sys
+import zipfile
+
+root = "site"
+out = ${JSON.stringify(EXPORT_ZIP_PATH)}
+skip_dirs = {"node_modules", ".git", ".astro", "dist"}
+skip_files = {".DS_Store"}
+
+if not os.path.isdir(root):
+    print("site directory missing", file=sys.stderr)
+    sys.exit(1)
+
+with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in skip_dirs and not d.startswith(".floras-")
+        ]
+        for name in filenames:
+            if name in skip_files or name.startswith(".floras-"):
+                continue
+            full = os.path.join(dirpath, name)
+            arc = os.path.relpath(full, root)
+            zf.write(full, arc)
+print("ok")
+`;
+
+export async function exportSiteZip(boxId: string): Promise<Blob> {
+  await ensureBoxReady(boxId);
+
+  const box = getBox();
+  await runCommand(
+    boxId,
+    `rm -f ${shellQuote(EXPORT_ZIP_PATH)} ${shellQuote(EXPORT_SCRIPT_PATH)}`,
+    { cwd: ".", timeoutSeconds: 30 }
+  );
+
+  await box.writeFile({
+    boxId,
+    fileWriteRequest: {
+      path: EXPORT_SCRIPT_PATH,
+      content: EXPORT_ZIP_SCRIPT,
+      encoding: "utf8",
+    },
+  });
+
+  try {
+    const zip = await runCommand(
+      boxId,
+      `python3 ${shellQuote(EXPORT_SCRIPT_PATH)}`,
+      { cwd: ".", timeoutSeconds: 180 }
+    );
+
+    if (!zip.success || zip.exitCode !== 0) {
+      throw new AppError("unknown", "Couldn't create the project zip.", {
+        detail: zip.stderr || zip.stdout || `exit ${zip.exitCode}`,
+      });
+    }
+
+    return await box.artifact({ boxId, path: EXPORT_ZIP_PATH });
+  } finally {
+    await runCommand(
+      boxId,
+      `rm -f ${shellQuote(EXPORT_ZIP_PATH)} ${shellQuote(EXPORT_SCRIPT_PATH)}`,
+      { cwd: ".", timeoutSeconds: 30 }
+    ).catch((error) => {
+      console.error("[box] export zip cleanup failed", error);
+    });
+  }
+}
+
 export type WranglerDeployCreds = {
   apiToken: string;
   accountId: string;
   projectName: string;
 };
 
+export async function scrubCfEnv(boxId: string, envPath?: string): Promise<void> {
+  if (envPath) {
+    await runCommand(boxId, `rm -f ${shellQuote(envPath)}`, {
+      cwd: ".",
+      timeoutSeconds: 30,
+    });
+    return;
+  }
+  await runCommand(boxId, "rm -f .floras-cf-*.env floras-cf.env", {
+    cwd: ".",
+    timeoutSeconds: 30,
+  });
+}
+
+export async function deployDistWithWrangler(
+  boxId: string,
+  creds: WranglerDeployCreds
+): Promise<void> {
+  if (!markPublishing(boxId)) {
+    throw new AppError("publish", "Publish already in progress for this sandbox.");
+  }
+  const envPath = cfEnvPath(boxId);
+  try {
+    await writeCfEnvFile(boxId, creds, envPath);
+    const res = await runCommand(
+      boxId,
+      `set -a && . ${shellQuote(`../${envPath}`)} && set +a && pnpm dlx wrangler@4 pages deploy dist --project-name=${shellQuote(creds.projectName)} --commit-dirty=true`,
+      { timeoutSeconds: 300 }
+    );
+    if (!res.success || res.exitCode !== 0) {
+      throw new AppError("publish", "Deploy to Cloudflare failed.", {
+        detail: res.stderr || res.stdout || `exit ${res.exitCode}`,
+      });
+    }
+  } finally {
+    await scrubCfEnv(boxId, envPath).catch((error) => {
+      console.error("[box] scrubCfEnv failed", error);
+    });
+    clearPublishing(boxId);
+  }
+}
+
 async function writeCfEnvFile(
   boxId: string,
-  creds: Pick<WranglerDeployCreds, "apiToken" | "accountId">
+  creds: Pick<WranglerDeployCreds, "apiToken" | "accountId">,
+  envPath: string
 ): Promise<void> {
   const box = getBox();
   const content = [
@@ -576,39 +812,11 @@ async function writeCfEnvFile(
   await box.writeFile({
     boxId,
     fileWriteRequest: {
-      path: CF_ENV_PATH,
+      path: envPath,
       content,
       encoding: "utf8",
     },
   });
-}
-
-export async function scrubCfEnv(boxId: string): Promise<void> {
-  await runCommand(boxId, `rm -f ../${CF_ENV_PATH} ${CF_ENV_PATH}`, {
-    cwd: SITE_DIR,
-    timeoutSeconds: 30,
-  });
-}
-
-export async function deployDistWithWrangler(
-  boxId: string,
-  creds: WranglerDeployCreds
-): Promise<void> {
-  await writeCfEnvFile(boxId, creds);
-  try {
-    const res = await runCommand(
-      boxId,
-      `set -a && . ../${CF_ENV_PATH} && set +a && pnpm dlx wrangler@4 pages deploy dist --project-name=${shellQuote(creds.projectName)} --commit-dirty=true`,
-      { timeoutSeconds: 300 }
-    );
-    if (!res.success || res.exitCode !== 0) {
-      throw new AppError("publish", "Deploy to Cloudflare failed.", {
-        detail: res.stderr || res.stdout || `exit ${res.exitCode}`,
-      });
-    }
-  } finally {
-    await scrubCfEnv(boxId);
-  }
 }
 
 function shellQuote(value: string): string {

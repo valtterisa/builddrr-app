@@ -276,7 +276,7 @@ function ProjectDomainCard({ project }: { project: ProjectRow }) {
 }
 
 export function DomainsSection() {
-  const projects = useQuery((api as any).projects.list, {}) as
+  const projects = useQuery(api.projects.list, {}) as
     | ProjectRow[]
     | undefined;
 

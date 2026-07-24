@@ -1,5 +1,5 @@
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { AppError } from "@/lib/errors";
+import { AppError, appErrorResponse } from "@/lib/errors";
 import {
   connectCustomDomain,
   disconnectCustomDomain,
@@ -13,28 +13,10 @@ import {
 
 export const runtime = "nodejs";
 
-function errorResponse(error: unknown) {
-  const appError = AppError.from(error);
-  const status =
-    appError.code === "auth"
-      ? 401
-      : appError.code === "not_found"
-        ? 404
-        : appError.code === "config"
-          ? 503
-          : appError.code === "domain"
-            ? 400
-            : 502;
-  return Response.json(
-    { error: appError.message, code: appError.code },
-    { status }
-  );
-}
-
 export async function GET(req: Request) {
   const token = await convexAuthNextjsToken();
   if (!token) {
-    return Response.json({ error: "Not authenticated", code: "auth" }, { status: 401 });
+    return appErrorResponse(new AppError("auth"), 401);
   }
 
   const url = new URL(req.url);
@@ -52,7 +34,7 @@ export async function GET(req: Request) {
     const data = await getCustomDomain(parsed.data.projectId, token);
     return Response.json(data);
   } catch (error) {
-    return errorResponse(error);
+    return appErrorResponse(error);
   }
 }
 
@@ -85,7 +67,7 @@ export async function POST(req: Request) {
     );
     return Response.json(data);
   } catch (error) {
-    return errorResponse(error);
+    return appErrorResponse(error);
   }
 }
 
@@ -114,6 +96,6 @@ export async function DELETE(req: Request) {
     const data = await disconnectCustomDomain(parsed.data.projectId, token);
     return Response.json(data);
   } catch (error) {
-    return errorResponse(error);
+    return appErrorResponse(error);
   }
 }

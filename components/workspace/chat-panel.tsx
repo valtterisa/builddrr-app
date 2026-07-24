@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { asMessageId, asProjectId } from "@/lib/convex/ids";
 import { toast } from "sonner";
 import { MessageList, type ChatMessage } from "@/components/workspace/message-list";
 import {
   PromptComposer,
   type ComposerMode,
 } from "@/components/site/prompt-composer";
-import { TopUpModal } from "@/components/billing/top-up-modal";
-import { UpgradeProModal } from "@/components/billing/upgrade-pro-modal";
+import {
+  BillingGateModals,
+  useBillingGates,
+} from "@/components/billing/billing-gates";
 import { Button } from "@/components/ui/button";
 import { formatCredits } from "@/lib/billing/constants";
 import {
@@ -18,39 +21,95 @@ import {
   resolveAgentModelId,
   type AgentModelId,
 } from "@/lib/ai/models";
-import { useGenerationAccess } from "@/lib/hooks/use-generation-access";
-import { triggerAsk } from "@/lib/generate/trigger-ask";
-import { triggerGeneration } from "@/lib/generate/trigger-generation";
+import { triggerAsk, triggerGeneration } from "@/lib/generate/trigger-api";
+import { errorCode, userFacingError } from "@/lib/errors";
+
+function ChatBillingBanner({
+  billingReady,
+  hasPaidPlan,
+  balance,
+  onUpgrade,
+  onTopUp,
+}: {
+  billingReady: boolean;
+  hasPaidPlan: boolean;
+  balance: number | null;
+  onUpgrade: () => void;
+  onTopUp: () => void;
+}) {
+  if (billingReady && !hasPaidPlan) {
+    return (
+      <div className="mb-2 flex items-center justify-between gap-2 border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+        <span>Pro plan required to chat with the AI.</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 rounded-none font-mono text-[10px] uppercase tracking-[0.14em]"
+          onClick={onUpgrade}
+        >
+          Get Pro
+        </Button>
+      </div>
+    );
+  }
+  if (typeof balance === "number" && balance <= 1) {
+    return (
+      <div className="mb-2 flex items-center justify-between gap-2 border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+        <span>
+          {balance < 0.05
+            ? "Out of credit."
+            : `${formatCredits(balance)} credit left.`}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 rounded-none font-mono text-[10px] uppercase tracking-[0.14em]"
+          onClick={onTopUp}
+        >
+          Top up
+        </Button>
+      </div>
+    );
+  }
+  return null;
+}
 
 export function ChatPanel({
   projectId,
+  project,
   busy,
   defaultMode = "build",
 }: {
   projectId: string;
+  project?: {
+    modelId?: string;
+    previewUrl?: string;
+    busyAt?: number;
+  } | null;
   busy: boolean;
   defaultMode?: ComposerMode;
 }) {
-  const messages = useQuery((api as any).messages.list, { projectId }) as
+  const pid = asProjectId(projectId);
+  const messages = useQuery(api.messages.list, { projectId: pid }) as
     | ChatMessage[]
     | undefined;
-  const project = useQuery((api as any).projects.get, { projectId }) as
-    | { modelId?: string; previewUrl?: string }
-    | null
-    | undefined;
-  const send = useMutation((api as any).messages.send);
-  const finish = useMutation((api as any).messages.finish);
-  const setModel = useMutation((api as any).projects.setModel);
-  const { getDenyReason, refetch, balance, hasPaidPlan, billingReady } =
-    useGenerationAccess();
-  const [topUpOpen, setTopUpOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const send = useMutation(api.messages.send);
+  const setModel = useMutation(api.projects.setModel);
+  const abandonTurn = useMutation(api.messages.abandonStreamingTurn);
+  const resetBusy = useMutation(api.projects.resetBusy);
+  const gates = useBillingGates();
   const [mode, setMode] = useState<ComposerMode>(defaultMode);
   const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const defaultModelId = resolveAgentModelId(project?.modelId ?? null);
   const streaming = (messages ?? []).some((m) => m.status === "streaming");
   const pending = busy || streaming || submitting;
+  const stuckMs =
+    typeof project?.busyAt === "number" ? Date.now() - project.busyAt : 0;
+  const showReset = busy && stuckMs > 2 * 60 * 1000;
 
   useEffect(() => {
     if (streaming) setSubmitting(false);
@@ -61,21 +120,13 @@ export function ChatPanel({
     modelId: AgentModelId,
     nextMode: ComposerMode
   ): Promise<boolean> => {
-    const reason = getDenyReason();
-    if (reason === "no_plan") {
-      setUpgradeOpen(true);
-      return false;
-    }
-    if (reason === "no_credits") {
-      setTopUpOpen(true);
-      return false;
-    }
+    if (!gates.allowOrPrompt()) return false;
 
     setSubmitting(true);
     let assistantId: string | undefined;
     try {
-      void setModel({ projectId, modelId });
-      const sent = (await send({ projectId, content: text })) as {
+      await setModel({ projectId: pid, modelId });
+      const sent = (await send({ projectId: pid, content: text, modelId })) as {
         assistantId: string;
       };
       assistantId = sent.assistantId;
@@ -84,33 +135,18 @@ export function ChatPanel({
       } else {
         await triggerGeneration(projectId);
       }
-      void refetch();
+      void gates.refetch();
       return true;
     } catch (e) {
       if (assistantId) {
         try {
-          await finish({
-            messageId: assistantId,
-            content: "Could not start. Try again.",
-            status: "error",
-          });
+          await abandonTurn({ messageId: asMessageId(assistantId) });
         } catch {
         }
       }
       setSubmitting(false);
-      const err = e as Error & { code?: string };
-      if (err.code === "NO_PLAN") {
-        setUpgradeOpen(true);
-        return false;
-      }
-      if (
-        err.code === "NO_CREDITS" ||
-        err.message.toLowerCase().includes("credit")
-      ) {
-        setTopUpOpen(true);
-        return false;
-      }
-      toast.error(err.message || "Could not send message");
+      if (gates.handleDenyCode(errorCode(e))) return false;
+      toast.error(userFacingError(e, "Could not send message"));
       return false;
     }
   };
@@ -119,37 +155,38 @@ export function ChatPanel({
     <div className="flex h-full flex-col">
       <MessageList messages={messages ?? []} />
       <div className="border-t border-border p-3">
-        {billingReady && !hasPaidPlan ? (
+        {showReset ? (
           <div className="mb-2 flex items-center justify-between gap-2 border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground">
-            <span>Pro plan required to chat with the AI.</span>
+            <span>Looks stuck. Reset so you can try again.</span>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              disabled={resetting}
               className="h-7 rounded-none font-mono text-[10px] uppercase tracking-[0.14em]"
-              onClick={() => setUpgradeOpen(true)}
+              onClick={async () => {
+                setResetting(true);
+                try {
+                  await resetBusy({ projectId: pid });
+                  toast.success("Reset. You can send again.");
+                } catch (e) {
+                  toast.error(userFacingError(e, "Could not reset"));
+                } finally {
+                  setResetting(false);
+                }
+              }}
             >
-              Get Pro
-            </Button>
-          </div>
-        ) : typeof balance === "number" && balance <= 1 ? (
-          <div className="mb-2 flex items-center justify-between gap-2 border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              {balance < 0.05
-                ? "Out of credit."
-                : `${formatCredits(balance)} credit left.`}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 rounded-none font-mono text-[10px] uppercase tracking-[0.14em]"
-              onClick={() => setTopUpOpen(true)}
-            >
-              Top up
+              {resetting ? "Resetting…" : "Reset"}
             </Button>
           </div>
         ) : null}
+        <ChatBillingBanner
+          billingReady={gates.billingReady}
+          hasPaidPlan={gates.hasPaidPlan}
+          balance={gates.balance}
+          onUpgrade={gates.openUpgrade}
+          onTopUp={gates.openTopUp}
+        />
         <PromptComposer
           key={defaultModelId}
           onSubmit={handle}
@@ -162,15 +199,12 @@ export function ChatPanel({
           }
         />
       </div>
-      <UpgradeProModal
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        onPurchased={() => void refetch()}
-      />
-      <TopUpModal
-        open={topUpOpen}
-        onOpenChange={setTopUpOpen}
-        onPurchased={() => void refetch()}
+      <BillingGateModals
+        upgradeOpen={gates.upgradeOpen}
+        topUpOpen={gates.topUpOpen}
+        onUpgradeOpenChange={gates.setUpgradeOpen}
+        onTopUpOpenChange={gates.setTopUpOpen}
+        onPurchased={() => void gates.refetch()}
       />
     </div>
   );

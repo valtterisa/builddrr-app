@@ -116,6 +116,19 @@ export function PromptComposer({
           placeholder={resolvedPlaceholder}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
+            if (
+              showModeToggle &&
+              !pending &&
+              e.key === "Tab" &&
+              e.shiftKey &&
+              !e.metaKey &&
+              !e.ctrlKey &&
+              !e.altKey
+            ) {
+              e.preventDefault();
+              setMode(mode === "ask" ? "build" : "ask");
+              return;
+            }
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               void submit(text);
@@ -129,9 +142,10 @@ export function PromptComposer({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   disabled={pending}
-                  aria-label="Composer mode"
+                  aria-label="Composer mode (Shift+Tab to toggle)"
+                  title="Shift+Tab to toggle Ask / Build"
                   className={cn(
-                    "inline-flex h-9 w-[4.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 border border-border bg-background px-2.5 text-left text-muted-foreground transition-colors",
+                    "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border border-border bg-background px-2.5 text-left text-muted-foreground transition-colors",
                     "hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40",
                     "focus:outline-none data-[state=open]:bg-card data-[state=open]:text-foreground"
                   )}
@@ -139,6 +153,14 @@ export function PromptComposer({
                   <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground">
                     {mode === "ask" ? "Ask" : "Build"}
                   </span>
+                  <KbdGroup className="inline-flex gap-0.5">
+                    <Kbd className="h-5 min-w-5 border-border bg-muted/80 px-1 text-[10px] text-muted-foreground normal-case">
+                      ⇧
+                    </Kbd>
+                    <Kbd className="h-5 border-border bg-muted/80 px-1 text-[10px] text-muted-foreground">
+                      Tab
+                    </Kbd>
+                  </KbdGroup>
                   <ChevronDown className="size-3.5 shrink-0" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -172,6 +194,7 @@ export function PromptComposer({
                     onSelect={() => setMode("ask")}
                     className={cn(
                       "cursor-pointer gap-3 rounded-none px-3 py-2.5 focus:bg-card",
+                      "border-b border-border",
                       mode === "ask" && "bg-card"
                     )}
                   >
@@ -189,6 +212,15 @@ export function PromptComposer({
                       <span className="size-4 shrink-0" aria-hidden />
                     )}
                   </DropdownMenuItem>
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Toggle mode
+                    </span>
+                    <KbdGroup className="inline-flex gap-0.5">
+                      <Kbd className="h-5 px-1 text-[10px] normal-case">⇧</Kbd>
+                      <Kbd className="h-5 px-1 text-[10px]">Tab</Kbd>
+                    </KbdGroup>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

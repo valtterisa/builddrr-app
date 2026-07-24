@@ -1,10 +1,19 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { projectStatus, publishStatus, domainStatus } from "./schema";
+import { query } from "./_generated/server";
+import {
+  projectStatus,
+  publishStatus,
+  domainStatus,
+  sitePlanValidator,
+} from "./schema";
+import {
+  projectDocValidator,
+  requireOwnedProject,
+} from "./lib/auth";
+import { authedMutation } from "./lib/customFunctions";
 
-export const create = mutation({
+export const create = authedMutation({
   args: {
     prompt: v.string(),
     name: v.optional(v.string()),
@@ -12,34 +21,22 @@ export const create = mutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const name = args.name?.trim() || deriveName(args.prompt);
     const projectId = await ctx.db.insert("projects", {
-      userId,
+      userId: ctx.userId,
       name,
       initialPrompt: args.prompt,
       modelId: args.modelId,
-      status: "ready",
+      status: "draft",
       publishStatus: "idle",
     });
 
     await ctx.db.insert("messages", {
       projectId,
-      userId,
+      userId: ctx.userId,
       role: "user",
       content: args.prompt,
       status: "complete",
-    });
-
-    await ctx.db.insert("messages", {
-      projectId,
-      userId,
-      role: "assistant",
-      content: "",
-      steps: [],
-      status: "streaming",
     });
 
     return projectId;
@@ -48,6 +45,7 @@ export const create = mutation({
 
 export const list = query({
   args: {},
+  returns: v.array(projectDocValidator),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
@@ -55,12 +53,13 @@ export const list = query({
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .collect();
+      .take(100);
   },
 });
 
 export const get = query({
   args: { projectId: v.id("projects") },
+  returns: v.union(projectDocValidator, v.null()),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
@@ -70,14 +69,11 @@ export const get = query({
   },
 });
 
-export const remove = mutation({
+export const remove = authedMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) throw new Error("Not found");
+    await requireOwnedProject(ctx, args.projectId);
     const msgs = await ctx.db
       .query("messages")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -88,28 +84,113 @@ export const remove = mutation({
   },
 });
 
-async function requireOwnedProject(
-  ctx: MutationCtx,
-  projectId: Id<"projects">
-) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const project = await ctx.db.get(projectId);
-  if (!project || project.userId !== userId) throw new Error("Not found");
-  return { userId, project };
-}
-
-export const setStatus = mutation({
-  args: { projectId: v.id("projects"), status: projectStatus },
+export const setModel = authedMutation({
+  args: { projectId: v.id("projects"), modelId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireOwnedProject(ctx, args.projectId);
-    await ctx.db.patch(args.projectId, { status: args.status });
+    await ctx.db.patch(args.projectId, { modelId: args.modelId });
     return null;
   },
 });
 
-export const setBox = mutation({
+const STALE_BUSY_MS = 15 * 60 * 1000;
+
+function isBusyStale(busyAt: number | undefined): boolean {
+  return typeof busyAt === "number" && Date.now() - busyAt > STALE_BUSY_MS;
+}
+
+function isGenerationBusy(project: {
+  status: string;
+  publishStatus?: string;
+  busyAt?: number;
+}): boolean {
+  const genBusy =
+    project.status === "provisioning" || project.status === "generating";
+  const pubBusy = project.publishStatus === "publishing";
+  if (!genBusy && !pubBusy) return false;
+  return !isBusyStale(project.busyAt);
+}
+
+export const claimGeneration = authedMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const { project } = await requireOwnedProject(ctx, args.projectId);
+    if (isGenerationBusy(project)) return false;
+    await ctx.db.patch(args.projectId, {
+      status: project.boxId ? "generating" : "provisioning",
+      busyAt: Date.now(),
+      error: undefined,
+    });
+    return true;
+  },
+});
+
+export const claimPublish = authedMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const { project } = await requireOwnedProject(ctx, args.projectId);
+    if (isGenerationBusy(project)) return false;
+    if (!project.boxId) return false;
+    await ctx.db.patch(args.projectId, {
+      publishStatus: "publishing",
+      busyAt: Date.now(),
+      publishError: undefined,
+    });
+    return true;
+  },
+});
+
+export const resetBusy = authedMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { project } = await requireOwnedProject(ctx, args.projectId);
+    const nextStatus =
+      project.status === "provisioning" || project.status === "generating"
+        ? project.boxId
+          ? "ready"
+          : "draft"
+        : project.status;
+    const nextPublish =
+      project.publishStatus === "publishing"
+        ? project.publishedUrl
+          ? "published"
+          : "error"
+        : project.publishStatus;
+    await ctx.db.patch(args.projectId, {
+      status: nextStatus,
+      publishStatus: nextPublish,
+      busyAt: undefined,
+      ...(project.publishStatus === "publishing" && !project.publishedUrl
+        ? { publishError: "Publish was cancelled." }
+        : {}),
+      ...(project.status === "provisioning" || project.status === "generating"
+        ? { error: undefined }
+        : {}),
+    });
+    return null;
+  },
+});
+
+export const setStatus = authedMutation({
+  args: { projectId: v.id("projects"), status: projectStatus },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireOwnedProject(ctx, args.projectId);
+    const busy =
+      args.status === "provisioning" || args.status === "generating";
+    await ctx.db.patch(args.projectId, {
+      status: args.status,
+      busyAt: busy ? Date.now() : undefined,
+    });
+    return null;
+  },
+});
+
+export const setBox = authedMutation({
   args: {
     projectId: v.id("projects"),
     boxId: v.string(),
@@ -126,7 +207,7 @@ export const setBox = mutation({
   },
 });
 
-export const setPreview = mutation({
+export const setPreview = authedMutation({
   args: { projectId: v.id("projects"), previewUrl: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -136,8 +217,8 @@ export const setPreview = mutation({
   },
 });
 
-export const setPlan = mutation({
-  args: { projectId: v.id("projects"), plan: v.any() },
+export const setPlan = authedMutation({
+  args: { projectId: v.id("projects"), plan: sitePlanValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireOwnedProject(ctx, args.projectId);
@@ -146,27 +227,21 @@ export const setPlan = mutation({
   },
 });
 
-export const setError = mutation({
+export const setError = authedMutation({
   args: { projectId: v.id("projects"), error: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireOwnedProject(ctx, args.projectId);
-    await ctx.db.patch(args.projectId, { status: "error", error: args.error });
+    await ctx.db.patch(args.projectId, {
+      status: "error",
+      error: args.error,
+      busyAt: undefined,
+    });
     return null;
   },
 });
 
-export const setModel = mutation({
-  args: { projectId: v.id("projects"), modelId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await requireOwnedProject(ctx, args.projectId);
-    await ctx.db.patch(args.projectId, { modelId: args.modelId });
-    return null;
-  },
-});
-
-export const setPublishStatus = mutation({
+export const setPublishStatus = authedMutation({
   args: {
     projectId: v.id("projects"),
     status: publishStatus,
@@ -176,13 +251,14 @@ export const setPublishStatus = mutation({
     await requireOwnedProject(ctx, args.projectId);
     await ctx.db.patch(args.projectId, {
       publishStatus: args.status,
+      busyAt: args.status === "publishing" ? Date.now() : undefined,
       ...(args.status === "publishing" ? { publishError: undefined } : {}),
     });
     return null;
   },
 });
 
-export const setPublished = mutation({
+export const setPublished = authedMutation({
   args: {
     projectId: v.id("projects"),
     cfProjectName: v.string(),
@@ -200,12 +276,13 @@ export const setPublished = mutation({
       publishedUrl: args.publishedUrl,
       publishedAt: args.publishedAt,
       publishError: undefined,
+      busyAt: undefined,
     });
     return null;
   },
 });
 
-export const setPublishError = mutation({
+export const setPublishError = authedMutation({
   args: {
     projectId: v.id("projects"),
     error: v.string(),
@@ -217,18 +294,20 @@ export const setPublishError = mutation({
     await ctx.db.patch(args.projectId, {
       publishStatus: wasPublished ? "published" : "error",
       publishError: args.error,
+      busyAt: undefined,
     });
     return null;
   },
 });
 
-export const clearPublished = mutation({
+export const clearPublished = authedMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireOwnedProject(ctx, args.projectId);
     await ctx.db.patch(args.projectId, {
       publishStatus: "idle",
+      busyAt: undefined,
       cfProjectName: undefined,
       cfSubdomain: undefined,
       publishedUrl: undefined,
@@ -243,7 +322,7 @@ export const clearPublished = mutation({
   },
 });
 
-export const setCustomDomain = mutation({
+export const setCustomDomain = authedMutation({
   args: {
     projectId: v.id("projects"),
     domain: v.string(),
@@ -264,7 +343,7 @@ export const setCustomDomain = mutation({
   },
 });
 
-export const clearCustomDomain = mutation({
+export const clearCustomDomain = authedMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {

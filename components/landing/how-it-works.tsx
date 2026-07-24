@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/site/reveal";
+import { PageHeader } from "@/components/site/page-header";
 
 const STEPS = [
   {
@@ -20,9 +21,11 @@ export function HowItWorks() {
     <section id="how" className="border-b border-border">
       <div className="border-b border-border px-4 py-10 md:px-8 md:py-12">
         <Reveal>
-          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
-            From sentence to site.
-          </h2>
+          <PageHeader
+            size="section"
+            title="From sentence to site."
+            className="md:items-start"
+          />
         </Reveal>
       </div>
 

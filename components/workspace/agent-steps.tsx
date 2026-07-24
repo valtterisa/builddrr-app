@@ -8,7 +8,6 @@ import {
   Info,
   Link2,
   PencilLine,
-  Sparkles,
   TerminalSquare,
 } from "lucide-react";
 import {
@@ -24,8 +23,8 @@ export interface Step {
   detail?: string;
 }
 
-const ICONS: Record<string, typeof Sparkles> = {
-  plan: Sparkles,
+const ICONS: Record<string, typeof Info> = {
+  plan: Info,
   write: PencilLine,
   read: FileText,
   command: TerminalSquare,
@@ -96,7 +95,7 @@ export function AgentSteps({
       className="mb-3"
     >
       <ChainOfThoughtHeader
-        className={active && !hasBody ? "animate-pulse" : undefined}
+        className={active && !hasBody ? "opacity-70" : undefined}
         showChevron={hasBody}
       >
         {header}

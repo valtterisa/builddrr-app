@@ -34,7 +34,7 @@ export function useGenerationAccess() {
       });
       if (allowed === false) return "no_credits";
     } catch {
-      return null;
+      return "no_credits";
     }
     return null;
   };

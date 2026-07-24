@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/site/reveal";
+import { PageHeader } from "@/components/site/page-header";
 
 const POINTS = [
   {
@@ -20,13 +21,12 @@ export function Features() {
     <section id="features" className="border-b border-border">
       <div className="border-b border-border px-4 py-10 md:px-8 md:py-12">
         <Reveal>
-          <h2 className="max-w-[18ch] text-3xl font-semibold tracking-tight md:text-4xl">
-            Built for people who need a website, not a web team.
-          </h2>
-          <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-muted-foreground">
-            Describe your business. Get a polished site you can refine in
-            conversation and share with confidence.
-          </p>
+          <PageHeader
+            size="section"
+            title="Built for people who need a website, not a web team."
+            description="Describe your business. Get a polished site you can refine in conversation and share with confidence."
+            className="md:items-start"
+          />
         </Reveal>
       </div>
 

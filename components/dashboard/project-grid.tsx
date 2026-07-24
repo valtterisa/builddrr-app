@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/site/empty-state";
+import { Section } from "@/components/site/section";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import type { DashboardProject } from "@/components/dashboard/types";
 
@@ -8,7 +9,11 @@ export function ProjectGrid({
   projects: DashboardProject[] | undefined;
 }) {
   return (
-    <section>
+    <Section
+      flush
+      className="border-b border-border"
+      containerClassName="max-w-none px-0"
+    >
       <div className="border-b border-border px-6 py-4 md:px-8">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
           Your sites
@@ -37,6 +42,6 @@ export function ProjectGrid({
           ))}
         </div>
       )}
-    </section>
+    </Section>
   );
 }

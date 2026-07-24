@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, MonitorSmartphone, RotateCw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,11 @@ import {
   WebPreviewUrl,
 } from "@/components/ai-elements/web-preview";
 import { Badge } from "@/components/ui/badge";
+import {
+  derivePreviewUi,
+  LIVE_BOX_STATES,
+  STARTING_BOX_STATES,
+} from "@/lib/workspace/derive-preview-ui";
 
 const PROJECT_STATUS_LABEL: Record<string, string> = {
   draft: "Queued",
@@ -20,9 +25,8 @@ const PROJECT_STATUS_LABEL: Record<string, string> = {
   error: "Error",
 };
 
-const LIVE_BOX_STATES = new Set(["ready", "idle", "running"]);
-
 const pendingStarts = new Map<string, Promise<void>>();
+const PREVIEW_OK_GRACE_MS = 20_000;
 
 function ensurePreviewStarted(projectId: string): Promise<void> {
   const existing = pendingStarts.get(projectId);
@@ -46,142 +50,6 @@ function ensurePreviewStarted(projectId: string): Promise<void> {
   return run;
 }
 
-type BoxStateScreen = {
-  title: string;
-  body: string;
-  spinning: boolean;
-  showRestart: boolean;
-};
-
-function screenForBoxState(
-  state: string | null | "loading",
-  waking: boolean,
-  previewOk: boolean,
-  previewError: string | null
-): BoxStateScreen {
-  if (previewError && !waking) {
-    return {
-      title: "Preview failed",
-      body: previewError,
-      spinning: false,
-      showRestart: true,
-    };
-  }
-
-  if (waking) {
-    switch (state) {
-      case "archiving":
-        return {
-          title: "Stopping sandbox",
-          body: "Waiting for the previous stop to finish.",
-          spinning: true,
-          showRestart: false,
-        };
-      case "archived":
-        return {
-          title: "Starting sandbox",
-          body: "Resuming the machine from snapshot.",
-          spinning: true,
-          showRestart: false,
-        };
-      case "init":
-      case "provisioning":
-      case "provisioned":
-      case "cloning":
-        return {
-          title: "Starting sandbox",
-          body: "Bringing the machine online.",
-          spinning: true,
-          showRestart: false,
-        };
-      case "ready":
-      case "idle":
-      case "running":
-        return {
-          title: "Starting preview",
-          body: "Waiting until the public preview URL responds.",
-          spinning: true,
-          showRestart: false,
-        };
-      default:
-        return {
-          title: "Starting sandbox",
-          body: "This can take a minute. Hang tight.",
-          spinning: true,
-          showRestart: false,
-        };
-    }
-  }
-
-  if (
-    typeof state === "string" &&
-    LIVE_BOX_STATES.has(state) &&
-    !previewOk
-  ) {
-    return {
-      title: "Preview offline",
-      body: "Sandbox is up, but the site preview is not responding.",
-      spinning: false,
-      showRestart: true,
-    };
-  }
-
-  switch (state) {
-    case "loading":
-      return {
-        title: "Checking sandbox",
-        body: "Reading machine status.",
-        spinning: true,
-        showRestart: false,
-      };
-    case "archived":
-      return {
-        title: "Sandbox stopped",
-        body: "Preview is offline. Restart the preview to wake it up.",
-        spinning: false,
-        showRestart: true,
-      };
-    case "archiving":
-      return {
-        title: "Stopping sandbox",
-        body: "The machine is snapshotting and going offline.",
-        spinning: true,
-        showRestart: false,
-      };
-    case "init":
-    case "provisioning":
-    case "provisioned":
-    case "cloning":
-      return {
-        title: "Starting sandbox",
-        body: "The machine is still coming online.",
-        spinning: true,
-        showRestart: false,
-      };
-    case "error":
-      return {
-        title: "Sandbox error",
-        body: "Something went wrong with the machine. Try restarting the preview.",
-        spinning: false,
-        showRestart: true,
-      };
-    case null:
-      return {
-        title: "No sandbox",
-        body: "Generate a site to provision a preview machine.",
-        spinning: false,
-        showRestart: false,
-      };
-    default:
-      return {
-        title: "Sandbox unavailable",
-        body: "Preview is not ready yet. Try restarting the preview.",
-        spinning: false,
-        showRestart: true,
-      };
-  }
-}
-
 export function PreviewPane({
   projectId,
   status,
@@ -203,6 +71,7 @@ export function PreviewPane({
   );
   const [previewOk, setPreviewOk] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const graceUntilRef = useRef(0);
 
   const waking = restarting || starting;
 
@@ -216,6 +85,7 @@ export function PreviewPane({
     void ensurePreviewStarted(projectId)
       .then(() => {
         if (cancelled) return;
+        graceUntilRef.current = Date.now() + PREVIEW_OK_GRACE_MS;
         setPreviewOk(true);
         setPreviewError(null);
         setReloadKey((k) => k + 1);
@@ -265,8 +135,12 @@ export function PreviewPane({
         setBoxState(data.state ?? null);
         if (!waking) {
           const ok = Boolean(data.previewOk);
-          setPreviewOk(ok);
-          if (ok) setPreviewError(null);
+          if (ok) {
+            setPreviewOk(true);
+            setPreviewError(null);
+          } else if (Date.now() >= graceUntilRef.current) {
+            setPreviewOk(false);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -303,6 +177,7 @@ export function PreviewPane({
       if (!res.ok) {
         throw new Error(data.error || "Could not restart sandbox.");
       }
+      graceUntilRef.current = Date.now() + PREVIEW_OK_GRACE_MS;
       setReloadKey((k) => k + 1);
       setPreviewOk(true);
       setPreviewError(null);
@@ -340,32 +215,14 @@ export function PreviewPane({
   const boxLive =
     typeof boxState === "string" && LIVE_BOX_STATES.has(boxState);
   const showOwnUi = waking || !boxLive || !previewOk || Boolean(previewError);
-  const screen = screenForBoxState(boxState, waking, previewOk, previewError);
-  const badgeLabel =
-    previewError && !waking
-      ? "Error"
-      : boxState === "archiving"
-        ? "Stopping"
-        : boxState === "archived"
-          ? waking
-            ? "Starting"
-            : "Stopped"
-          : boxState === "loading"
-            ? "Checking"
-            : boxState === "error"
-              ? "Error"
-              : boxState === "init" ||
-                  boxState === "provisioning" ||
-                  boxState === "provisioned" ||
-                  boxState === "cloning"
-                ? "Starting"
-                : boxLive && previewOk && !waking
-                  ? (projectLabel ?? "Live")
-                  : waking || (boxLive && !previewOk)
-                    ? restarting
-                      ? "Restarting"
-                      : "Starting"
-                    : "Offline";
+  const { screen, badge: badgeLabel } = derivePreviewUi({
+    state: boxState,
+    waking,
+    restarting,
+    previewOk,
+    previewError,
+    projectLabel,
+  });
 
   return (
     <WebPreview

@@ -1,10 +1,17 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import { agentStep, messageStatus } from "./schema";
+import {
+  messageDocValidator,
+  requireOwnedMessage,
+  requireOwnedProject,
+} from "./lib/auth";
+import { authedMutation } from "./lib/customFunctions";
 
 export const list = query({
   args: { projectId: v.id("projects") },
+  returns: v.array(messageDocValidator),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
@@ -14,18 +21,40 @@ export const list = query({
       .query("messages")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .order("asc")
-      .collect();
+      .take(200);
   },
 });
 
-export const send = mutation({
-  args: { projectId: v.id("projects"), content: v.string() },
+export const send = authedMutation({
+  args: {
+    projectId: v.id("projects"),
+    content: v.string(),
+    modelId: v.optional(v.string()),
+  },
   returns: v.object({ assistantId: v.id("messages") }),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) throw new Error("Not found");
+    const { userId, project } = await requireOwnedProject(ctx, args.projectId);
+
+    if (
+      project.status === "provisioning" ||
+      project.status === "generating" ||
+      project.publishStatus === "publishing"
+    ) {
+      throw new Error("Project is busy");
+    }
+
+    const recent = await ctx.db
+      .query("messages")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .take(8);
+    if (recent.some((m) => m.status === "streaming")) {
+      throw new Error("A turn is already in progress");
+    }
+
+    if (args.modelId) {
+      await ctx.db.patch(args.projectId, { modelId: args.modelId });
+    }
 
     await ctx.db.insert("messages", {
       projectId: args.projectId,
@@ -48,14 +77,34 @@ export const send = mutation({
   },
 });
 
-export const createAssistant = mutation({
+export const abandonStreamingTurn = authedMutation({
+  args: { messageId: v.id("messages") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { message } = await requireOwnedMessage(ctx, args.messageId);
+    if (message.status !== "streaming") return null;
+    await ctx.db.patch(args.messageId, {
+      content: "Could not start. Try again.",
+      status: "error",
+    });
+    return null;
+  },
+});
+
+export const createAssistant = authedMutation({
   args: { projectId: v.id("projects") },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) throw new Error("Not found");
+    const { userId } = await requireOwnedProject(ctx, args.projectId);
+
+    const recent = await ctx.db
+      .query("messages")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .take(8);
+    if (recent.some((m) => m.status === "streaming")) {
+      throw new Error("A turn is already in progress");
+    }
 
     return await ctx.db.insert("messages", {
       projectId: args.projectId,
@@ -68,53 +117,44 @@ export const createAssistant = mutation({
   },
 });
 
-export const addStep = mutation({
+export const addStep = authedMutation({
   args: { messageId: v.id("messages"), step: agentStep },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const msg = await ctx.db.get(args.messageId);
-    if (!msg || msg.userId !== userId) throw new Error("Not found");
+    const { message: msg } = await requireOwnedMessage(ctx, args.messageId);
     const steps = [...(msg.steps ?? []), args.step];
     await ctx.db.patch(args.messageId, { steps });
     return null;
   },
 });
 
-export const setReasoning = mutation({
+export const setReasoning = authedMutation({
   args: {
     messageId: v.id("messages"),
     reasoning: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const msg = await ctx.db.get(args.messageId);
-    if (!msg || msg.userId !== userId) throw new Error("Not found");
+    await requireOwnedMessage(ctx, args.messageId);
     await ctx.db.patch(args.messageId, { reasoning: args.reasoning });
     return null;
   },
 });
 
-export const setContent = mutation({
+export const setContent = authedMutation({
   args: {
     messageId: v.id("messages"),
     content: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const msg = await ctx.db.get(args.messageId);
-    if (!msg || msg.userId !== userId) throw new Error("Not found");
+    await requireOwnedMessage(ctx, args.messageId);
     await ctx.db.patch(args.messageId, { content: args.content });
     return null;
   },
 });
 
-export const finish = mutation({
+export const finish = authedMutation({
   args: {
     messageId: v.id("messages"),
     content: v.string(),
@@ -122,10 +162,7 @@ export const finish = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const msg = await ctx.db.get(args.messageId);
-    if (!msg || msg.userId !== userId) throw new Error("Not found");
+    const { message: msg } = await requireOwnedMessage(ctx, args.messageId);
     const thoughtDurationMs = Math.max(0, Date.now() - msg._creationTime);
     await ctx.db.patch(args.messageId, {
       content: args.content,

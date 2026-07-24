@@ -3,8 +3,8 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { sitePlanSchema, type SitePlan } from "@/lib/schema/site";
 import * as box from "@/lib/box/client";
-import { DESIGN_GUIDELINES } from "@/lib/ai/design-guidelines";
-import { resolveAgentModelId } from "@/lib/ai/model";
+import { DESIGN_SKILL } from "@/lib/ai/design-skill";
+import { resolveAgentModelId } from "@/lib/ai/models";
 import { anthropicThinkingOptions } from "@/lib/ai/anthropic-options";
 import { withAutumnModel } from "@/lib/billing/with-autumn-model";
 import { AppError } from "@/lib/errors";
@@ -74,6 +74,47 @@ function detectGeneratedSite(files: string[]): boolean {
   return pages.length > 1 || components.length > 0;
 }
 
+function assertSafeSitePath(path: string): string {
+  const cleaned = path.replace(/^\/+/, "").trim();
+  if (!cleaned || cleaned.includes("\0")) {
+    throw new AppError("unknown", "Invalid file path.");
+  }
+  if (
+    cleaned.startsWith("..") ||
+    cleaned.includes("/../") ||
+    cleaned.includes("\\")
+  ) {
+    throw new AppError("unknown", "Path must stay inside site/.");
+  }
+  return cleaned;
+}
+
+function assertAllowedCommand(command: string): string {
+  const trimmed = command.trim();
+  if (!trimmed || trimmed.length > 500) {
+    throw new AppError("unknown", "Command rejected.");
+  }
+  if (/[;&|`$(){}]|<<|>>|>|<|\n|\r|\$\(|\$\{/.test(trimmed)) {
+    throw new AppError("unknown", "Command rejected: unsafe shell syntax.");
+  }
+  if (/\.\.|\/etc\/|floras-cf\.env|CLOUDFLARE_|AUTUMN_|ANTHROPIC_/i.test(trimmed)) {
+    throw new AppError("unknown", "Command rejected: forbidden path or secret.");
+  }
+
+  const allow =
+    /^(pnpm\s+(add|remove|install|exec|run)\b|npm\s+(install|run)\b|ls\b|cat\b|head\b|tail\b|wc\b|find\b|test\b|pwd\b|echo\b|mkdir\b|cp\b|mv\b|rm\s+-f\b|rm\s+--\b|astro\b|tsc\b)/;
+  if (!allow.test(trimmed)) {
+    throw new AppError(
+      "unknown",
+      "Command not allowlisted. Use pnpm add/exec, ls, cat, or similar site tools."
+    );
+  }
+  if (/^rm\b/.test(trimmed) && /(-rf|--no-preserve-root|\/)\b/.test(trimmed)) {
+    throw new AppError("unknown", "Command rejected: destructive rm.");
+  }
+  return trimmed;
+}
+
 const INSTRUCTIONS = `You are an expert Astro web engineer inside a Linux sandbox. Sites live in site/. Edit in place. Do not recreate package.json or reinstall the framework unless something is broken. Never restart the Astro dev server manually.
 
 FIRST TOOL CALL (mandatory)
@@ -99,7 +140,7 @@ Use setup_domain / check_domain / remove_domain when asked. Site must already be
 Never dump large explanations between tool calls. User-facing text must stay short markdown.
 Write flowing paragraphs. Do not hard-wrap or insert line breaks mid-sentence. Use a blank line only between paragraphs or list blocks.
 
-${DESIGN_GUIDELINES}`;
+${DESIGN_SKILL}`;
 
 function buildInstructions(opts: BuildAgentOptions): string {
   const custom = opts.customInstructions?.trim();
@@ -163,8 +204,9 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         content: z.string(),
       }),
       execute: async ({ path, content }) => {
-        await box.writeFiles(boxId, [{ path, content }]);
-        await onStep({ kind: "write", label: `Edited ${path}` });
+        const safePath = assertSafeSitePath(path);
+        await box.writeFiles(boxId, [{ path: safePath, content }]);
+        await onStep({ kind: "write", label: `Edited ${safePath}` });
         return { ok: true };
       },
     }),
@@ -172,8 +214,9 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
       description: "Read one file from the site project.",
       inputSchema: z.object({ path: z.string() }),
       execute: async ({ path }) => {
-        const content = await box.readFile(boxId, path);
-        await onStep({ kind: "read", label: `Read ${path}` });
+        const safePath = assertSafeSitePath(path);
+        const content = await box.readFile(boxId, safePath);
+        await onStep({ kind: "read", label: `Read ${safePath}` });
         return { content };
       },
     }),
@@ -188,13 +231,14 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
     }),
     run_command: tool({
       description:
-        "Run a short shell command in the site project (e.g. install a package).",
+        "Run an allowlisted shell command in the site project (pnpm add/exec, ls, cat, etc.).",
       inputSchema: z.object({ command: z.string() }),
       execute: async ({ command }) => {
-        const res = await box.runCommand(boxId, command, { timeoutSeconds: 120 });
+        const safe = assertAllowedCommand(command);
+        const res = await box.runCommand(boxId, safe, { timeoutSeconds: 120 });
         await onStep({
           kind: "command",
-          label: command,
+          label: safe,
           detail: res.stderr || undefined,
         });
         return {
@@ -213,27 +257,17 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
           .describe("Hostname to connect, e.g. www.example.com"),
       }),
       execute: async ({ domain }) => {
-        try {
-          const result = await connectCustomDomain(projectId, domain, token);
-          await onStep({
-            kind: "domain",
-            label: `Connected ${result.domain?.name ?? domain}`,
-            detail: result.domain?.status,
-          });
-          return {
-            ok: true,
-            publishedUrl: result.publishedUrl,
-            domain: result.domain,
-          };
-        } catch (error) {
-          const appError = AppError.from(error);
-          await onStep({
-            kind: "domain",
-            label: "Domain setup failed",
-            detail: appError.message,
-          });
-          return { ok: false, error: appError.message, code: appError.code };
-        }
+        const result = await connectCustomDomain(projectId, domain, token);
+        await onStep({
+          kind: "domain",
+          label: `Connected ${result.domain?.name ?? domain}`,
+          detail: result.domain?.status,
+        });
+        return {
+          ok: true,
+          publishedUrl: result.publishedUrl,
+          domain: result.domain,
+        };
       },
     }),
     check_domain: tool({
@@ -241,23 +275,18 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         "Refresh custom domain status and DNS records for this published site.",
       inputSchema: z.object({}),
       execute: async () => {
-        try {
-          const result = await getCustomDomain(projectId, token);
-          await onStep({
-            kind: "domain",
-            label: result.domain
-              ? `Domain ${result.domain.name}: ${result.domain.status}`
-              : "No custom domain",
-          });
-          return {
-            ok: true,
-            publishedUrl: result.publishedUrl,
-            domain: result.domain,
-          };
-        } catch (error) {
-          const appError = AppError.from(error);
-          return { ok: false, error: appError.message, code: appError.code };
-        }
+        const result = await getCustomDomain(projectId, token);
+        await onStep({
+          kind: "domain",
+          label: result.domain
+            ? `Domain ${result.domain.name}: ${result.domain.status}`
+            : "No custom domain",
+        });
+        return {
+          ok: true,
+          publishedUrl: result.publishedUrl,
+          domain: result.domain,
+        };
       },
     }),
     remove_domain: tool({
@@ -265,18 +294,13 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         "Disconnect the custom domain from this site (does not change the user's DNS records).",
       inputSchema: z.object({}),
       execute: async () => {
-        try {
-          const result = await disconnectCustomDomain(projectId, token);
-          await onStep({ kind: "domain", label: "Removed custom domain" });
-          return {
-            ok: true,
-            publishedUrl: result.publishedUrl,
-            domain: null,
-          };
-        } catch (error) {
-          const appError = AppError.from(error);
-          return { ok: false, error: appError.message, code: appError.code };
-        }
+        const result = await disconnectCustomDomain(projectId, token);
+        await onStep({ kind: "domain", label: "Removed custom domain" });
+        return {
+          ok: true,
+          publishedUrl: result.publishedUrl,
+          domain: null,
+        };
       },
     }),
   };
@@ -291,7 +315,7 @@ export function buildSiteAgent(opts: BuildAgentOptions) {
         label: `Planned "${plan.siteName}"`,
         detail: `${plan.pages.length} page(s)`,
       });
-      await onPlan(plan as SitePlan);
+      await onPlan(plan);
 
       let previewUrl: string | null = null;
       if (!hasPreview) {

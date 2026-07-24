@@ -28,12 +28,7 @@ import { formatCredits } from "@/lib/billing/constants";
 import { useGenerationAccess } from "@/lib/hooks/use-generation-access";
 import { cn } from "@/lib/utils";
 import type { DashboardProject } from "@/components/dashboard/types";
-
-type Me = {
-  id: string;
-  name: string;
-  email: string;
-};
+import type { UserMe } from "@/lib/types/user";
 
 export function DashboardSidebar({
   projects,
@@ -47,7 +42,7 @@ export function DashboardSidebar({
   onNewChat: () => void;
 }) {
   const { signOut } = useAuthActions();
-  const me = useQuery((api as any).users.me, {}) as Me | null | undefined;
+  const me = useQuery(api.users.me, {}) as UserMe | null | undefined;
   const { balance, hasPaidPlan, billingReady } = useGenerationAccess();
   const [query, setQuery] = useState("");
 

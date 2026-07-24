@@ -1,5 +1,6 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { asProjectId } from "@/lib/convex/ids";
 import {
   addDomain,
   cloudflareConfigured,
@@ -34,8 +35,8 @@ function emptyResponse(project: ProjectDoc): DomainsResponse {
 
 async function loadProject(projectId: string, token: string) {
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
+    api.projects.get,
+    { projectId: asProjectId(projectId) },
     { token }
   );
   if (!project) {
@@ -82,9 +83,9 @@ export async function getCustomDomain(
 
   if (domain) {
     await fetchMutation(
-      (api as any).projects.setCustomDomain,
+      api.projects.setCustomDomain,
       {
-        projectId,
+        projectId: asProjectId(projectId),
         domain: domain.name,
         status: domain.status,
         error: domain.errorMessage,
@@ -131,8 +132,8 @@ export async function connectCustomDomain(
         retryable: isRetryableCloudflareError,
       });
       await fetchMutation(
-        (api as any).projects.clearCustomDomain,
-        { projectId },
+        api.projects.clearCustomDomain,
+        { projectId: asProjectId(projectId) },
         { token }
       );
     }
@@ -148,9 +149,9 @@ export async function connectCustomDomain(
 
     try {
       await fetchMutation(
-        (api as any).projects.setCustomDomain,
+        api.projects.setCustomDomain,
         {
-          projectId,
+          projectId: asProjectId(projectId),
           domain: domain.name,
           status: domain.status,
           error: domain.errorMessage,
@@ -208,8 +209,8 @@ export async function disconnectCustomDomain(
   await withRetry(
     () =>
       fetchMutation(
-        (api as any).projects.clearCustomDomain,
-        { projectId },
+        api.projects.clearCustomDomain,
+        { projectId: asProjectId(projectId) },
         { token }
       ),
     {

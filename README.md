@@ -53,7 +53,7 @@ Prompt → Convex generate action → AI agent (plan + tools)
          Convex tables  ←── reactive UI (chat + iframe)
 ```
 
-- **Frontend:** Chat UI via `components/ai-elements/*`. Pages compose `MarketingLayout` / `AppLayout` with feature modules in `landing/`, `dashboard/`, `workspace/`, and shared shells in `site/`.
+- **Frontend:** Chat UI via `components/ai-elements/*`. Pages compose `MarketingLayout` / `DashboardShell` with feature modules in `landing/`, `dashboard/`, `workspace/`, and shared shells in `site/`.
 - **Backend:** Convex (`convex/`). Reactive queries drive chat + preview.
 - **Agent:** `lib/ai/agent.ts` runs inside `convex/generate.ts`. Tool activity and summaries stream into Convex tables.
 - **Output schema:** `lib/schema/site.ts` → `lib/astro/scaffold.ts` emits a full Astro project.

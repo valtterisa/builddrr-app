@@ -39,9 +39,45 @@ export const messageStatus = v.union(
 );
 
 export const agentStep = v.object({
-  kind: v.string(),
+  kind: v.union(
+    v.literal("plan"),
+    v.literal("write"),
+    v.literal("read"),
+    v.literal("command"),
+    v.literal("preview"),
+    v.literal("domain"),
+    v.literal("note"),
+    v.literal("inspect")
+  ),
   label: v.string(),
   detail: v.optional(v.string()),
+});
+
+export const sitePlanValidator = v.object({
+  siteName: v.string(),
+  tagline: v.string(),
+  description: v.string(),
+  accentColor: v.string(),
+  theme: v.union(v.literal("light"), v.literal("dark")),
+  fontFamily: v.string(),
+  nav: v.array(
+    v.object({
+      label: v.string(),
+      href: v.string(),
+    })
+  ),
+  pages: v.array(
+    v.object({
+      path: v.string(),
+      title: v.string(),
+      description: v.optional(v.string()),
+      sections: v.array(v.any()),
+    })
+  ),
+  blog: v.object({
+    enabled: v.boolean(),
+    posts: v.array(v.any()),
+  }),
 });
 
 export default defineSchema({
@@ -66,6 +102,7 @@ export default defineSchema({
     initialPrompt: v.string(),
     modelId: v.optional(v.string()),
     status: projectStatus,
+    busyAt: v.optional(v.number()),
     boxId: v.optional(v.string()),
     boxSubdomain: v.optional(v.string()),
     previewUrl: v.optional(v.string()),

@@ -8,7 +8,7 @@ export const { GET, POST } = autumnHandler({
     try {
       const token = await convexAuthNextjsToken();
       if (!token) return null;
-      const me = await fetchQuery((api as any).users.me, {}, { token });
+      const me = await fetchQuery(api.users.me, {}, { token });
       if (!me) return null;
       return {
         customerId: me.id,

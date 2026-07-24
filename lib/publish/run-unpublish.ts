@@ -1,5 +1,6 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { asProjectId } from "@/lib/convex/ids";
 import { deleteFlorasCname } from "@/lib/cloudflare/dns";
 import {
   cloudflareConfigured,
@@ -18,8 +19,8 @@ export async function runUnpublish(projectId: string, token: string) {
   }
 
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
+    api.projects.get,
+    { projectId: asProjectId(projectId) },
     { token }
   );
   if (!project) {
@@ -42,8 +43,8 @@ export async function runUnpublish(projectId: string, token: string) {
 
   if (!hasPublishState) {
     await fetchMutation(
-      (api as any).projects.clearPublished,
-      { projectId },
+      api.projects.clearPublished,
+      { projectId: asProjectId(projectId) },
       { token }
     );
     return;
@@ -70,8 +71,8 @@ export async function runUnpublish(projectId: string, token: string) {
   await withRetry(
     () =>
       fetchMutation(
-        (api as any).projects.clearPublished,
-        { projectId },
+        api.projects.clearPublished,
+        { projectId: asProjectId(projectId) },
         { token }
       ),
     {

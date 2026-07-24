@@ -1,5 +1,6 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { asProjectId } from "@/lib/convex/ids";
 import * as box from "@/lib/box/client";
 import {
   deleteFlorasCname,
@@ -28,8 +29,8 @@ import {
 
 export async function runPublish(projectId: string, token: string) {
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
+    api.projects.get,
+    { projectId: asProjectId(projectId) },
     { token }
   );
   if (!project) return;
@@ -38,9 +39,9 @@ export async function runPublish(projectId: string, token: string) {
     typeof project.boxId === "string" ? project.boxId : undefined;
   if (!boxId) {
     await fetchMutation(
-      (api as any).projects.setPublishError,
+      api.projects.setPublishError,
       {
-        projectId,
+        projectId: asProjectId(projectId),
         error: new AppError(
           "publish",
           "Publish requires a sandbox. Generate the site first."
@@ -53,8 +54,8 @@ export async function runPublish(projectId: string, token: string) {
 
   if (!box.boxConfigured()) {
     await fetchMutation(
-      (api as any).projects.setPublishError,
-      { projectId, error: new AppError("config").message },
+      api.projects.setPublishError,
+      { projectId: asProjectId(projectId), error: new AppError("config").message },
       { token }
     );
     return;
@@ -62,8 +63,8 @@ export async function runPublish(projectId: string, token: string) {
 
   if (!cloudflareConfigured()) {
     await fetchMutation(
-      (api as any).projects.setPublishError,
-      { projectId, error: new AppError("config").message },
+      api.projects.setPublishError,
+      { projectId: asProjectId(projectId), error: new AppError("config").message },
       { token }
     );
     return;
@@ -75,13 +76,14 @@ export async function runPublish(projectId: string, token: string) {
   let florasHostIsNew = false;
   let committed = false;
 
-  try {
-    await fetchMutation(
-      (api as any).projects.setPublishStatus,
-      { projectId, status: "publishing" },
-      { token }
-    );
+  const claimed = await fetchMutation(
+    api.projects.claimPublish,
+    { projectId: asProjectId(projectId) },
+    { token }
+  );
+  if (!claimed) return;
 
+  try {
     await withRetry(() => box.ensureBoxReady(boxId), {
       attempts: 3,
       initialDelayMs: 1000,
@@ -157,9 +159,9 @@ export async function runPublish(projectId: string, token: string) {
     await withRetry(
       () =>
         fetchMutation(
-          (api as any).projects.setPublished,
+          api.projects.setPublished,
           {
-            projectId,
+            projectId: asProjectId(projectId),
             cfProjectName: name,
             cfSubdomain: host,
             publishedUrl: `https://${host}`,
@@ -208,11 +210,15 @@ export async function runPublish(projectId: string, token: string) {
       detail: appError.detail,
     });
     await fetchMutation(
-      (api as any).projects.setPublishError,
-      { projectId, error: appError.message },
+      api.projects.setPublishError,
+      { projectId: asProjectId(projectId), error: appError.message },
       { token }
-    ).catch(() => { });
+    ).catch((secondary) => {
+      console.error("Failed to set publish error", secondary);
+    });
   } finally {
-    await box.scrubCfEnv(boxId).catch(() => { });
+    await box.scrubCfEnv(boxId).catch((error) => {
+      console.error("Failed to scrub CF env", error);
+    });
   }
 }

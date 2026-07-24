@@ -1,5 +1,6 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { asMessageId, asProjectId } from "@/lib/convex/ids";
 import { buildSiteAgent } from "@/lib/ai/agent";
 import { resolveAgentModelId } from "@/lib/ai/models";
 import * as box from "@/lib/box/client";
@@ -8,16 +9,24 @@ import { AppError } from "@/lib/errors";
 import type { SitePlan } from "@/lib/schema/site";
 
 export async function runGeneration(projectId: string, token: string) {
+  const pid = asProjectId(projectId);
   const project = await fetchQuery(
-    (api as any).projects.get,
-    { projectId },
+    api.projects.get,
+    { projectId: pid },
     { token }
   );
   if (!project) return;
 
+  const claimed = await fetchMutation(
+    api.projects.claimGeneration,
+    { projectId: pid },
+    { token }
+  );
+  if (!claimed) return;
+
   const history = await fetchQuery(
-    (api as any).messages.list,
-    { projectId },
+    api.messages.list,
+    { projectId: pid },
     { token }
   );
 
@@ -27,8 +36,8 @@ export async function runGeneration(projectId: string, token: string) {
   const assistantId =
     existingId ??
     (await fetchMutation(
-      (api as any).messages.createAssistant,
-      { projectId },
+      api.messages.createAssistant,
+      { projectId: pid },
       { token }
     ));
 
@@ -40,16 +49,16 @@ export async function runGeneration(projectId: string, token: string) {
     let boxId = project.boxId as string | undefined;
     if (!boxId) {
       await fetchMutation(
-        (api as any).projects.setStatus,
-        { projectId, status: "provisioning" },
+        api.projects.setStatus,
+        { projectId: pid, status: "provisioning" },
         { token }
       );
       const created = await box.createSandbox(project.name);
       boxId = created.boxId;
       await fetchMutation(
-        (api as any).projects.setBox,
+        api.projects.setBox,
         {
-          projectId,
+          projectId: pid,
           boxId: created.boxId,
           boxSubdomain: created.subdomain,
         },
@@ -63,20 +72,20 @@ export async function runGeneration(projectId: string, token: string) {
       ) {
         const subdomain = await box.getBoxSubdomain(boxId);
         await fetchMutation(
-          (api as any).projects.setBox,
-          { projectId, boxId, boxSubdomain: subdomain },
+          api.projects.setBox,
+          { projectId: pid, boxId, boxSubdomain: subdomain },
           { token }
         );
       }
     }
 
     await fetchMutation(
-      (api as any).projects.setStatus,
-      { projectId, status: "generating" },
+      api.projects.setStatus,
+      { projectId: pid, status: "generating" },
       { token }
     );
 
-    const me = await fetchQuery((api as any).users.me, {}, { token });
+    const me = await fetchQuery(api.users.me, {}, { token });
     const modelId = resolveAgentModelId(
       typeof project.modelId === "string" ? project.modelId : null
     );
@@ -101,28 +110,38 @@ export async function runGeneration(projectId: string, token: string) {
         typeof me?.customInstructions === "string"
           ? me.customInstructions
           : undefined,
-      onStep: (step) =>
-        fetchMutation(
-          (api as any).messages.addStep,
-          { messageId: assistantId, step },
+      onStep: async (step) => {
+        await fetchMutation(
+          api.messages.addStep,
+          { messageId: asMessageId(assistantId), step },
           { token }
-        ),
-      onPlan: (plan) =>
-        fetchMutation(
-          (api as any).projects.setPlan,
-          { projectId, plan },
+        );
+      },
+      onPlan: async (plan) => {
+        await fetchMutation(
+          api.projects.setPlan,
+          { projectId: pid, plan },
           { token }
-        ),
-      onPreview: (url) =>
-        fetchMutation(
-          (api as any).projects.setPreview,
-          { projectId, previewUrl: url },
+        );
+      },
+      onPreview: async (url) => {
+        await fetchMutation(
+          api.projects.setPreview,
+          { projectId: pid, previewUrl: url },
           { token }
-        ),
+        );
+      },
     });
 
-    const convo = (history as Array<{ role: string; content: string }>)
-      .filter((m) => m.content)
+    const convo = (
+      history as Array<{ role: string; content: string; status: string }>
+    )
+      .filter(
+        (m) =>
+          (m.role === "user" || m.role === "assistant") &&
+          m.status === "complete" &&
+          m.content.trim().length > 0
+      )
       .map((m) => ({
         role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
         content: m.content,
@@ -134,41 +153,41 @@ export async function runGeneration(projectId: string, token: string) {
       typeof result.reasoningText === "string" ? result.reasoningText.trim() : "";
     if (reasoningText) {
       await fetchMutation(
-        (api as any).messages.setReasoning,
-        { messageId: assistantId, reasoning: reasoningText },
+        api.messages.setReasoning,
+        { messageId: asMessageId(assistantId), reasoning: reasoningText },
         { token }
       );
     }
 
     await fetchMutation(
-      (api as any).messages.finish,
+      api.messages.finish,
       {
-        messageId: assistantId,
+        messageId: asMessageId(assistantId),
         content: result.text || "Done.",
         status: "complete",
       },
       { token }
     );
     await fetchMutation(
-      (api as any).projects.setStatus,
-      { projectId, status: "ready" },
+      api.projects.setStatus,
+      { projectId: pid, status: "ready" },
       { token }
     );
   } catch (err) {
     const error = AppError.from(err);
     console.error("Generation failed:", error.detail);
     await fetchMutation(
-      (api as any).messages.finish,
+      api.messages.finish,
       {
-        messageId: assistantId,
+        messageId: asMessageId(assistantId),
         content: error.message,
         status: "error",
       },
       { token }
     );
     await fetchMutation(
-      (api as any).projects.setError,
-      { projectId, error: error.message },
+      api.projects.setError,
+      { projectId: pid, error: error.message },
       { token }
     );
   }

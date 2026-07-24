@@ -9,16 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AccountSection } from "@/components/account/account-section";
 
-type Me = {
-  id: string;
-  name: string;
-  email: string;
-  customInstructions?: string;
-};
+import type { UserMe } from "@/lib/types/user";
 
 export function ProfileForm() {
-  const me = useQuery((api as any).users.me, {}) as Me | null | undefined;
-  const updateProfile = useMutation((api as any).users.updateProfile);
+  const me = useQuery(api.users.me, {}) as UserMe | null | undefined;
+  const updateProfile = useMutation(api.users.updateProfile);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 

@@ -8,11 +8,13 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
 
 - **Frontend:** Next.js App Router + Tailwind v4 (dark, locked theme). Chat UI is
   built with AI SDK Elements (`components/ai-elements/*`). Marketing/app UI is
-  composition-first: pages use `MarketingLayout` / `AppLayout`, shared shells in
+  composition-first: pages use `MarketingLayout` / `DashboardShell`, shared shells in
   `components/site/*` (`PageHeader`, `Section`, `EmptyState`, `Container`), and
-  feature modules in `landing/`, `dashboard/`, `workspace/`, `auth/`.
+  feature modules in `landing/`, `dashboard/`, `workspace/`, `auth/`. Billing gates
+  around composers share `useBillingGates` / `BillingGateModals`.
 - **Backend/DB:** Convex (`convex/`). Auth via Convex Auth (password provider).
-  Reactive queries drive the chat + preview.
+  Reactive queries drive the chat + preview. Mutations use `authedMutation`
+  (`convex/lib/customFunctions.ts`) so only signed-in owners can write.
 - **Agent:** AI SDK 7 `ToolLoopAgent` (`lib/ai/agent.ts`) runs from Next.js API
   routes (`app/api/generate`, `lib/generate/run-generation.ts`). Tool activity +
   summaries stream back into Convex tables, so the UI updates reactively.
@@ -28,7 +30,7 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
   also upserts a DNS CNAME for `{id}.floras.app` → the project `*.pages.dev` host.
   Live URL is the floras.app hostname (custom domains optional afterward).
 - **Billing:** `autumn-js` via Next.js (`app/api/autumn/[...all]`, `lib/billing/get-access.ts`,
-  fail-open) + `autumn.config.ts` plans. Frontend uses `autumn-js/react`.
+  fail-closed in production; fail-open only when `BILLING_FAIL_OPEN=1` or non-prod) + `autumn.config.ts` plans. Frontend uses `autumn-js/react`.
 
 ## Cursor Cloud specific instructions
 
@@ -38,18 +40,12 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
 - **Convex is required for the app to function.** `NEXT_PUBLIC_CONVEX_URL` and
   `CONVEX_DEPLOYMENT` are written to `.env.local` by `convex dev`. Without a running
   deployment, client queries stay in a loading state.
-- **`convex/_generated` is committed as an untyped `AnyApi` fallback** so the repo
-  builds without a deployment. Running `convex dev` against a real deployment
-  regenerates fully-typed versions; frontend Convex calls are intentionally
-  cast to `any` where the generated types are the stub.
 - **Keep heavy SDKs out of Convex.** AI SDK, Box SDK, and `autumn-js` run in
   Next.js API routes — not Convex actions — so pushes stay under the 64MB
   module-load limit. Do not reintroduce those packages into `convex/`.
-- **Secrets live in the Convex deployment, not `.env.local`.** Set them with
-  `npx convex env set KEY value`: `ANTHROPIC_API_KEY` (Anthropic),
-  `BOX_API_KEY` (box.ascii.dev), `AUTUMN_SECRET_KEY` (Autumn). Also put
-  `AUTUMN_SECRET_KEY` in `.env.local` for the Next.js Autumn handler. Optional:
-  `AGENT_MODEL` (defaults to `claude-sonnet-4-5`), `BOX_BASE_URL`.
+- **Secrets for generation/Box/billing/CF live in Next.js `.env.local`:**
+  `ANTHROPIC_API_KEY`, `BOX_API_KEY`, `AUTUMN_SECRET_KEY`, Cloudflare publish vars
+  below. Optional: `AGENT_MODEL` (defaults to `claude-sonnet-5`), `BOX_BASE_URL`.
   New Boxes clone `https://github.com/valtterisa/astro-template.git` into `site/`.
 - **Cloudflare publish (Next.js `.env.local` / host secrets, not Box dashboard):**
   `CLOUDFLARE_API_TOKEN` (User token: Account → Cloudflare Pages → Edit **and**
@@ -59,11 +55,15 @@ sites inside box.ascii.dev sandboxes via an AI SDK agent, with Autumn billing.
   Do **not** put these in Box Dashboard → Secrets — user Boxes are `noEnv` and
   must not receive Floras hosting credentials. Publish injects them into the Box
   only for the Wrangler deploy command, then scrubs the temp file.
-- **Convex Auth keys:** run `npx @convex-dev/auth` once to provision `JWT_PRIVATE_KEY`,
-  `JWKS`, and `SITE_URL` in the Convex deployment env.
+- **Convex deployment env** (set with `npx convex env set`): Convex Auth keys via
+  `npx @convex-dev/auth` (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`), plus optional
+  `AUTH_RESEND_KEY` / `AUTH_EMAIL_FROM` for magic links. Not the Anthropic/Box/CF keys.
 - **Autumn pricing:** push plans with `npx atmn push` (config in `autumn.config.ts`).
 - **Preview iframes** load the sandbox Astro dev server over `*.on.ascii.dev`; the
   template should set Vite `server.allowedHosts: true` and bind `0.0.0.0` so those
   hosts are not blocked.
-- `next build` ignores type errors (see `next.config.mjs`); run `pnpm typecheck`
-  for real type checking. Auth gating lives in `proxy.ts` (Next.js 16 network proxy).
+- **Typecheck:** `pnpm typecheck` / `next build` both enforce TypeScript. Auth gating
+  lives in `proxy.ts` (Next.js 16 network proxy).
+- **Busy jobs:** generate/publish use atomic `claimGeneration` / `claimPublish`. Stuck
+  busy states auto-reclaim after 15 minutes via `busyAt`, or the owner can call
+  `projects.resetBusy`.

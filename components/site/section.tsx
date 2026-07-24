@@ -7,19 +7,21 @@ export function Section({
   className,
   containerClassName,
   bordered = false,
+  flush = false,
   children,
 }: {
   id?: string;
   className?: string;
   containerClassName?: string;
   bordered?: boolean;
+  flush?: boolean;
   children: ReactNode;
 }) {
   return (
     <section
       id={id}
       className={cn(
-        "py-28",
+        flush ? undefined : "py-28",
         bordered && "border-y border-border/60",
         className
       )}

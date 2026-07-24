@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { authedMutation } from "./lib/customFunctions";
 
 const MAX_NAME_LENGTH = 80;
 const MAX_INSTRUCTIONS_LENGTH = 4000;
@@ -29,17 +30,14 @@ export const me = query({
   },
 });
 
-export const updateProfile = mutation({
+export const updateProfile = authedMutation({
   args: {
     name: v.optional(v.string()),
     customInstructions: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(ctx.userId);
     if (!user) throw new Error("User not found");
 
     const patch: {
@@ -67,7 +65,7 @@ export const updateProfile = mutation({
     }
 
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(userId, patch);
+      await ctx.db.patch(ctx.userId, patch);
     }
 
     return null;
